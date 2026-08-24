@@ -1,0 +1,342 @@
+// Prisma schema for the Sports Booking App.
+// Docs: https://pris.ly/d/prisma-schema
+
+// -----------------------------------------------------------------------------
+// NAMING CONVENTION NOTE
+// Model and field names below are written in idiomatic TypeScript camelCase
+// (e.g. `createdAt`), because these become the property names you'll actually
+// type in application code (`booking.createdAt`, `resource.venueId`). Every
+// model and field is mapped to a snake_case table/column name in the actual
+// Postgres database via @@map / @map, so the SQL itself follows snake_case as
+// requested. If you'd rather have snake_case property names in your
+// TypeScript code too (e.g. `booking.created_at`), say so and I'll flip it —
+// it's a straightforward pass at this stage, better to change now than later.
+// -----------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // As of Prisma ORM v7, connection URLs no longer live here — the CLI
+  // (migrate, studio, etc.) reads its connection from prisma.config.ts
+  // instead, and the running app passes its own connection via the
+  // @prisma/adapter-pg driver adapter when PrismaClient is instantiated
+  // in application code. See prisma.config.ts in this same project.
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+// The role assigned to a user account. Drives what a user is allowed to do
+// across the whole platform (see each model's comments for how it's used).
+//   admin       - full access to everything: every venue, every resource,
+//                 every booking, user management.
+//   venue_owner - can create/manage venues, resources, and bookings, but only
+//                 for venues where venues.owner_id points back to their own
+//                 user id (see Venue below). Can also browse/book normally
+//                 like a regular user elsewhere on the platform — this is
+//                 not an exclusive role.
+//   user        - can browse, book, and manage their own bookings only.
+enum UserRole {
+  admin
+  venue_owner
+  user
+
+  @@map("user_role")
+}
+
+// Determines which booking screen and which conflict-check logic a Resource
+// uses. This is a closed, code-driven set — adding a new value here means
+// writing new UI + booking logic to support it, so it's intentionally not
+// admin-editable data (unlike Activity, which is).
+//   time_range    - user picks a start time + duration within operating
+//                    hours (tennis court, padel court, football pitch).
+//   date_range    - user picks a start date + end date (campsite, day pass).
+//   fixed_session - user books into one specific pre-scheduled occurrence
+//                    with a capacity (gym class, Pilates class).
+enum BookingMechanic {
+  time_range
+  date_range
+  fixed_session
+
+  @@map("booking_mechanic")
+}
+
+// Lifecycle status of a single booking.
+//   pending   - booking created, awaiting payment confirmation.
+//   confirmed - payment succeeded (or free booking confirmed); the resource
+//               is held for that time range.
+//   cancelled - cancelled by the user, venue owner, or admin; frees up the
+//               resource for that time range again (excluded from the
+//               overlap/capacity check described on Booking below).
+enum BookingStatus {
+  pending
+  confirmed
+  cancelled
+
+  @@map("booking_status")
+}
+
+// =============================================================================
+// CORE DOMAIN MODELS
+// =============================================================================
+
+// A person with an account on the platform. This is the single account type
+// for everyone — there is no separate "venue owner account." A user's `role`
+// determines what they're allowed to do, and a venue_owner user can own any
+// number of venues (see Venue.ownerId below) all from this one account/login;
+// owning multiple venues never requires multiple accounts.
+//
+// Relationships:
+//   - Has many Venues, if role = venue_owner (as the owner).
+//   - Has many Bookings, as the account that made the booking.
+//   - Has many Accounts/Sessions — required by the Auth.js adapter, see
+//     the AUTH.JS section at the bottom of this file.
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  // Nullable because a user who signs up via an OAuth provider (e.g. Google,
+  // via Auth.js) never sets a password on our side.
+  passwordHash String?  @map("password_hash")
+  role         UserRole @default(user)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  venues   Venue[]
+  bookings Booking[]
+
+  accounts Account[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+// A physical venue/location, owned by one User. A venue owner can own
+// multiple venues in different locations — that's simply multiple Venue rows
+// all pointing to the same ownerId, no extra accounts required.
+//
+// Relationships:
+//   - Belongs to one User (the owner).
+//   - Has many Resources — the actual bookable things located at this venue.
+model Venue {
+  id          String   @id @default(cuid())
+  ownerId     String   @map("owner_id")
+  name        String
+  description String?
+  address     String
+  city        String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // onDelete: Restrict (not Cascade) is deliberate — deleting a user account
+  // should never silently wipe out venues, resources, and booking history.
+  // A real app would soft-delete/deactivate users; for this MVP we simply
+  // block deleting a user who still owns venues.
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  resources Resource[]
+
+  @@index([ownerId])
+  @@map("venues")
+}
+
+// A category of bookable thing — e.g. "Tennis," "Camping," "Pilates Class."
+// This is intentionally decoupled from any specific venue: it's shared
+// reference data that every venue's resources link into, which is what
+// powers platform-wide browsing/filtering ("show me all Tennis venues").
+//
+// `bookingMechanic` is the single field that decides which booking screen
+// and which conflict-check logic every Resource under this Activity uses.
+//
+// Relationships:
+//   - Has many Resources, across many different venues.
+model Activity {
+  id              String          @id @default(cuid())
+  name            String          @unique
+  bookingMechanic BookingMechanic @map("booking_mechanic")
+  description     String?
+  icon            String?
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  resources Resource[]
+
+  @@map("activities")
+}
+
+// The actual bookable thing at a specific venue — "Court 1," "Campsite A,"
+// "Monday 6pm HIIT." This is where a Venue and an Activity come together: a
+// venue owner picks which Activity category a Resource belongs to, and that
+// Activity's bookingMechanic decides which field group below applies.
+//
+// There is deliberately no separate "slot" table anywhere in this schema —
+// pre-generating one row per bookable time increment doesn't scale once
+// duration is variable (see Booking below for how availability/conflict
+// checking works instead).
+//
+// Relationships:
+//   - Belongs to one Venue.
+//   - Belongs to one Activity (its category).
+//   - Has many Bookings.
+model Resource {
+  id           String  @id @default(cuid())
+  venueId      String  @map("venue_id")
+  activityId   String  @map("activity_id")
+  name         String
+  description  String?
+  // Max number of simultaneous/overlapping bookings this resource allows.
+  // 1 for an exclusive-use court or campsite; >1 for a class with multiple
+  // open spots. This single field is what lets the same conflict-check
+  // logic (see Booking) cover both courts and classes without branching.
+  capacity     Int     @default(1)
+  pricePerUnit Decimal @map("price_per_unit") @db.Decimal(10, 2)
+
+  // --- Used when Activity.bookingMechanic = time_range ---
+  // (tennis court, padel court, football pitch: user picks a start time +
+  // duration within these bounds; availability is computed on demand from
+  // existing bookings, never pre-generated.)
+  operatingHoursStart String? @map("operating_hours_start") // e.g. "09:00"
+  operatingHoursEnd   String? @map("operating_hours_end")   // e.g. "21:00"
+  minDurationMinutes  Int?    @map("min_duration_minutes")
+  maxDurationMinutes  Int?    @map("max_duration_minutes")
+  incrementMinutes    Int?    @map("increment_minutes")
+
+  // --- Used when Activity.bookingMechanic = date_range ---
+  // (campsite, day pass: user picks a start date + end date.)
+  minDurationDays Int? @map("min_duration_days")
+  maxDurationDays Int? @map("max_duration_days")
+
+  // --- Used when Activity.bookingMechanic = fixed_session ---
+  // (gym class, Pilates class: one recurring weekly occurrence per Resource
+  // row. A class recurring multiple times a week, e.g. HIIT on Mon/Wed/Fri,
+  // is modeled as multiple Resource rows sharing the same Activity —
+  // "HIIT - Monday," "HIIT - Wednesday" — rather than a separate schedule
+  // table, to keep this simple for the MVP.)
+  recurrenceDayOfWeek    Int?    @map("recurrence_day_of_week") // 0 = Sunday ... 6 = Saturday
+  recurrenceStartTime    String? @map("recurrence_start_time") // e.g. "18:00"
+  sessionDurationMinutes Int?    @map("session_duration_minutes")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  venue    Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Restrict)
+  bookings Booking[]
+
+  @@index([venueId])
+  @@index([activityId])
+  @@map("resources")
+}
+
+// A single reservation against a Resource for a specific time range. This is
+// intentionally mechanic-agnostic: whether the Resource is a court, a
+// campsite, or a class, a Booking always just stores startsAt/endsAt — there
+// is no separate "slot" row anywhere in this schema.
+//
+// Conflict prevention is NOT a unique constraint (capacity can be > 1). It's
+// enforced in application code inside a transaction: before inserting, count
+// existing bookings on this resourceId whose [startsAt, endsAt) range
+// overlaps the requested range and whose status != cancelled; reject the new
+// booking if that count is already >= resource.capacity. For a capacity-1
+// resource (a court), this means any overlap at all is rejected — for a
+// capacity-20 class, up to 20 overlapping bookings are allowed before the
+// 21st is rejected. Same rule, same code path, for every activity type.
+// The index below on (resourceId, startsAt, endsAt) keeps that overlap
+// query fast as bookings grow.
+//
+// Guest bookings: userId is nullable. When null, guestName/guestEmail are
+// used instead. Prisma doesn't enforce "exactly one of userId or
+// guestEmail must be set" at the schema level — validate that with Zod (or
+// similar) before insert, in the booking server action.
+//
+// Relationships:
+//   - Belongs to one Resource.
+//   - Optionally belongs to one User (null = guest booking, no account).
+model Booking {
+  id         String  @id @default(cuid())
+  resourceId String  @map("resource_id")
+  userId     String? @map("user_id")
+
+  // Used only when userId is null (guest checkout, no account).
+  guestName  String? @map("guest_name")
+  guestEmail String? @map("guest_email")
+  guestPhone String? @map("guest_phone")
+
+  startsAt DateTime      @map("starts_at")
+  endsAt   DateTime      @map("ends_at")
+  status   BookingStatus @default(pending)
+
+  stripeCheckoutSessionId String?  @map("stripe_checkout_session_id")
+  amountPaid              Decimal? @map("amount_paid") @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  // onDelete: SetNull (not Cascade) is deliberate — if a user account is
+  // ever deleted, their past bookings should still exist for the venue's
+  // records, just detached from the (now-gone) account rather than erased.
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([resourceId, startsAt, endsAt])
+  @@index([userId])
+  @@map("bookings")
+}
+
+// =============================================================================
+// AUTH.JS (NEXTAUTH) REQUIRED MODELS
+// -----------------------------------------------------------------------------
+// These three models are boilerplate required by Auth.js's official Prisma
+// adapter (@auth/prisma-adapter) — they are not part of the booking domain
+// design above, and you generally won't query them directly; the adapter
+// reads/writes them for you. Included now so Phase 2 (Authentication) is a
+// pure code task with no schema changes needed.
+//   Account            - one row per OAuth provider linked to a user
+//                         (e.g. their Google login).
+//   Session            - active login sessions, only used if you choose
+//                         database-backed sessions instead of JWT sessions.
+//   VerificationToken  - used for email verification / magic-link flows.
+// =============================================================================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
