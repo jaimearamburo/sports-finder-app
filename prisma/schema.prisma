@@ -14,7 +14,10 @@
 // -----------------------------------------------------------------------------
 
 generator client {
-  provider = "prisma-client-js"
+  // Prisma ORM v7 uses the newer "prisma-client" generator, and requires an
+  // explicit output path (there's no default location anymore).
+  provider = "prisma-client"
+  output   = "../generated/prisma"
 }
 
 datasource db {
