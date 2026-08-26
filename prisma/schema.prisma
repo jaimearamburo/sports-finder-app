@@ -166,8 +166,36 @@ model Activity {
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
   resources Resource[]
+  tags      ActivityTag[]
 
   @@map("activities")
+}
+
+// A quick-filter tag shown in the browse UI's top row (Tennis, Padel,
+// Classes, Camping, etc.). An Activity can belong to multiple tags at once
+// — "Tennis Class" belongs to both "Tennis" and "Classes" — and a tag
+// applies to multiple Activities, which is exactly why this needs a
+// many-to-many join table rather than a simple field on Activity.
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  activities ActivityTag[]
+
+  @@map("tags")
+}
+
+// Join table implementing the Activity <-> Tag many-to-many relationship.
+model ActivityTag {
+  activityId String @map("activity_id")
+  tagId      String @map("tag_id")
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([activityId, tagId])
+  @@map("activity_tags")
 }
 
 // The actual bookable thing at a specific venue — "Court 1," "Campsite A,"
