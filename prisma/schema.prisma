@@ -106,6 +106,13 @@ model User {
   // via Auth.js) never sets a password on our side.
   passwordHash String?  @map("password_hash")
   role         UserRole @default(user)
+  // Both nullable fields below are required by @auth/prisma-adapter's fixed
+  // User schema, not by our own domain model — the adapter writes to them
+  // directly when a user signs in via an OAuth provider (Google). Credentials
+  // users never get emailVerified set (no email verification flow in MVP
+  // scope) and generally have no image.
+  emailVerified DateTime? @map("email_verified")
+  image         String?
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
