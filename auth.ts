@@ -21,7 +21,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
 
   providers: [
-    Google,
+    // `prompt: "select_account"` forces Google's account chooser to show
+    // every time, even when the browser already has an active Google
+    // session or has consented to this app before. Without it, Google
+    // silently skips straight to sign-in once both of those are already
+    // true — fine for a real returning user, but confusing during testing
+    // when you don't realize which Google account you're about to sign in as.
+    Google({
+      authorization: { params: { prompt: "select_account" } },
+    }),
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
