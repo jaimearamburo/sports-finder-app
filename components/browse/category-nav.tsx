@@ -1,22 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-
-// Broad groupings for the sidebar — coarser than the Tag/ActivityTag
-// filter row (ticket 4.3) that'll sit above the results. These aren't
-// backed by a DB table; they're a fixed, hand-picked grouping of the
-// Activity catalog for browsing, not a filter with real query wiring yet.
-const CATEGORIES = [
-  { id: "all", label: "All" },
-  { id: "courts", label: "Courts for hire" },
-  { id: "classes", label: "Classes" },
-  { id: "gym", label: "Gym" },
-  { id: "camping", label: "Camping" },
-] as const;
+import { CATEGORIES } from "@/lib/browse-filters";
 
 export function CategoryNav() {
-  const [activeId, setActiveId] = useState<(typeof CATEGORIES)[number]["id"]>("all");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeId = searchParams.get("category") ?? "all";
+
+  function selectCategory(id: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (id === "all") {
+      params.delete("category");
+    } else {
+      params.set("category", id);
+    }
+    // replace, not push - so that clicking through five categories doesn't leave
+    // five stops in the browser's history.
+    router.replace(`${pathname}?${params.toString()}`);
+  }
 
   return (
     <nav aria-label="Browse categories" className="flex flex-col">
@@ -24,7 +28,7 @@ export function CategoryNav() {
         <button
           key={category.id}
           type="button"
-          onClick={() => setActiveId(category.id)}
+          onClick={() => selectCategory(category.id)}
           aria-current={activeId === category.id ? "true" : undefined}
           className={cn(
             "border-l-2 border-transparent px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground",

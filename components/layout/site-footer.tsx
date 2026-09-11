@@ -4,9 +4,7 @@ import { Logo } from "@/components/layout/logo";
 // Simple stroke-style brand marks, hand-drawn rather than pulled from an
 // icon library — lucide-react (already used elsewhere) dropped brand/logo
 // glyphs from its icon set, so there's no Instagram/Facebook mark to
-// import. X is the one exception below: its mark is instantly recognizable
-// and a generic cross reads as "close button," not the platform, so it
-// uses the actual published glyph path instead of a hand-drawn stand-in.
+// import.
 function InstagramIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-4">
@@ -33,9 +31,7 @@ function FacebookIcon() {
   );
 }
 
-// Placeholder targets — Privacy Policy/Terms/Contact pages don't exist yet
-// and aren't a scoped ticket, so these are visual only until real pages
-// (or a decision to drop them) land.
+// Placeholder footer links: Privacy Policy/Terms/Contact pages, these pages don't existe yet.
 const FOOTER_LINKS = [
   { href: "#", label: "Privacy Policy" },
   { href: "#", label: "Terms" },
@@ -44,7 +40,7 @@ const FOOTER_LINKS = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t">
+    <footer className="border-t bg-card">
       {/* Same max-w as site-header.tsx — kept in sync so the header/footer
           bars and the page content between them all line up at the same
           edges regardless of viewport width. */}
@@ -84,14 +80,6 @@ export function SiteFooter() {
         </div>
       </div>
 
-      {/* The divider needs to span the full viewport, so it lives on this
-          outer, unconstrained wrapper — the max-w container above is only
-          for the row's own content, which is why a border-t placed there
-          (the earlier approach) stopped short at the padding instead of
-          reaching the screen edges. Copyright sits in its own max-w
-          container so it still lines up with the row above, but is
-          right-aligned and only as wide as its own text, not stretched
-          full width. */}
       <div className="border-t">
         <div className="mx-auto flex max-w-[1800px] justify-end px-4 py-3 sm:px-6 lg:px-8">
           <p className="text-xs text-muted-foreground">
