@@ -1,5 +1,4 @@
-// Visual only for now, as per initial mockup - City/Price range/Booking type
-// aren't wired to the query yet (that's to be done at a later stagethe).
+// City, price range, and booking type are not wired to the query yet.
 export function SidebarFilters() {
   return (
     <div className="mt-7 flex flex-col gap-7">
@@ -19,8 +18,7 @@ export function SidebarFilters() {
           <span>$0</span>
           <span>$100+</span>
         </div>
-        {/* Decorative placeholder, not a real range input — a double-thumb
-            slider is worth building for real once this gets wired up. */}
+        {/* Decorative placeholder, not a real range input. */}
         <div className="relative h-1 rounded-full bg-border">
           <div className="absolute inset-y-0 right-[35%] left-[15%] rounded-full bg-primary" />
           <div className="absolute top-1/2 left-[15%] size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-background" />

@@ -10,8 +10,8 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
-  /* Wordmark-only face — see the `font-display` utility used on the
-     PlayBook logo in SiteHeader/SiteFooter. Never used for body copy. */
+  /* Wordmark-only face. See the font-display utility used on the
+     PlayBook logo in SiteHeader and SiteFooter. Never used for body copy. */
   --font-display: var(--font-oleo-script);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -58,10 +58,10 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  /* PlayBook's brand color — "court blue" — replaces shadcn's default
-     grayscale --primary/--ring. Picked from the sport itself (hard-court
-     blue), Button/Input focus states match it
-     without a second, separate token. */
+  /* PlayBook's brand color, "court blue", replaces shadcn's default
+     grayscale primary and ring values. Picked from the sport itself
+     (hard-court blue). Button and Input focus states derive from --ring,
+     so they pick up this color automatically without a second token. */
   --primary: #1857c4;
   --primary-foreground: #ffffff;
   --secondary: oklch(0.97 0 0);
@@ -74,19 +74,6 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: #1857c4;
-
-  /* Per-tag brand colors for the browse page's tag chips/cards - see
-     lib/browse-filters.ts's TAG_STYLES, the one other place these names
-     need to stay in sync. These
-     are used as solid fills (chip backgrounds, card accent borders),
-     these colors work well under a dark theme as well. 
-     TODO: Find a way to make it database driven */
-  --tag-tennis: #2f9e52;
-  --tag-padel: #2c7fd1;
-  --tag-football: #e2662d;
-  --tag-camping: #5c7a35;
-  --tag-classes: #7a5cc9;
-  --tag-fitness: #d6455f;
 
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -112,8 +99,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  /* Lighter court-blue for dark surfaces — same brand hue, tuned for
-     contrast against a dark background; foreground flips to dark ink
+  /* Lighter court-blue for dark surfaces. Same brand hue, tuned for
+     contrast against a dark background. Foreground flips to dark ink
      since this tint is too light for white text. */
   --primary: #6d9bf5;
   --primary-foreground: #0b1220;
@@ -151,6 +138,14 @@
   }
   html {
     @apply font-sans;
+    /* Reserves the vertical scrollbar's width permanently, whether or
+       not the page currently needs to scroll - without this, a page
+       crossing the "needs scrolling" height threshold (e.g. a filter
+       narrowing results from many to few) shifts the entire layout
+       horizontally by the scrollbar's width, including the header, since
+       the scrollbar is a property of the viewport, not scoped to any one
+       section. */
+    scrollbar-gutter: stable;
   }
   /* Set default button cursor to pointer. `:not(:disabled)` keeps disabled
      buttons showing the normal arrow instead of a pointer. */
@@ -158,41 +153,3 @@
     cursor: pointer;
   }
 }
-
-/* Real, hand-written classes (not Tailwind-generated utilities) directly
-   consuming the --tag-* tokens above via an actual rendering property.
-   Required, not decorative: Lightning CSS (Tailwind v4's minifier) strips
-   any custom property that's never referenced by a real CSS declaration
-   in the stylesheet — a --tag-* value used only from a JS inline style
-   (`style={{ borderColor: "var(--tag-tennis)" }}`) doesn't count, and gets
-   dropped when compiling. */
-.border-tag-tennis { border-color: var(--tag-tennis); }
-.border-tag-padel { border-color: var(--tag-padel); }
-.border-tag-football { border-color: var(--tag-football); }
-.border-tag-camping { border-color: var(--tag-camping); }
-.border-tag-classes { border-color: var(--tag-classes); }
-.border-tag-fitness { border-color: var(--tag-fitness); }
-
-/* Top-edge-only border for the result cards - the card's other three
-   sides stay the default neutral border color; only the top edge (see
-   resource-card.tsx) should pick up the tag's color. */
-.border-t-tag-tennis { border-top-color: var(--tag-tennis); }
-.border-t-tag-padel { border-top-color: var(--tag-padel); }
-.border-t-tag-football { border-top-color: var(--tag-football); }
-.border-t-tag-camping { border-top-color: var(--tag-camping); }
-.border-t-tag-classes { border-top-color: var(--tag-classes); }
-.border-t-tag-fitness { border-top-color: var(--tag-fitness); }
-
-.bg-tag-tennis { background-color: var(--tag-tennis); }
-.bg-tag-padel { background-color: var(--tag-padel); }
-.bg-tag-football { background-color: var(--tag-football); }
-.bg-tag-camping { background-color: var(--tag-camping); }
-.bg-tag-classes { background-color: var(--tag-classes); }
-.bg-tag-fitness { background-color: var(--tag-fitness); }
-
-.text-tag-tennis { color: var(--tag-tennis); }
-.text-tag-padel { color: var(--tag-padel); }
-.text-tag-football { color: var(--tag-football); }
-.text-tag-camping { color: var(--tag-camping); }
-.text-tag-classes { color: var(--tag-classes); }
-.text-tag-fitness { color: var(--tag-fitness); }

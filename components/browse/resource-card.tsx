@@ -1,19 +1,24 @@
 import Link from "next/link";
 import type { Activity, Resource, Tag, Venue } from "../../generated/prisma/client";
 import { cn } from "@/lib/utils";
-import { TAG_STYLES } from "@/lib/browse-filters";
 
 export type ResourceCardData = Resource & {
   activity: Activity & { tags: { tag: Tag }[] };
   venue: Venue;
 };
 
-// 
-export function getPrimaryTagName(resource: ResourceCardData): string | undefined {
-  return resource.activity.tags[0]?.tag.name;
+// A Resource's Activity can carry several tags. "Tennis Class" is tagged
+// both "Tennis" and "Classes". Anything that needs one representative tag
+// for this resource (this card's accent color, and the browse page's
+// section grouping) uses the first, so both agree on the same tag. Returns
+// the full Tag record rather than just its name; callers that only need
+// the name for grouping read `.name` off the result.
+export function getPrimaryTag(resource: ResourceCardData): Tag | undefined {
+  return resource.activity.tags[0]?.tag;
 }
 
-// Booking-mechanic-specific line (duration bounds, night range, or session length + spots)
+// Booking-mechanic-specific line: duration bounds, night range, or
+// session length plus spots.
 function getMetaLine(resource: ResourceCardData): string {
   switch (resource.activity.bookingMechanic) {
     case "time_range":
@@ -25,7 +30,6 @@ function getMetaLine(resource: ResourceCardData): string {
   }
 }
 
-//
 function getPriceSuffix(resource: ResourceCardData): string {
   switch (resource.activity.bookingMechanic) {
     case "time_range":
@@ -47,33 +51,37 @@ export function ResourceGrid({ resources }: { resources: ResourceCardData[] }) {
   );
 }
 
+// Shared with ResourceCardSkeleton so the skeleton's text bones track
+// whatever typography the real card uses.
+export const CARD_EYEBROW_TEXT_CLASS = "text-xs font-bold tracking-wide uppercase";
+export const CARD_TITLE_TEXT_CLASS = "text-[1.05rem] leading-tight font-semibold";
+export const CARD_VENUE_TEXT_CLASS = "text-sm";
+export const CARD_META_TEXT_CLASS = "text-sm";
+
 export function ResourceCard({ resource }: { resource: ResourceCardData }) {
-  const primaryTag = getPrimaryTagName(resource);
-  const style = primaryTag ? TAG_STYLES[primaryTag] : undefined;
+  const tag = getPrimaryTag(resource);
 
   return (
     <Link
       href="#"
-      className={cn(
-        "block overflow-hidden rounded-[5px] border border-t-[3px] bg-card text-card-foreground transition-shadow hover:shadow-md",
-        style && `border-t-tag-${style.slug}`
-      )}
+      // Color comes from the database via inline style rather than a
+      // per-tag CSS class, since tags are editable data with no fixed set
+      // of colors to pre-write classes for. Only the top edge picks up
+      // the tag color; the other three sides stay the default neutral
+      // border.
+      className="block overflow-hidden rounded-[5px] border border-t-[3px] bg-card text-card-foreground transition-shadow hover:shadow-md"
+      style={{ borderTopColor: tag?.color }}
     >
-      <div className="grid h-32 place-items-center bg-muted/60 text-3xl">{style?.emoji ?? "🏷️"}</div>
+      <div className="grid h-32 place-items-center bg-muted/60 text-3xl">{tag?.emoji}</div>
       <div className="p-3.5">
-        <p
-          className={cn(
-            "mb-1 text-xs font-bold tracking-wide uppercase",
-            style ? `text-tag-${style.slug}` : "text-muted-foreground"
-          )}
-        >
+        <p className={cn(CARD_EYEBROW_TEXT_CLASS, "mb-1")} style={{ color: tag?.color }}>
           {resource.activity.name}
         </p>
-        <p className="text-[1.05rem] leading-tight font-semibold">{resource.name}</p>
-        <p className="mb-2.5 text-sm text-muted-foreground">
+        <p className={CARD_TITLE_TEXT_CLASS}>{resource.name}</p>
+        <p className={cn(CARD_VENUE_TEXT_CLASS, "mb-2.5 text-muted-foreground")}>
           {resource.venue.name}, {resource.venue.city}
         </p>
-        <div className="flex items-baseline justify-between text-sm text-muted-foreground">
+        <div className={cn(CARD_META_TEXT_CLASS, "flex items-baseline justify-between text-muted-foreground")}>
           <span>{getMetaLine(resource)}</span>
           <span className="font-mono font-semibold text-foreground">
             ${resource.pricePerUnit.toString()}

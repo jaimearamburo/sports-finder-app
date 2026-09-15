@@ -186,6 +186,15 @@ model Activity {
 model Tag {
   id        String   @id @default(cuid())
   name      String   @unique
+  // Display fields for the browse page's tag chip row. emoji and color
+  // have no format constraint at the database level; the application
+  // trusts whatever is stored here the same way it trusts any other
+  // admin-entered content. Defaults let a tag created without these set
+  // explicitly still render something sensible. displayOrder defaults to
+  // 1 so untouched tags tie and fall back to alphabetical order.
+  emoji        String @default("🏷️")
+  color        String @default("#1f1f1f") // hex string, e.g. "#2f9e52"
+  displayOrder Int    @default(1) @map("display_order")
   createdAt DateTime @default(now()) @map("created_at")
 
   activities ActivityTag[]

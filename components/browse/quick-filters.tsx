@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 // Visual only, as per the mockup - not wired to the query yet.
 const PILLS = ["Sort: Recommended", "Available today", "Top rated", "Under $30"];
 
-export function FilterBar() {
+export function QuickFilters() {
   const [active, setActive] = useState<Set<string>>(new Set(["Sort: Recommended"]));
 
   function toggle(pill: string) {

@@ -1,12 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { ResourceGrid, getPrimaryTagName } from "@/components/browse/resource-card";
-import { CATEGORY_FILTERS, TAG_ORDER, isCategoryId, type CategoryId } from "@/lib/browse-filters";
+import { ResourceGrid, getPrimaryTag } from "@/components/browse/resource-card";
+import { CATEGORY_FILTERS, isCategoryId, type CategoryId } from "@/lib/category-filters";
 
 // The slow part of the browse page, isolated into its own component so
-// app/page.tsx can wrap only this in <Suspense> — the sidebar and chip
-// row render immediately regardless of how long this query takes. See
-// app/page.tsx for how this gets fed a promise via searchParams.then(...)
-// rather than being awaited at the page's top level.
+// app/page.tsx can wrap only this in Suspense. The sidebar and chip row
+// render immediately regardless of how long this query takes.
 export async function ResourceSection({
   category: rawCategory,
   tags: rawTags,
@@ -17,11 +15,11 @@ export async function ResourceSection({
   const category: CategoryId = rawCategory && isCategoryId(rawCategory) ? rawCategory : "all";
   const selectedTags = rawTags ? rawTags.split(",").filter(Boolean) : [];
 
-  // Category and tags can both resolve to a condition on Activity.tags
-  // (e.g. category=gym → tag "Fitness", tags=tennis → tag "Tennis"). They
-  // must go into an `AND` array, not be spread into one flat object — two
-  // spreads that both set a `tags` key would silently let the second
-  // overwrite the first instead of combining.
+  // Category and tags can both resolve to a condition on Activity.tags,
+  // for example category=gym maps to tag "Fitness" and tags=tennis maps
+  // to tag "Tennis". They must go into an AND array rather than being
+  // spread into one flat object, since two spreads that both set a tags
+  // key would let the second silently overwrite the first.
   const activityConditions = [];
   if (category !== "all") activityConditions.push(CATEGORY_FILTERS[category]);
   if (selectedTags.length > 0) {
@@ -45,16 +43,19 @@ export async function ResourceSection({
     return <p className="mt-10 text-sm text-muted-foreground">No results match these filters.</p>;
   }
 
-  // Group by primary tag whenever the current results span more than one
-  // — not tied to which filters happen to be active. One tag selected (or
-  // a category that only ever resolves to one tag) already reads as a
-  // single, homogeneous list, so a lone section header would just be
-  // noise; several tags selected, or a category spanning several tags
-  // (e.g. "Courts for hire" = Tennis + Padel + Football), reads better
-  // broken into sections than as one undifferentiated grid.
+  // Groups results by primary tag whenever they span more than one, so a
+  // single homogeneous list stays flat while a mixed result set (several
+  // tags selected, or a category spanning several tags such as "Courts
+  // for hire" covering Tennis, Padel, and Football) breaks into labeled
+  // sections. Section order comes from each tag's own displayOrder
+  // column, fetched alongside the resource's activity.tags.tag relation.
+  // Resources with no tag sort last under "Other".
   const groups = new Map<string, typeof resources>();
+  const groupOrder = new Map<string, number>();
   for (const resource of resources) {
-    const key = getPrimaryTagName(resource) ?? "Other";
+    const tag = getPrimaryTag(resource);
+    const key = tag?.name ?? "Other";
+    if (!groupOrder.has(key)) groupOrder.set(key, tag?.displayOrder ?? Infinity);
     const group = groups.get(key);
     if (group) {
       group.push(resource);
@@ -63,7 +64,7 @@ export async function ResourceSection({
     }
   }
   const groupNames = [...groups.keys()].sort(
-    (a, b) => TAG_ORDER.indexOf(a) - TAG_ORDER.indexOf(b)
+    (a, b) => groupOrder.get(a)! - groupOrder.get(b)! || a.localeCompare(b)
   );
 
   if (groupNames.length <= 1) {

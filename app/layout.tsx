@@ -9,8 +9,8 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-// Wordmark-only display face for the "PlayBook" logo (see SiteHeader/
-// SiteFooter) — not a variable font, so the weights it renders have to be
+// Wordmark-only display face for the "PlayBook" logo (see SiteHeader and
+// SiteFooter). Not a variable font, so the weights it renders have to be
 // requested explicitly. 400 renders "Play", 700 renders "Book".
 const oleoScript = Oleo_Script({
   weight: ["400", "700"],
@@ -34,11 +34,11 @@ export default function RootLayout({
       className={`${geistSans.className} ${oleoScript.variable} h-full antialiased`}
       //className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-screen flex flex-col">
         <SiteHeader />
-        {/* `flex flex-col` here (not just `flex-1`) so pages that rely on
-            being a flex-column child themselves — e.g. login/signup's
-            centered-card layout keep working */}
+        {/* flex flex-col here, not just flex-1, so pages that rely on
+            being a flex-column child themselves, such as login and
+            signup's centered card layout, keep working. */}
         <main className="flex flex-1 flex-col">{children}</main>
         <SiteFooter />
       </body>

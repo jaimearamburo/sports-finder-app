@@ -6,12 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/layout/logo";
 
 /**
- * Global site header — brand link, search, and auth-aware actions. An
- * async Server Component (not a Client Component) because it needs
- * `auth()` to decide which links to show; that call reads the session
- * cookie server-side, so there's no loading flicker between "logged out"
- * and "logged in" states the way a client-side `useSession()` version
- * would have.
+ * Global site header: brand link, search, and auth-aware actions. An
+ * async Server Component, not a Client Component, because it needs
+ * auth() to decide which links to show. That call reads the session
+ * cookie server-side, so there is no loading flicker between logged-out
+ * and logged-in states the way a client-side useSession() version would
+ * have.
  *
  * The search box and cart button are visual only for now.
  */
@@ -19,7 +19,7 @@ export async function SiteHeader() {
   const session = await auth();
 
   return (
-    <header className="border-b bg-card">
+    <header className="sticky top-0 z-20 border-b bg-card">
       <div className="mx-auto grid h-17 max-w-[1800px] grid-cols-[auto_minmax(0,640px)_auto] items-center gap-6 px-4 sm:px-6 lg:px-8">
         <Logo />
 
@@ -42,8 +42,8 @@ export async function SiteHeader() {
               <Link href="/dashboard" className={buttonVariants({ variant: "ghost", size: "sm" })}>
                 Dashboard
               </Link>
-              {/* Links to the test logout page with confirmation rather than signing out
-                  directly — signOut()  for now. */}
+              {/* Links to the logout confirmation page rather than
+                  signing out directly. */}
               <Link href="/logout" className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Log out
               </Link>

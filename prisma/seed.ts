@@ -29,14 +29,26 @@ import { prisma } from "../lib/prisma";
  * couldn't express.
  */
 async function seedTags() {
-  const tagNames = ["Tennis", "Padel", "Football", "Classes", "Fitness", "Camping"];
+  // displayOrder is the curated browse order (Tennis first), not
+  // alphabetical.
+  const tagDefinitions = [
+    { name: "Tennis", emoji: "🎾", color: "#2f9e52", displayOrder: 0 },
+    { name: "Classes", emoji: "👥", color: "#7a5cc9", displayOrder: 1 },
+    { name: "Fitness", emoji: "💪", color: "#d6455f", displayOrder: 2 },
+    { name: "Football", emoji: "⚽", color: "#e2662d", displayOrder: 3 },
+    { name: "Padel", emoji: "🏓", color: "#2c7fd1", displayOrder: 4 },
+    { name: "Camping", emoji: "⛺", color: "#5c7a35", displayOrder: 5 },
+  ];
 
   const tags = await Promise.all(
-    tagNames.map((name) =>
+    tagDefinitions.map((tag) =>
       prisma.tag.upsert({
-        where: { name },
-        update: {},
-        create: { name },
+        where: { name: tag.name },
+        // Unlike Activity and User above, this upsert also refreshes
+        // existing rows on update, since these fields are meant to be
+        // editable rather than set once at creation.
+        update: { emoji: tag.emoji, color: tag.color, displayOrder: tag.displayOrder },
+        create: tag,
       })
     )
   );
