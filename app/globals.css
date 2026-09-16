@@ -153,3 +153,38 @@
     cursor: pointer;
   }
 }
+
+/* A thin, theme-aware scrollbar on every scrollable element, in place of
+   each browser's own default. A fixed size on purpose, not resized on
+   hover: growing ::-webkit-scrollbar's width/height on hover grows the
+   scrollbar itself, which adds to the scrolling element's own rendered
+   size - a horizontal scrollbar growing taller on hover, for example,
+   grows the height of the row it belongs to, shifting whatever is below
+   it. Chromium supports both scrollbar-width/color AND the
+   ::-webkit-scrollbar pseudo-elements below; setting both on the same
+   element makes it fall back to the standards-based renderer, so the
+   @supports guard keeps scrollbar-width/color for browsers with no
+   ::-webkit-scrollbar support at all (Firefox). */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--border), var(--muted-foreground)) transparent;
+  }
+}
+*::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  /* Halfway between --border (too light on its own) and --muted-foreground
+     (too dark on its own), computed from the existing tokens instead of a
+     new hardcoded color so it stays theme-aware in light and dark mode. */
+  background-color: color-mix(in oklch, var(--border), var(--muted-foreground));
+  border-radius: 5px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}

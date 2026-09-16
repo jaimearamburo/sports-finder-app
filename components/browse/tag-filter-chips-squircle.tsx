@@ -4,6 +4,7 @@ import { startTransition, useOptimistic } from "react";
 import { getSvgPath } from "figma-squircle";
 import { cn } from "@/lib/utils";
 import { TAG_LABEL_TEXT_CLASS } from "@/lib/label-styles";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 type BrowseTag = { id: string; name: string; emoji: string; color: string };
 
@@ -60,76 +61,85 @@ export function TagFilterChips({
   }
 
   return (
-    // overflow-x-auto also clips vertically (CSS forces overflow-y to
-    // auto once overflow-x isn't visible), cutting off drop-shadow at the
-    // row's edges. pt/pl/pr give the shadow room; the matching negative
-    // margins cancel that padding so the row's outer position is unchanged.
-    <div
-      // mask-image fades the row's own rendered content (chips, their
-      // shadows, everything) to transparent right at the edge, as a hint
-      // that the row scrolls. A box-shadow can't do this: it paints behind
-      // the chips, so it would only ever show through the gaps between
-      // them instead of a smooth fade.
-      className="-mt-2 -mr-2 -ml-2 mb-5 flex gap-4 overflow-x-auto pt-2 pr-2 pl-2 pb-1 mask-[linear-gradient(to_right,black_calc(100%-56px),transparent_100%)]"
-      data-pending={isPending ? "" : undefined}
+    // ScrollArea's own Viewport does the scrolling/clipping instead of a
+    // plain overflow-x-auto div, so its custom thumb (see
+    // components/ui/scroll-area.tsx)
+    <ScrollArea
+      className="-mt-2 -mr-2 -ml-2 mb-5"
+      // mask-image fades the visible edge to transparent as a hint that
+      // the row scrolls. It has to live on the Viewport, not the scrolled
+      // content: the content's own width is the full row (~17 chips), so
+      // a mask on it would fade a fixed point near the end of all content
+      // instead of the edge of what's actually visible right now.
+      viewportClassName="mask-[linear-gradient(to_right,black_calc(100%-56px),transparent_100%)]"
     >
-      {tags.map((tag) => {
-        const isSelected = optimisticSelected.has(tag.name.toLowerCase());
+      <div
+        className="flex gap-4 pt-2 pr-2 pl-2 pb-1"
+        data-pending={isPending ? "" : undefined}
+      >
+        {tags.map((tag) => {
+          const isSelected = optimisticSelected.has(tag.name.toLowerCase());
 
-        return (
-          <button
-            key={tag.id}
-            type="button"
-            onClick={() => handleClick(tag.name)}
-            aria-pressed={isSelected}
-            // Named group ("chip"). Tailwind's group-hover selector
-            // matches any ancestor with a group class of the same name,
-            // not only the nearest one. app/page.tsx has its own group
-            // ("browse") for a separate dimming effect, and this needs a
-            // distinct name so the two do not trigger each other.
-            className="group/chip flex shrink-0 flex-col items-center gap-2.5 pb-2.5"
-          >
-            {/* drop-shadow lives on a wrapper outside the clipped element:
-                filter and clip-path on the same element would compute the
-                shadow first and clip-path would then cut it off at the
-                shape's own boundary. */}
-            <span className={cn(isSelected ? "drop-shadow" : "drop-shadow")}>
-              {/* Color comes from the database via inline style, since
-                  tags are editable data with no fixed palette to
-                  pre-write classes for. The clip-path shape already
-                  clips its own contents, so no overflow-hidden is
-                  needed. Width/height come from ICON_SIZE, not a size-*
-                  class, so the box always matches the clip path. */}
-              <span
-                className={cn(
-                  "relative flex items-center justify-center",
-                  // Grayscale hex (equal R/G/B) instead of a bg-gray-* step,
-                  // since the palette's lightest step (gray-50, #fafafa) is
-                  // as light as its numbered scale goes. Nudge the repeated
-                  // hex pair toward ff (lighter) or fa (darker) to retune.
-                  !isSelected && "bg-[#fcfcfc]"
-                )}
-                style={{
-                  width: ICON_SIZE,
-                  height: ICON_SIZE,
-                  clipPath: SQUIRCLE_CLIP_PATH,
-                  ...(isSelected ? { backgroundColor: tag.color } : {}),
-                }}
+          return (
+            <div key={tag.id} className="flex shrink-0 flex-col items-center gap-2.5 pb-2.5">
+              <button
+                type="button"
+                onClick={() => handleClick(tag.name)}
+                aria-pressed={isSelected}
+                aria-label={tag.name}
+                // Named group ("chip"). Tailwind's group-hover selector
+                // matches any ancestor with a group class of the same name,
+                // not only the nearest one. app/page.tsx has its own group
+                // ("browse") for a separate dimming effect, and this needs a
+                // distinct name so the two do not trigger each other. Only
+                // the icon lives inside the button, so hover/click apply to
+                // it alone, not the label below.
+                className="group/chip"
               >
-                {isSelected && (
-                  <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-white/25 via-transparent to-black/10" />
-                )}
-                <span className="relative inline-block text-2xl leading-none transition-transform duration-150 group-hover/chip:scale-[1.4]">
-                  {tag.emoji}
+                {/* drop-shadow lives on a wrapper outside the clipped element:
+                    filter and clip-path on the same element would compute the
+                    shadow first and clip-path would then cut it off at the
+                    shape's own boundary. */}
+                <span className={cn(isSelected ? "drop-shadow" : "drop-shadow")}>
+                  {/* Color comes from the database via inline style, since
+                      tags are editable data with no fixed palette to
+                      pre-write classes for. The clip-path shape already
+                      clips its own contents, so no overflow-hidden is
+                      needed. Width/height come from ICON_SIZE, not a size-*
+                      class, so the box always matches the clip path. */}
+                  <span
+                    className={cn(
+                      "relative flex items-center justify-center",
+                      // Grayscale hex (equal R/G/B) instead of a bg-gray-* step,
+                      // since the palette's lightest step (gray-50, #fafafa) is
+                      // as light as its numbered scale goes. Nudge the repeated
+                      // hex pair toward ff (lighter) or fa (darker) to retune.
+                      !isSelected && "bg-[#fcfcfc]"
+                    )}
+                    style={{
+                      width: ICON_SIZE,
+                      height: ICON_SIZE,
+                      clipPath: SQUIRCLE_CLIP_PATH,
+                      ...(isSelected ? { backgroundColor: tag.color } : {}),
+                    }}
+                  >
+                    {isSelected && (
+                      <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-white/25 via-transparent to-black/10" />
+                    )}
+                    <span className="relative inline-block text-2xl leading-none transition-transform duration-150 group-hover/chip:scale-[1.4]">
+                      {tag.emoji}
+                    </span>
+                  </span>
                 </span>
+              </button>
+              <span className={cn(TAG_LABEL_TEXT_CLASS, isSelected ? "text-foreground" : "text-muted-foreground")}>
+                {tag.name}
               </span>
-            </span>
-            <span className={cn(TAG_LABEL_TEXT_CLASS, isSelected ? "text-foreground" : "text-muted-foreground")}>
-              {tag.name}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+            </div>
+          );
+        })}
+      </div>
+      <ScrollBar orientation="horizontal" />
+    </ScrollArea>
   );
 }
