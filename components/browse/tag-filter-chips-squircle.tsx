@@ -65,7 +65,12 @@ export function TagFilterChips({
     // row's edges. pt/pl/pr give the shadow room; the matching negative
     // margins cancel that padding so the row's outer position is unchanged.
     <div
-      className="-mt-2 -mr-2 -ml-2 mb-5 flex gap-4 overflow-x-auto pt-2 pr-2 pl-2 pb-1"
+      // mask-image fades the row's own rendered content (chips, their
+      // shadows, everything) to transparent right at the edge, as a hint
+      // that the row scrolls. A box-shadow can't do this: it paints behind
+      // the chips, so it would only ever show through the gaps between
+      // them instead of a smooth fade.
+      className="-mt-2 -mr-2 -ml-2 mb-5 flex gap-4 overflow-x-auto pt-2 pr-2 pl-2 pb-1 mask-[linear-gradient(to_right,black_calc(100%-56px),transparent_100%)]"
       data-pending={isPending ? "" : undefined}
     >
       {tags.map((tag) => {
@@ -82,8 +87,7 @@ export function TagFilterChips({
             // not only the nearest one. app/page.tsx has its own group
             // ("browse") for a separate dimming effect, and this needs a
             // distinct name so the two do not trigger each other.
-            className="group/chip flex shrink-0 flex-col items-center gap-2.5 border-b-2 border-transparent pb-2.5"
-            style={isSelected ? { borderColor: tag.color } : undefined}
+            className="group/chip flex shrink-0 flex-col items-center gap-2.5 pb-2.5"
           >
             {/* drop-shadow lives on a wrapper outside the clipped element:
                 filter and clip-path on the same element would compute the

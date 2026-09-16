@@ -13,5 +13,5 @@ export const getBrowseTags = unstable_cache(
       orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
     }),
   ["browse-tags"],
-  { revalidate: 3600 }
+  { revalidate: 3600, tags: ["browse-tags"] }
 );

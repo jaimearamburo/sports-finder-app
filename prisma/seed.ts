@@ -36,8 +36,20 @@ async function seedTags() {
     { name: "Classes", emoji: "👥", color: "#7a5cc9", displayOrder: 1 },
     { name: "Fitness", emoji: "💪", color: "#d6455f", displayOrder: 2 },
     { name: "Football", emoji: "⚽", color: "#e2662d", displayOrder: 3 },
-    { name: "Padel", emoji: "🏓", color: "#2c7fd1", displayOrder: 4 },
+    // 🏸 rather than 🏓: Table Tennis below claims 🏓 as its literal emoji.
+    { name: "Padel", emoji: "🏸", color: "#2c7fd1", displayOrder: 4 },
     { name: "Camping", emoji: "⛺", color: "#5c7a35", displayOrder: 5 },
+    { name: "Basketball", emoji: "🏀", color: "#e8792c", displayOrder: 6 },
+    { name: "Volleyball", emoji: "🏐", color: "#d4b106", displayOrder: 7 },
+    { name: "Table Tennis", emoji: "🏓", color: "#1f9e96", displayOrder: 8 },
+    { name: "Swimming", emoji: "🏊", color: "#1f9ed8", displayOrder: 9 },
+    { name: "Cycling", emoji: "🚴", color: "#6ba82f", displayOrder: 10 },
+    { name: "Running", emoji: "🏃", color: "#d1495b", displayOrder: 11 },
+    { name: "Golf", emoji: "⛳", color: "#2f6e3a", displayOrder: 12 },
+    { name: "Rugby", emoji: "🏉", color: "#7a4a2b", displayOrder: 13 },
+    { name: "Yoga", emoji: "🧘", color: "#9b8fd1", displayOrder: 14 },
+    { name: "Boxing", emoji: "🥊", color: "#b8272c", displayOrder: 15 },
+    { name: "Hiking", emoji: "🥾", color: "#6b7a3a", displayOrder: 16 },
   ];
 
   const tags = await Promise.all(
@@ -78,6 +90,17 @@ async function seedActivities() {
     { name: "Tennis Class", bookingMechanic: "fixed_session" as const },
     { name: "Gym Class", bookingMechanic: "fixed_session" as const },
     { name: "Yoga Class", bookingMechanic: "fixed_session" as const },
+    { name: "Basketball", bookingMechanic: "time_range" as const },
+    { name: "Beach Volleyball", bookingMechanic: "time_range" as const },
+    { name: "Table Tennis", bookingMechanic: "time_range" as const },
+    { name: "Rugby", bookingMechanic: "time_range" as const },
+    { name: "Golf", bookingMechanic: "time_range" as const },
+    { name: "Lap Swim", bookingMechanic: "time_range" as const },
+    { name: "Spin Class", bookingMechanic: "fixed_session" as const },
+    { name: "Boxing Class", bookingMechanic: "fixed_session" as const },
+    { name: "Guided Hike", bookingMechanic: "fixed_session" as const },
+    { name: "Group Run", bookingMechanic: "fixed_session" as const },
+    { name: "Gym Day Pass", bookingMechanic: "date_range" as const },
   ];
 
   const activities = await Promise.all(
@@ -125,6 +148,25 @@ async function linkActivityTags(
       { activityId: activities["Gym Class"].id, tagId: tags["Fitness"].id },
       { activityId: activities["Yoga Class"].id, tagId: tags["Classes"].id },
       { activityId: activities["Yoga Class"].id, tagId: tags["Fitness"].id },
+      { activityId: activities["Yoga Class"].id, tagId: tags["Yoga"].id },
+
+      { activityId: activities["Basketball"].id, tagId: tags["Basketball"].id },
+      { activityId: activities["Beach Volleyball"].id, tagId: tags["Volleyball"].id },
+      { activityId: activities["Table Tennis"].id, tagId: tags["Table Tennis"].id },
+      { activityId: activities["Rugby"].id, tagId: tags["Rugby"].id },
+      { activityId: activities["Golf"].id, tagId: tags["Golf"].id },
+      { activityId: activities["Lap Swim"].id, tagId: tags["Swimming"].id },
+
+      { activityId: activities["Spin Class"].id, tagId: tags["Cycling"].id },
+      { activityId: activities["Spin Class"].id, tagId: tags["Classes"].id },
+      { activityId: activities["Spin Class"].id, tagId: tags["Fitness"].id },
+      { activityId: activities["Boxing Class"].id, tagId: tags["Boxing"].id },
+      { activityId: activities["Boxing Class"].id, tagId: tags["Classes"].id },
+      { activityId: activities["Boxing Class"].id, tagId: tags["Fitness"].id },
+
+      { activityId: activities["Guided Hike"].id, tagId: tags["Hiking"].id },
+      { activityId: activities["Group Run"].id, tagId: tags["Running"].id },
+      { activityId: activities["Gym Day Pass"].id, tagId: tags["Fitness"].id },
     ],
   });
 }
@@ -160,9 +202,10 @@ async function seedUsers() {
 }
 
 /**
- * Seeds four venues across three cities, split between the two owners
- * created in seedUsers(). Alex owns two (Riverside, Bondi Padel); Priya
- * owns two (Green Valley, FitZone) — entirely separate from Alex's.
+ * Seeds six venues across four cities, split between the two owners created
+ * in seedUsers(). Alex owns three (Riverside, Bondi Padel, Coogee Run Club);
+ * Priya owns three (Green Valley, FitZone, Bayside Recreation) — entirely
+ * separate from Alex's.
  */
 async function seedVenues(alexId: string, priyaId: string) {
   const riverside = await prisma.venue.create({
@@ -181,7 +224,15 @@ async function seedVenues(alexId: string, priyaId: string) {
     data: { ownerId: priyaId, name: "FitZone Gym", address: "200 Collins St", city: "Melbourne" },
   });
 
-  return { riverside, bondiPadel, greenValley, fitZone };
+  const bayside = await prisma.venue.create({
+    data: { ownerId: priyaId, name: "Bayside Recreation Centre", address: "10 Bayside Drive", city: "Brisbane" },
+  });
+
+  const coogeeRunClub = await prisma.venue.create({
+    data: { ownerId: alexId, name: "Coogee Run Club", address: "1 Beach St, Coogee Beach", city: "Sydney" },
+  });
+
+  return { riverside, bondiPadel, greenValley, fitZone, bayside, coogeeRunClub };
 }
 
 /**
@@ -256,6 +307,96 @@ async function seedResources(
     },
   });
 
+  await prisma.resource.create({
+    data: {
+      venueId: venues.riverside.id,
+      activityId: activities["Basketball"].id,
+      name: "Basketball Court",
+      capacity: 1,
+      pricePerUnit: 25,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "22:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.resource.create({
+    data: {
+      venueId: venues.bondiPadel.id,
+      activityId: activities["Beach Volleyball"].id,
+      name: "Beach Volleyball Court",
+      capacity: 1,
+      pricePerUnit: 30,
+      operatingHoursStart: "07:00",
+      operatingHoursEnd: "22:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.resource.create({
+    data: {
+      venueId: venues.riverside.id,
+      activityId: activities["Table Tennis"].id,
+      name: "Table Tennis Table",
+      capacity: 1,
+      pricePerUnit: 10,
+      operatingHoursStart: "09:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 60,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.resource.create({
+    data: {
+      venueId: venues.riverside.id,
+      activityId: activities["Rugby"].id,
+      name: "Rugby Pitch",
+      capacity: 1,
+      pricePerUnit: 70,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "20:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 120,
+      incrementMinutes: 60,
+    },
+  });
+
+  await prisma.resource.create({
+    data: {
+      venueId: venues.bayside.id,
+      activityId: activities["Golf"].id,
+      name: "Golf Bay 1",
+      capacity: 1,
+      pricePerUnit: 35,
+      operatingHoursStart: "07:00",
+      operatingHoursEnd: "19:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 120,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.resource.create({
+    data: {
+      venueId: venues.bayside.id,
+      activityId: activities["Lap Swim"].id,
+      name: "Lap Swim Lane 1",
+      capacity: 1, // one lane per booking, exclusive use like a court
+      pricePerUnit: 15,
+      operatingHoursStart: "06:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 60,
+      incrementMinutes: 30,
+    },
+  });
+
   // --- date_range: user chooses a start date + end date ---
 
   await prisma.resource.create({
@@ -279,6 +420,18 @@ async function seedResources(
       pricePerUnit: 45,
       minDurationDays: 1,
       maxDurationDays: 7,
+    },
+  });
+
+  await prisma.resource.create({
+    data: {
+      venueId: venues.fitZone.id,
+      activityId: activities["Gym Day Pass"].id,
+      name: "Day Pass",
+      capacity: 50, // many concurrent visitors, unlike an exclusive-use court
+      pricePerUnit: 25,
+      minDurationDays: 1,
+      maxDurationDays: 1, // exactly one day - no start time, valid any time that day
     },
   });
 
@@ -335,6 +488,58 @@ async function seedResources(
       sessionDurationMinutes: 60,
     },
   });
+
+  await prisma.resource.create({
+    data: {
+      venueId: venues.fitZone.id,
+      activityId: activities["Spin Class"].id,
+      name: "Thursday 6pm Spin",
+      capacity: 20,
+      pricePerUnit: 18,
+      recurrenceDayOfWeek: 4, // Thursday
+      recurrenceStartTime: "18:00",
+      sessionDurationMinutes: 45,
+    },
+  });
+
+  await prisma.resource.create({
+    data: {
+      venueId: venues.fitZone.id,
+      activityId: activities["Boxing Class"].id,
+      name: "Friday 6pm Boxing",
+      capacity: 15,
+      pricePerUnit: 20,
+      recurrenceDayOfWeek: 5, // Friday
+      recurrenceStartTime: "18:00",
+      sessionDurationMinutes: 45,
+    },
+  });
+
+  await prisma.resource.create({
+    data: {
+      venueId: venues.greenValley.id,
+      activityId: activities["Guided Hike"].id,
+      name: "Saturday 8am Guided Hike",
+      capacity: null, // free and open to any group size
+      pricePerUnit: 0,
+      recurrenceDayOfWeek: 6, // Saturday
+      recurrenceStartTime: "08:00",
+      sessionDurationMinutes: 180,
+    },
+  });
+
+  await prisma.resource.create({
+    data: {
+      venueId: venues.coogeeRunClub.id,
+      activityId: activities["Group Run"].id,
+      name: "Saturday 7am Group Run",
+      capacity: null,
+      pricePerUnit: 0,
+      recurrenceDayOfWeek: 6, // Saturday
+      recurrenceStartTime: "07:00",
+      sessionDurationMinutes: 60,
+    },
+  });
 }
 
 async function main() {
@@ -351,7 +556,7 @@ async function main() {
   const venues = await seedVenues(alex.id, priya.id);
   await seedResources(activities, venues);
 
-  console.log("Seeding complete: 6 tags, 7 activities, 3 users, 4 venues, 10 resources.");
+  console.log("Seeding complete: 17 tags, 18 activities, 3 users, 6 venues, 21 resources.");
 }
 
 main()

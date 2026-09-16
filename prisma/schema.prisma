@@ -236,9 +236,11 @@ model Resource {
   description  String?
   // Max number of simultaneous/overlapping bookings this resource allows.
   // 1 for an exclusive-use court or campsite; >1 for a class with multiple
-  // open spots. This single field is what lets the same conflict-check
-  // logic (see Booking) cover both courts and classes without branching.
-  capacity     Int     @default(1)
+  // open spots; null for no limit at all (a free group run or hike).
+  // This single field is what lets the same conflict-check logic (see
+  // Booking) cover courts, classes, and unlimited activities without
+  // branching: null simply skips the count-against-capacity check.
+  capacity     Int?    @default(1)
   pricePerUnit Decimal @map("price_per_unit") @db.Decimal(10, 2)
 
   // --- Used when Activity.bookingMechanic = time_range ---

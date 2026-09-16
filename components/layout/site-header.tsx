@@ -19,7 +19,7 @@ export async function SiteHeader() {
   const session = await auth();
 
   return (
-    <header className="sticky top-0 z-20 border-b bg-card">
+    <header className="sticky top-0 z-20 border-b border-gray-100 bg-card">
       <div className="mx-auto grid h-17 max-w-[1800px] grid-cols-[auto_minmax(0,640px)_auto] items-center gap-6 px-4 sm:px-6 lg:px-8">
         <Logo />
 

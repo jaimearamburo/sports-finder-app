@@ -182,7 +182,7 @@ function PriceRangeFilter({
         Price range
       </h3>
       <div className="mb-3 flex justify-between font-mono text-xs text-muted-foreground">
-        <span>${liveValue[0]}</span>
+        <span>{liveValue[0] === PRICE_MIN ? "Free" : `$${liveValue[0]}`}</span>
         <span>{liveValue[1] >= PRICE_MAX ? `$${PRICE_MAX}+` : `$${liveValue[1]}`}</span>
       </div>
       <Slider

@@ -13,5 +13,5 @@ export const getBrowseCities = unstable_cache(
     return venues.map((venue) => venue.city);
   },
   ["browse-cities"],
-  { revalidate: 3600 }
+  { revalidate: 3600, tags: ["browse-cities"] }
 );

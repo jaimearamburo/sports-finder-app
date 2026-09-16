@@ -96,13 +96,13 @@ export function BrowseSidebarSkeleton() {
 
 export function TagFiltersSkeleton() {
   return (
-    <div className="mb-5 flex gap-5 overflow-x-auto pb-1">
+    <div className="mb-5 flex gap-4 overflow-x-auto pb-1">
       {Array.from({ length: 6 }).map((_, i) => (
         <button
           key={i}
           type="button"
           disabled
-          className="flex shrink-0 flex-col items-center gap-2.5 border-b-2 border-transparent pb-2.5"
+          className="flex shrink-0 flex-col items-center gap-2.5 pb-2.5"
         >
           <Bone className="size-20 rounded-[22%]" />
           <TextBone textClass={TAG_LABEL_TEXT_CLASS} className="w-12" />

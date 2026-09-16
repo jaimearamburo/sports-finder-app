@@ -17,16 +17,16 @@ export function getPrimaryTag(resource: ResourceCardData): Tag | undefined {
   return resource.activity.tags[0]?.tag;
 }
 
-// Booking-mechanic-specific line: duration bounds, night range, or
-// session length plus spots.
+// Booking-mechanic-specific line: duration bounds, day range, or session
+// length plus spots.
 function getMetaLine(resource: ResourceCardData): string {
   switch (resource.activity.bookingMechanic) {
     case "time_range":
       return `${resource.minDurationMinutes}–${resource.maxDurationMinutes} min`;
     case "date_range":
-      return `${resource.minDurationDays}–${resource.maxDurationDays} nights`;
+      return `${resource.minDurationDays}–${resource.maxDurationDays} day${resource.maxDurationDays === 1 ? "" : "s"}`;
     case "fixed_session":
-      return `${resource.sessionDurationMinutes} min · ${resource.capacity} spots`;
+      return `${resource.sessionDurationMinutes} min · ${resource.capacity === null ? "Unlimited spots" : `${resource.capacity} spots`}`;
   }
 }
 
@@ -35,7 +35,7 @@ function getPriceSuffix(resource: ResourceCardData): string {
     case "time_range":
       return "/hr";
     case "date_range":
-      return "/night";
+      return "/day";
     case "fixed_session":
       return "";
   }
@@ -84,8 +84,9 @@ export function ResourceCard({ resource }: { resource: ResourceCardData }) {
         <div className={cn(CARD_META_TEXT_CLASS, "flex items-baseline justify-between text-muted-foreground")}>
           <span>{getMetaLine(resource)}</span>
           <span className="font-mono font-semibold text-foreground">
-            ${resource.pricePerUnit.toString()}
-            {getPriceSuffix(resource)}
+            {Number(resource.pricePerUnit) === 0
+              ? "Free"
+              : `$${resource.pricePerUnit.toString()}${getPriceSuffix(resource)}`}
           </span>
         </div>
       </div>
