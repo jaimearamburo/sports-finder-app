@@ -1,19 +1,41 @@
 import { prisma } from "@/lib/prisma";
 import { ResourceGrid, getPrimaryTag } from "@/components/browse/resource-card";
 import { CATEGORY_FILTERS, isCategoryId, type CategoryId } from "@/lib/category-filters";
+import { isBookingTypeId } from "@/lib/booking-types";
+import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
+
+// All URL search params ResourceSection's query can filter on. Every
+// value is a raw string (or absent) since it comes straight off the URL;
+// parsing and validation happen inside ResourceSection itself. Shared with
+// app/page.tsx so the two stay in sync as filters are added, rather than
+// each redeclaring the same shape.
+export type BrowseSearchParams = {
+  category?: string;
+  tags?: string;
+  city?: string;
+  type?: string;
+  priceMin?: string;
+  priceMax?: string;
+};
 
 // The slow part of the browse page, isolated into its own component so
 // app/page.tsx can wrap only this in Suspense. The sidebar and chip row
 // render immediately regardless of how long this query takes.
-export async function ResourceSection({
-  category: rawCategory,
-  tags: rawTags,
-}: {
-  category?: string;
-  tags?: string;
-}) {
+export async function ResourceSection({ searchParams }: { searchParams: BrowseSearchParams }) {
+  const {
+    category: rawCategory,
+    tags: rawTags,
+    city,
+    type: rawType,
+    priceMin: rawPriceMin,
+    priceMax: rawPriceMax,
+  } = searchParams;
+
   const category: CategoryId = rawCategory && isCategoryId(rawCategory) ? rawCategory : "all";
   const selectedTags = rawTags ? rawTags.split(",").filter(Boolean) : [];
+  const selectedTypes = rawType ? rawType.split(",").filter(isBookingTypeId) : [];
+  const priceMin = rawPriceMin ? Number(rawPriceMin) : PRICE_MIN;
+  const priceMax = rawPriceMax ? Number(rawPriceMax) : PRICE_MAX;
 
   // Category and tags can both resolve to a condition on Activity.tags,
   // for example category=gym maps to tag "Fitness" and tags=tennis maps
@@ -27,10 +49,20 @@ export async function ResourceSection({
       tags: { some: { tag: { name: { in: selectedTags, mode: "insensitive" as const } } } },
     });
   }
+  if (selectedTypes.length > 0) {
+    activityConditions.push({ bookingMechanic: { in: selectedTypes } });
+  }
 
   const resources = await prisma.resource.findMany({
     where: {
       activity: activityConditions.length > 0 ? { AND: activityConditions } : undefined,
+      venue: city ? { city } : undefined,
+      // PRICE_MAX is an open-ended "$100+" bound, so only the lower end
+      // is enforced once the range reaches it.
+      pricePerUnit: {
+        gte: priceMin > PRICE_MIN ? priceMin : undefined,
+        lte: priceMax < PRICE_MAX ? priceMax : undefined,
+      },
     },
     include: {
       activity: { include: { tags: { include: { tag: true } } } },

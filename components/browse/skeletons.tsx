@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { CATEGORY_LABEL_TEXT_CLASS } from "@/components/browse/category-filter-list";
+import { CATEGORY_LABEL_TEXT_CLASS } from "@/components/browse/browse-sidebar-panel";
 import { TAG_LABEL_TEXT_CLASS } from "@/components/browse/tag-filter-chips";
 import {
   CARD_EYEBROW_TEXT_CLASS,
@@ -8,7 +8,7 @@ import {
   CARD_META_TEXT_CLASS,
 } from "@/components/browse/resource-card";
 
-// CategoryFiltersSkeleton and TagFiltersSkeleton satisfy Next.js's
+// BrowseSidebarSkeleton and TagFiltersSkeleton satisfy Next.js's
 // requirement that any component calling useSearchParams() sits inside a
 // Suspense boundary. They render almost instantly since there is no real
 // data fetch behind them. ResourceGridSkeleton covers actual query time.
@@ -19,33 +19,67 @@ function Bone({ className }: { className?: string }) {
 
 // Sizes a text placeholder relative to the font size it is given instead
 // of a fixed pixel height, so it tracks whatever text class is passed in.
-// The wrapper uses flex, not inline-flex, so multiple instances stack as
-// separate lines when rendered as siblings instead of sitting side by side.
+// The outer span carries the text class with no display override, so its
+// height comes from normal line-box layout (governed by line-height),
+// matching real text exactly. The inner bone is inline-block with
+// align-middle so it participates in that same line box instead of
+// forming its own flex layout, which would size itself independently of
+// line-height and end up shorter than the real text it stands in for.
 function TextBone({ textClass, className }: { textClass: string; className?: string }) {
   return (
-    <span className={cn(textClass, "flex items-center")}>
-      <span className={cn("h-[0.85em] w-full animate-pulse rounded bg-foreground/10", className)} />
+    <span className={textClass}>
+      <span
+        className={cn(
+          "inline-block h-[0.85em] w-full animate-pulse rounded bg-foreground/10 align-middle",
+          className
+        )}
+      />
     </span>
   );
 }
 
-export function CategoryFiltersSkeleton() {
+export function BrowseSidebarSkeleton() {
   return (
-    <div className="flex flex-col">
-      {Array.from({ length: 5 }).map((_, i) => (
-        // A button, not a div. Browsers apply default box model properties
-        // to buttons that a CSS reset does not always fully zero out, so a
-        // div with matching classes can still render a slightly different
-        // height than the real button it stands in for.
-        <button
-          key={i}
-          type="button"
-          disabled
-          className="border-l-2 border-transparent px-3 py-2 text-left"
-        >
-          <TextBone textClass={CATEGORY_LABEL_TEXT_CLASS} className="w-28" />
-        </button>
-      ))}
+    <div>
+      <div className="flex flex-col">
+        {Array.from({ length: 5 }).map((_, i) => (
+          // A button, not a div. Browsers apply default box model properties
+          // to buttons that a CSS reset does not always fully zero out, so a
+          // div with matching classes can still render a slightly different
+          // height than the real button it stands in for.
+          <button
+            key={i}
+            type="button"
+            disabled
+            className="border-l-2 border-transparent px-2.5 py-2 text-left"
+          >
+            <TextBone textClass={CATEGORY_LABEL_TEXT_CLASS} className="w-28" />
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-6 flex flex-col gap-6">
+        <div className="border-t pt-4">
+          <Bone className="mb-3 h-3 w-12" />
+          <Bone className="h-9 w-full rounded-md" />
+        </div>
+        <div className="border-t pt-4">
+          <Bone className="mb-3 h-3 w-16" />
+          <div className="mb-3 flex justify-between">
+            <Bone className="h-3 w-6" />
+            <Bone className="h-3 w-8" />
+          </div>
+          <Bone className="h-1.5 w-full rounded-full" />
+        </div>
+        <div className="border-t pt-4">
+          <Bone className="mb-3 h-3 w-20" />
+          <div className="flex flex-col gap-2.5">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Bone key={i} className="h-3.75 w-24" />
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

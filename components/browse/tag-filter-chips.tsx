@@ -67,16 +67,9 @@ export function TagFilterChips({
             className="group/chip flex shrink-0 flex-col items-center gap-2.5 border-b-2 border-transparent pb-2.5"
             style={isSelected ? { borderColor: tag.color } : undefined}
           >
-            {/* rounded-[22%] approximates the iOS app icon squircle corner
-                ratio. No border: iOS icons have no visible stroke, just a
-                flat color fill and a soft shadow. Color comes from the
-                database via inline style rather than a per-tag CSS class,
-                since tags are editable data with no fixed set of colors
-                to pre-write classes for. The shadow swaps instantly
-                instead of transitioning: animating between two
-                differently structured multi-layer box shadows produces a
-                visible pop partway through rather than a smooth grow. The
-                icon itself never moves on hover, only the emoji scales. */}
+            {/* Color comes from the database via inline style rather 
+                than a per-tag CSS class, since tags are editable data with 
+                no fixed set of colors to pre-write classes for. */}
             <span
               className={cn(
                 "relative flex size-20 items-center justify-center overflow-hidden rounded-[22%] shadow-sm",
