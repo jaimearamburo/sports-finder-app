@@ -32,17 +32,13 @@ export default function Home({
   searchParams: Promise<BrowseSearchParams>;
 }) {
   return (
-    <div className="group/browse mx-auto grid w-full max-w-[1800px] grid-cols-[200px_minmax(0,1fr)] gap-8 px-4 sm:px-6 lg:px-8">
-      {/* Grid items stretch to fill their row's height by default, and a
-          sticky element already stretched to the full row has no room to
-          actually stick as the page scrolls. self-start sizes this to its
-          own content instead. top-17.25 is SiteHeader's h-17 (68px) plus
-          its border-b (1px) - the header's true rendered height, not just
-          its inner content div's. Using top-17 alone locks the sidebar 1px
-          early relative to the header's actual bottom edge, drifting by
-          that 1px on every scroll before it catches the lock. py-7 lives
-          on main, not here, so the sidebar sits flush against the header
-          from the very top of the page. */}
+    <div className="group/browse mx-auto grid w-full max-w-[1800px] grid-cols-[200px_minmax(0,1fr)] gap-8 px-4 sm:px-6">
+      {/* self-start: grid items stretch to fill row height by default,
+          which leaves a stretched sticky element no room to move.
+          top-17.25 is SiteHeader's h-17 (68px) plus its border-b (1px),
+          its true rendered height. py-7 lives here and on main, not on
+          the shared container, so the sidebar sits flush against the
+          header with no offset. */}
       <aside className="sticky top-17.25 self-start py-7">
         <Suspense fallback={<BrowseSidebarSkeleton />}>
           <BrowseSidebarSection />

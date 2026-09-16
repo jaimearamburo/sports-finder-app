@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
-import { CATEGORY_LABEL_TEXT_CLASS } from "@/components/browse/browse-sidebar-panel";
-import { TAG_LABEL_TEXT_CLASS } from "@/components/browse/tag-filter-chips";
+import { CATEGORY_LABEL_TEXT_CLASS, TAG_LABEL_TEXT_CLASS } from "@/lib/label-styles";
 import {
   CARD_EYEBROW_TEXT_CLASS,
   CARD_TITLE_TEXT_CLASS,
@@ -25,16 +24,24 @@ function Bone({ className }: { className?: string }) {
 // align-middle so it participates in that same line box instead of
 // forming its own flex layout, which would size itself independently of
 // line-height and end up shorter than the real text it stands in for.
-function TextBone({ textClass, className }: { textClass: string; className?: string }) {
+function TextBone({
+  as: Tag = "span",
+  textClass,
+  className,
+}: {
+  as?: "span" | "p";
+  textClass: string;
+  className?: string;
+}) {
   return (
-    <span className={textClass}>
+    <Tag className={textClass}>
       <span
         className={cn(
           "inline-block h-[0.85em] w-full animate-pulse rounded bg-foreground/10 align-middle",
           className
         )}
       />
-    </span>
+    </Tag>
   );
 }
 
@@ -51,14 +58,17 @@ export function BrowseSidebarSkeleton() {
             key={i}
             type="button"
             disabled
-            className="border-l-2 border-transparent px-2.5 py-2 text-left"
+            className={cn("border-l-2 border-transparent px-2.5 py-2 text-left", CATEGORY_LABEL_TEXT_CLASS)}
           >
+            {/* text-sm font-medium on the button itself, not just the
+                bone inside it, so its line box uses that line-height
+                rather than a taller default one. */}
             <TextBone textClass={CATEGORY_LABEL_TEXT_CLASS} className="w-28" />
           </button>
         ))}
       </div>
 
-      <div className="mt-6 flex flex-col gap-6">
+      {/* <div className="mt-6 flex flex-col gap-6">
         <div className="border-t pt-4">
           <Bone className="mb-3 h-3 w-12" />
           <Bone className="h-9 w-full rounded-md" />
@@ -79,7 +89,7 @@ export function BrowseSidebarSkeleton() {
             ))}
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
@@ -107,9 +117,9 @@ function ResourceCardSkeleton() {
     <div className="overflow-hidden rounded-[5px] border border-t-[3px] border-t-transparent">
       <Bone className="h-32 rounded-none" />
       <div className="p-3.5">
-        <TextBone textClass={CARD_EYEBROW_TEXT_CLASS} className="mb-1 w-16" />
-        <TextBone textClass={CARD_TITLE_TEXT_CLASS} className="mb-1.5 w-32" />
-        <TextBone textClass={CARD_VENUE_TEXT_CLASS} className="mb-2.5 w-36" />
+        <TextBone as="p" textClass={CARD_EYEBROW_TEXT_CLASS} className="mb-1 w-16" />
+        <TextBone as="p" textClass={CARD_TITLE_TEXT_CLASS} className="mb-1.5 w-32" />
+        <TextBone as="p" textClass={CARD_VENUE_TEXT_CLASS} className="mb-2.5 w-36" />
         <div className="flex items-baseline justify-between">
           <TextBone textClass={CARD_META_TEXT_CLASS} className="w-16" />
           <TextBone textClass={CARD_META_TEXT_CLASS} className="w-10" />

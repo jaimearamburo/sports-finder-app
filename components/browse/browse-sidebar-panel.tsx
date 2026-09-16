@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { CATEGORIES } from "@/lib/category-filters";
 import { BOOKING_TYPES } from "@/lib/booking-types";
 import { PRICE_MIN, PRICE_MAX, PRICE_STEP } from "@/lib/price-range";
+import { CATEGORY_LABEL_TEXT_CLASS } from "@/lib/label-styles";
 import {
   Select,
   SelectContent,
@@ -13,10 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-
-// Shared with BrowseSidebarSkeleton so the skeleton's category label bone
-// tracks whatever text size the real label uses.
-export const CATEGORY_LABEL_TEXT_CLASS = "text-sm font-medium";
 
 export type SidebarFilterValues = {
   category: string;
@@ -85,9 +82,9 @@ export function BrowseSidebarPanel({
             className={cn(
               "border-l-2 border-transparent px-2.5 py-2 text-left",
               CATEGORY_LABEL_TEXT_CLASS,
-              "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+              "text-muted-foreground hover:bg-foreground/3 hover:text-foreground/80",
               optimistic.category === cat.id &&
-                "border-primary bg-muted/60 font-semibold text-foreground"
+                "border-primary bg-foreground/3 text-foreground/80"
             )}
           >
             {cat.label}

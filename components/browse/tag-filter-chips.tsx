@@ -2,12 +2,9 @@
 
 import { startTransition, useOptimistic } from "react";
 import { cn } from "@/lib/utils";
+import { TAG_LABEL_TEXT_CLASS } from "@/lib/label-styles";
 
 type BrowseTag = { id: string; name: string; emoji: string; color: string };
-
-// Shared with TagFiltersSkeleton so the skeleton's label bone tracks
-// whatever text size the real label uses.
-export const TAG_LABEL_TEXT_CLASS = "text-sm font-medium";
 
 // Renders the actual chips with no knowledge of URLs or routing. TagFilters
 // owns the URL logic and passes a plain callback down; this component owns
@@ -49,7 +46,14 @@ export function TagFilterChips({
   }
 
   return (
-    <div className="mb-5 flex gap-5 overflow-x-auto pb-1" data-pending={isPending ? "" : undefined}>
+    // overflow-x-auto also clips vertically (CSS forces overflow-y to
+    // auto once overflow-x isn't visible), cutting off shadow blur at the
+    // row's edges. pt/pl/pr give the shadow room; the matching negative
+    // margins cancel that padding so the row's outer position is unchanged.
+    <div
+      className="-mt-2 -mr-2 -ml-2 mb-5 flex gap-4 overflow-x-auto pt-2 pr-2 pl-2 pb-1"
+      data-pending={isPending ? "" : undefined}
+    >
       {tags.map((tag) => {
         const isSelected = optimisticSelected.has(tag.name.toLowerCase());
 
@@ -72,15 +76,15 @@ export function TagFilterChips({
                 no fixed set of colors to pre-write classes for. */}
             <span
               className={cn(
-                "relative flex size-20 items-center justify-center overflow-hidden rounded-[22%] shadow-sm",
-                isSelected ? "shadow-lg" : "bg-muted"
+                "relative flex size-20 items-center justify-center overflow-hidden rounded-[20%] shadow-sm",
+                isSelected ? "shadow-lg" : "bg-gray-50"
               )}
               style={isSelected ? { backgroundColor: tag.color } : undefined}
             >
               {isSelected && (
                 <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-white/25 via-transparent to-black/10" />
               )}
-              <span className="relative inline-block text-2xl leading-none transition-transform duration-150 group-hover/chip:scale-[1.5]">
+              <span className="relative inline-block text-2xl leading-none transition-transform duration-150 group-hover/chip:scale-[1.4]">
                 {tag.emoji}
               </span>
             </span>

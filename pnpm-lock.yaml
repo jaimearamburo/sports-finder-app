@@ -32,6 +32,9 @@ importers:
       cn:
         specifier: ^0.3.0
         version: 0.3.0
+      figma-squircle:
+        specifier: ^1.1.0
+        version: 1.1.0
       lucide-react:
         specifier: ^1.31.0
         version: 1.31.0(react@19.2.4)
@@ -2117,6 +2120,9 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
+
+  figma-squircle@1.1.0:
+    resolution: {integrity: sha512-3aa6bOurrsybsuYo1TMRuasBpXgVjgnmOUtZ40il6e1dJF2lhTRq89z7oy1uzKDspbH3630rLZD2UvJqXDiktA==}
 
   figures@6.1.0:
     resolution: {integrity: sha512-d+l3qxjSesT4V7v2fh+QnmFnUWv9lSpjarhShNTgBOfA0ttejbQUAlHLitbjkoRiDulW0OPoQPYIGhIC8ohejg==}
@@ -5878,6 +5884,8 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.4):
     optionalDependencies:
       picomatch: 4.0.4
+
+  figma-squircle@1.1.0: {}
 
   figures@6.1.0:
     dependencies:

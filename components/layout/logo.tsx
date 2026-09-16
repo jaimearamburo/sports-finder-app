@@ -14,7 +14,7 @@ export function Logo({ size = "md", className }: { size?: "sm" | "md"; className
       {/* Oleo Script only has weights 400/700 — "Play" reads lighter
           through color rather than a lighter weight that doesn't exist in
           this typeface. */}
-      <span className="font-normal text-amber-500">Play</span>
+      <span className="font-normal text-blue-700">Play</span>
       <span className="font-bold text-foreground">Book</span>
     </Link>
   );
