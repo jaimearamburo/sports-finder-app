@@ -5,15 +5,15 @@
  * development, demos, and manual testing of the booking flows.
  *
  * Seeding order is not arbitrary — later steps depend on records created
- * by earlier ones (a Venue needs an owning User to exist first; a Resource
+ * by earlier ones (a Venue needs an owning User to exist first; a Listing
  * needs both a Venue and an Activity to exist first). The `main()` function
  * at the bottom reflects that dependency chain explicitly.
  *
  * Re-run safety: Activity, User, and Tag rows are looked up by a unique
  * field (name/email) via `upsert`, so re-running this script won't
- * duplicate them. Venue and Resource have no natural unique field to key
+ * duplicate them. Venue and Listing have no natural unique field to key
  * off, so re-running without first resetting the database (`prisma migrate
- * reset`) will create duplicate venues/resources — that's expected during
+ * reset`) will create duplicate venues/listings — that's expected during
  * local development.
  */
 
@@ -73,7 +73,7 @@ async function seedTags() {
 /**
  * Activity = a bookable category (Tennis, Padel, Camping, a Gym Class...).
  * `bookingMechanic` determines which booking UI and conflict-check logic
- * every Resource under this Activity uses — see schema.prisma for the full
+ * every Listing under this Activity uses — see schema.prisma for the full
  * explanation of each mechanic.
  *
  * Deliberately includes "Tennis Class" as a separate Activity from plain
@@ -172,6 +172,44 @@ async function linkActivityTags(
 }
 
 /**
+ * Platform-curated cities a Venue can belong to (see City in schema.prisma
+ * for why this is a table rather than a free-text field). Covers every
+ * state/territory so a venue can be seeded anywhere in the country with a
+ * correct timezone - ACT and most of NSW/VIC/TAS share Sydney's zone, but
+ * WA, SA, QLD, and NT each observe different UTC offsets and DST rules.
+ */
+async function seedCities() {
+  const cityDefinitions = [
+    { name: "Sydney", region: "NSW", timezone: "Australia/Sydney" },
+    { name: "Melbourne", region: "VIC", timezone: "Australia/Melbourne" },
+    { name: "Brisbane", region: "QLD", timezone: "Australia/Brisbane" },
+    { name: "Blue Mountains", region: "NSW", timezone: "Australia/Sydney" },
+    { name: "Perth", region: "WA", timezone: "Australia/Perth" },
+    { name: "Adelaide", region: "SA", timezone: "Australia/Adelaide" },
+    { name: "Canberra", region: "ACT", timezone: "Australia/Sydney" },
+    { name: "Hobart", region: "TAS", timezone: "Australia/Hobart" },
+    { name: "Darwin", region: "NT", timezone: "Australia/Darwin" },
+    { name: "Gold Coast", region: "QLD", timezone: "Australia/Brisbane" },
+    { name: "Newcastle", region: "NSW", timezone: "Australia/Sydney" },
+    { name: "Wollongong", region: "NSW", timezone: "Australia/Sydney" },
+    { name: "Cairns", region: "QLD", timezone: "Australia/Brisbane" },
+    { name: "Geelong", region: "VIC", timezone: "Australia/Melbourne" },
+  ];
+
+  const cities = await Promise.all(
+    cityDefinitions.map((city) =>
+      prisma.city.upsert({
+        where: { name: city.name },
+        update: { region: city.region, timezone: city.timezone },
+        create: city,
+      })
+    )
+  );
+
+  return Object.fromEntries(cities.map((c) => [c.name, c])) as Record<string, (typeof cities)[number]>;
+}
+
+/**
  * Seeds two venue-owner accounts and one regular end-user account.
  *
  * Alex is deliberately given two venues in different cities further down
@@ -207,47 +245,66 @@ async function seedUsers() {
  * Priya owns three (Green Valley, FitZone, Bayside Recreation) — entirely
  * separate from Alex's.
  */
-async function seedVenues(alexId: string, priyaId: string) {
+async function seedVenues(
+  alexId: string,
+  priyaId: string,
+  cities: Awaited<ReturnType<typeof seedCities>>
+) {
   const riverside = await prisma.venue.create({
-    data: { ownerId: alexId, name: "Riverside Sports Club", address: "12 Riverside Ave", city: "Sydney" },
+    data: { ownerId: alexId, name: "Riverside Sports Club", address: "12 Riverside Ave", cityId: cities["Sydney"].id },
   });
 
   const bondiPadel = await prisma.venue.create({
-    data: { ownerId: alexId, name: "Bondi Padel Center", address: "88 Beach Rd", city: "Sydney" },
+    data: { ownerId: alexId, name: "Bondi Padel Center", address: "88 Beach Rd", cityId: cities["Sydney"].id },
   });
 
   const greenValley = await prisma.venue.create({
-    data: { ownerId: priyaId, name: "Green Valley Campground", address: "4 Forest Trail", city: "Blue Mountains" },
+    data: {
+      ownerId: priyaId,
+      name: "Green Valley Campground",
+      address: "4 Forest Trail",
+      cityId: cities["Blue Mountains"].id,
+    },
   });
 
   const fitZone = await prisma.venue.create({
-    data: { ownerId: priyaId, name: "FitZone Gym", address: "200 Collins St", city: "Melbourne" },
+    data: { ownerId: priyaId, name: "FitZone Gym", address: "200 Collins St", cityId: cities["Melbourne"].id },
   });
 
   const bayside = await prisma.venue.create({
-    data: { ownerId: priyaId, name: "Bayside Recreation Centre", address: "10 Bayside Drive", city: "Brisbane" },
+    data: {
+      ownerId: priyaId,
+      name: "Bayside Recreation Centre",
+      address: "10 Bayside Drive",
+      cityId: cities["Brisbane"].id,
+    },
   });
 
   const coogeeRunClub = await prisma.venue.create({
-    data: { ownerId: alexId, name: "Coogee Run Club", address: "1 Beach St, Coogee Beach", city: "Sydney" },
+    data: {
+      ownerId: alexId,
+      name: "Coogee Run Club",
+      address: "1 Beach St, Coogee Beach",
+      cityId: cities["Sydney"].id,
+    },
   });
 
   return { riverside, bondiPadel, greenValley, fitZone, bayside, coogeeRunClub };
 }
 
 /**
- * Seeds the actual bookable Resources, one per Activity/Venue combination.
+ * Seeds the actual bookable Listings, one per Activity/Venue combination.
  * Grouped by booking mechanic below to make clear that each group requires
- * a different set of availability fields on Resource — see schema.prisma
+ * a different set of availability fields on Listing — see schema.prisma
  * for why each field group only applies to its corresponding mechanic.
  */
-async function seedResources(
+async function seedListings(
   activities: Awaited<ReturnType<typeof seedActivities>>,
   venues: Awaited<ReturnType<typeof seedVenues>>
 ) {
   // --- time_range: user chooses a start time + duration within bounds ---
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.riverside.id,
       activityId: activities["Tennis"].id,
@@ -262,7 +319,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.riverside.id,
       activityId: activities["Tennis"].id,
@@ -277,7 +334,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.bondiPadel.id,
       activityId: activities["Padel"].id,
@@ -292,7 +349,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.riverside.id,
       activityId: activities["Indoor Football"].id,
@@ -307,7 +364,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.riverside.id,
       activityId: activities["Basketball"].id,
@@ -322,7 +379,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.bondiPadel.id,
       activityId: activities["Beach Volleyball"].id,
@@ -337,7 +394,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.riverside.id,
       activityId: activities["Table Tennis"].id,
@@ -352,7 +409,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.riverside.id,
       activityId: activities["Rugby"].id,
@@ -367,7 +424,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.bayside.id,
       activityId: activities["Golf"].id,
@@ -382,7 +439,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.bayside.id,
       activityId: activities["Lap Swim"].id,
@@ -399,7 +456,7 @@ async function seedResources(
 
   // --- date_range: user chooses a start date + end date ---
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Camping"].id,
@@ -411,7 +468,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Camping"].id,
@@ -423,7 +480,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.fitZone.id,
       activityId: activities["Gym Day Pass"].id,
@@ -437,7 +494,7 @@ async function seedResources(
 
   // --- fixed_session: user books into one specific scheduled occurrence ---
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.riverside.id,
       activityId: activities["Tennis Class"].id,
@@ -450,7 +507,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.fitZone.id,
       activityId: activities["Gym Class"].id,
@@ -463,7 +520,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.fitZone.id,
       activityId: activities["Gym Class"].id,
@@ -476,7 +533,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.fitZone.id,
       activityId: activities["Yoga Class"].id,
@@ -489,7 +546,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.fitZone.id,
       activityId: activities["Spin Class"].id,
@@ -502,7 +559,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.fitZone.id,
       activityId: activities["Boxing Class"].id,
@@ -515,7 +572,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Guided Hike"].id,
@@ -528,7 +585,7 @@ async function seedResources(
     },
   });
 
-  await prisma.resource.create({
+  await prisma.listing.create({
     data: {
       venueId: venues.coogeeRunClub.id,
       activityId: activities["Group Run"].id,
@@ -545,18 +602,20 @@ async function seedResources(
 async function main() {
   console.log("Seeding database...");
 
-  // Order reflects real foreign-key dependencies: Tags and Activities have
-  // none, so they go first; linking them requires both to already exist;
-  // Venues require Users; Resources require both Venues and Activities.
+  // Order reflects real foreign-key dependencies: Tags, Activities, and
+  // Cities have none, so they go first; linking activities to tags
+  // requires both to already exist; Venues require Users and a City;
+  // Listings require both Venues and Activities.
   const tags = await seedTags();
   const activities = await seedActivities();
   await linkActivityTags(activities, tags);
+  const cities = await seedCities();
 
   const { alex, priya } = await seedUsers();
-  const venues = await seedVenues(alex.id, priya.id);
-  await seedResources(activities, venues);
+  const venues = await seedVenues(alex.id, priya.id, cities);
+  await seedListings(activities, venues);
 
-  console.log("Seeding complete: 17 tags, 18 activities, 3 users, 6 venues, 21 resources.");
+  console.log("Seeding complete: 17 tags, 18 activities, 14 cities, 3 users, 6 venues, 21 listings.");
 }
 
 main()

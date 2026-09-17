@@ -29,7 +29,7 @@ export function isCategoryId(value: string): value is CategoryId {
 }
 
 // "all" has no entry here since spreading undefined into an object
-// literal is a no-op, so no special case is needed in ResourceSection's
+// literal is a no-op, so no special case is needed in ListingSection's
 // query. This file never imports the full Prisma client, since that
 // pulls in Node-only runtime code Turbopack cannot bundle for the
 // browser, and BrowseSidebarPanel, a Client Component, imports from this

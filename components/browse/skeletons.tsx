@@ -5,12 +5,12 @@ import {
   CARD_TITLE_TEXT_CLASS,
   CARD_VENUE_TEXT_CLASS,
   CARD_META_TEXT_CLASS,
-} from "@/components/browse/resource-card";
+} from "@/components/browse/listing-card";
 
 // BrowseSidebarSkeleton and TagFiltersSkeleton satisfy Next.js's
 // requirement that any component calling useSearchParams() sits inside a
 // Suspense boundary. They render almost instantly since there is no real
-// data fetch behind them. ResourceGridSkeleton covers actual query time.
+// data fetch behind them. ListingGridSkeleton covers actual query time.
 
 function Bone({ className }: { className?: string }) {
   return <div className={cn("animate-pulse rounded bg-foreground/10", className)} />;
@@ -109,7 +109,7 @@ export function TagFiltersSkeleton() {
   );
 }
 
-function ResourceCardSkeleton() {
+function ListingCardSkeleton() {
   return (
     <div className="overflow-hidden rounded-[5px] border border-t-[3px] border-t-transparent">
       <Bone className="h-32 rounded-none" />
@@ -126,7 +126,7 @@ function ResourceCardSkeleton() {
   );
 }
 
-export function ResourceGridSkeleton() {
+export function ListingGridSkeleton() {
   // Two grouped sections, matching the shape of the default (unfiltered)
   // browse view, which groups results by tag.
   return (
@@ -136,7 +136,7 @@ export function ResourceGridSkeleton() {
           <TextBone textClass="text-lg font-semibold" className="mb-3 w-24" />
           <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <ResourceCardSkeleton key={i} />
+              <ListingCardSkeleton key={i} />
             ))}
           </div>
         </div>

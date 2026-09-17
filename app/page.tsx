@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { BrowseSidebar } from "@/components/browse/browse-sidebar";
 import { TagFilters } from "@/components/browse/tag-filters";
 import { QuickFilters } from "@/components/browse/quick-filters";
-import { ResourceSection, type BrowseSearchParams } from "@/components/browse/resource-section";
-import { BrowseSidebarSkeleton, TagFiltersSkeleton, ResourceGridSkeleton } from "@/components/browse/skeletons";
+import { ListingSection, type BrowseSearchParams } from "@/components/browse/listing-section";
+import { BrowseSidebarSkeleton, TagFiltersSkeleton, ListingGridSkeleton } from "@/components/browse/skeletons";
 import { getBrowseTags } from "@/lib/browse-tags";
 import { getBrowseCities } from "@/lib/browse-cities";
 
@@ -23,9 +23,9 @@ async function BrowseSidebarSection() {
 
 // The browse and landing page. Every filter control writes to the URL
 // instead of local state. Data fetching lives in separate components
-// (BrowseSidebarSection, TagFilterSection, ResourceSection), each wrapped
+// (BrowseSidebarSection, TagFilterSection, ListingSection), each wrapped
 // in Suspense so the sidebar and chip row render immediately regardless of
-// how long the resources query takes.
+// how long the listings query takes.
 export default function Home({
   searchParams,
 }: {
@@ -57,9 +57,9 @@ export default function Home({
             existing results visible, dimmed and blurred through
             data-pending, while the new ones load. */}
         <div className="group-has-data-pending/browse:blur-[1px] group-has-data-pending/browse:opacity-30 transition-[filter,opacity] duration-200">
-          <Suspense fallback={<ResourceGridSkeleton />}>
+          <Suspense fallback={<ListingGridSkeleton />}>
             {searchParams.then((params) => (
-              <ResourceSection searchParams={params} />
+              <ListingSection searchParams={params} />
             ))}
           </Suspense>
         </div>

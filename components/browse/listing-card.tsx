@@ -1,37 +1,37 @@
 import Link from "next/link";
-import type { Activity, Resource, Tag, Venue } from "../../generated/prisma/client";
+import type { Activity, City, Listing, Tag, Venue } from "../../generated/prisma/client";
 import { cn } from "@/lib/utils";
 
-export type ResourceCardData = Resource & {
+export type ListingCardData = Listing & {
   activity: Activity & { tags: { tag: Tag }[] };
-  venue: Venue;
+  venue: Venue & { city: City };
 };
 
-// A Resource's Activity can carry several tags. "Tennis Class" is tagged
+// A Listing's Activity can carry several tags. "Tennis Class" is tagged
 // both "Tennis" and "Classes". Anything that needs one representative tag
-// for this resource (this card's accent color, and the browse page's
+// for this listing (this card's accent color, and the browse page's
 // section grouping) uses the first, so both agree on the same tag. Returns
 // the full Tag record rather than just its name; callers that only need
 // the name for grouping read `.name` off the result.
-export function getPrimaryTag(resource: ResourceCardData): Tag | undefined {
-  return resource.activity.tags[0]?.tag;
+export function getPrimaryTag(listing: ListingCardData): Tag | undefined {
+  return listing.activity.tags[0]?.tag;
 }
 
 // Booking-mechanic-specific line: duration bounds, day range, or session
 // length plus spots.
-function getMetaLine(resource: ResourceCardData): string {
-  switch (resource.activity.bookingMechanic) {
+function getMetaLine(listing: ListingCardData): string {
+  switch (listing.activity.bookingMechanic) {
     case "time_range":
-      return `${resource.minDurationMinutes}–${resource.maxDurationMinutes} min`;
+      return `${listing.minDurationMinutes}–${listing.maxDurationMinutes} min`;
     case "date_range":
-      return `${resource.minDurationDays}–${resource.maxDurationDays} day${resource.maxDurationDays === 1 ? "" : "s"}`;
+      return `${listing.minDurationDays}–${listing.maxDurationDays} day${listing.maxDurationDays === 1 ? "" : "s"}`;
     case "fixed_session":
-      return `${resource.sessionDurationMinutes} min · ${resource.capacity === null ? "Unlimited spots" : `${resource.capacity} spots`}`;
+      return `${listing.sessionDurationMinutes} min · ${listing.capacity === null ? "Unlimited spots" : `${listing.capacity} spots`}`;
   }
 }
 
-function getPriceSuffix(resource: ResourceCardData): string {
-  switch (resource.activity.bookingMechanic) {
+function getPriceSuffix(listing: ListingCardData): string {
+  switch (listing.activity.bookingMechanic) {
     case "time_range":
       return "/hr";
     case "date_range":
@@ -41,25 +41,25 @@ function getPriceSuffix(resource: ResourceCardData): string {
   }
 }
 
-export function ResourceGrid({ resources }: { resources: ResourceCardData[] }) {
+export function ListingGrid({ listings }: { listings: ListingCardData[] }) {
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
-      {resources.map((resource) => (
-        <ResourceCard key={resource.id} resource={resource} />
+      {listings.map((listing) => (
+        <ListingCard key={listing.id} listing={listing} />
       ))}
     </div>
   );
 }
 
-// Shared with ResourceCardSkeleton so the skeleton's text bones track
+// Shared with ListingCardSkeleton so the skeleton's text bones track
 // whatever typography the real card uses.
 export const CARD_EYEBROW_TEXT_CLASS = "text-xs font-bold tracking-wide uppercase";
 export const CARD_TITLE_TEXT_CLASS = "text-[1.05rem] leading-tight font-semibold";
 export const CARD_VENUE_TEXT_CLASS = "text-sm";
 export const CARD_META_TEXT_CLASS = "text-sm";
 
-export function ResourceCard({ resource }: { resource: ResourceCardData }) {
-  const tag = getPrimaryTag(resource);
+export function ListingCard({ listing }: { listing: ListingCardData }) {
+  const tag = getPrimaryTag(listing);
 
   return (
     <Link
@@ -75,18 +75,18 @@ export function ResourceCard({ resource }: { resource: ResourceCardData }) {
       <div className="grid h-32 place-items-center bg-muted/60 text-3xl">{tag?.emoji}</div>
       <div className="p-3.5">
         <p className={cn(CARD_EYEBROW_TEXT_CLASS, "mb-1")} style={{ color: tag?.color }}>
-          {resource.activity.name}
+          {listing.activity.name}
         </p>
-        <p className={CARD_TITLE_TEXT_CLASS}>{resource.name}</p>
+        <p className={CARD_TITLE_TEXT_CLASS}>{listing.name}</p>
         <p className={cn(CARD_VENUE_TEXT_CLASS, "mb-2.5 text-muted-foreground")}>
-          {resource.venue.name}, {resource.venue.city}
+          {listing.venue.name}, {listing.venue.city.name}
         </p>
         <div className={cn(CARD_META_TEXT_CLASS, "flex items-baseline justify-between text-muted-foreground")}>
-          <span>{getMetaLine(resource)}</span>
+          <span>{getMetaLine(listing)}</span>
           <span className="font-mono font-semibold text-foreground">
-            {Number(resource.pricePerUnit) === 0
+            {Number(listing.pricePerUnit) === 0
               ? "Free"
-              : `$${resource.pricePerUnit.toString()}${getPriceSuffix(resource)}`}
+              : `$${listing.pricePerUnit.toString()}${getPriceSuffix(listing)}`}
           </span>
         </div>
       </div>
