@@ -316,6 +316,15 @@ model Listing {
   // Null means inherit the venue's default.
   holdDurationMinutes Int? @map("hold_duration_minutes")
 
+  // Null = active and bookable; a timestamp = archived (retired from the
+  // browse page and new bookings) as of that time. A venue owner retiring
+  // "Court 1" sets this instead of deleting the row - deleting would
+  // cascade and destroy every past Booking against it, which is exactly
+  // the history-loss Booking's own onDelete: Restrict below exists to
+  // prevent. Archiving is the only supported way to retire a listing with
+  // any booking history; a listing with none can still be hard-deleted.
+  archivedAt DateTime? @map("archived_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -336,14 +345,17 @@ model Listing {
 // is no separate "slot" row anywhere in this schema.
 //
 // Conflict prevention is NOT a unique constraint (capacity can be > 1). It's
-// enforced in application code inside a transaction: before inserting, count
-// existing bookings on this listingId whose [startsAt, endsAt) range
-// overlaps the requested range and whose status != cancelled; reject the new
-// booking if that count is already >= listing.capacity. For a capacity-1
-// listing (a court), this means any overlap at all is rejected — for a
-// capacity-20 class, up to 20 overlapping bookings are allowed before the
-// 21st is rejected. Same rule, same code path, for every activity type.
-// The index below on (listingId, startsAt, endsAt) keeps that overlap
+// enforced in application code inside a transaction: before inserting, sum
+// the `quantity` of existing bookings on this listingId whose [startsAt,
+// endsAt) range overlaps the requested range and whose status != cancelled;
+// reject the new booking if that sum plus its own requested quantity would
+// exceed listing.capacity. Summing quantity rather than counting rows is
+// what lets one booking legitimately claim more than one spot (a group of 4
+// booking one yoga class in a single purchase) without the capacity check
+// under- or over-counting them. For a capacity-1 listing (a court), this
+// still means any overlap at all is rejected, since even a single quantity-1
+// booking already exhausts it. Same rule, same code path, for every activity
+// type. The index below on (listingId, startsAt, endsAt) keeps that overlap
 // query fast as bookings grow.
 //
 // Guest bookings: userId is nullable. When null, guestName/guestEmail are
@@ -368,13 +380,22 @@ model Booking {
   endsAt   DateTime      @map("ends_at")
   status   BookingStatus @default(pending)
 
+  // How many units of listing.capacity this one booking claims - 1 for an
+  // exclusive-use court (where capacity is 1 anyway), or more for a group
+  // claiming several spots in one class/session in a single purchase.
+  quantity Int @default(1)
+
   stripeCheckoutSessionId String?  @map("stripe_checkout_session_id")
   amountPaid              Decimal? @map("amount_paid") @db.Decimal(10, 2)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  // onDelete: Restrict (not Cascade) is deliberate, the same reasoning as
+  // Venue.owner below - a Listing with any booking history attached can't
+  // be hard-deleted out from under it. Retiring a listing sets
+  // Listing.archivedAt instead; see that field's comment.
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Restrict)
   // onDelete: SetNull (not Cascade) is deliberate — if a user account is
   // ever deleted, their past bookings should still exist for the venue's
   // records, just detached from the (now-gone) account rather than erased.

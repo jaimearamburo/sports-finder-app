@@ -240,10 +240,13 @@ async function seedUsers() {
 }
 
 /**
- * Seeds six venues across four cities, split between the two owners created
- * in seedUsers(). Alex owns three (Riverside, Bondi Padel, Coogee Run Club);
- * Priya owns three (Green Valley, FitZone, Bayside Recreation) — entirely
- * separate from Alex's.
+ * Seeds nine venues across seven cities, split between the two owners
+ * created in seedUsers(). Alex owns four (Riverside, Bondi Padel, Coogee
+ * Run Club, Adelaide Recreation Centre); Priya owns five (Green Valley,
+ * FitZone, Bayside Recreation, Perth Sports Hub, Canberra Court Club) —
+ * entirely separate from Alex's. Perth/Adelaide/Canberra exist mainly to
+ * spread the extra court-type listings below across more than one venue
+ * per activity, rather than stacking five basketball courts at one club.
  */
 async function seedVenues(
   alexId: string,
@@ -289,7 +292,39 @@ async function seedVenues(
     },
   });
 
-  return { riverside, bondiPadel, greenValley, fitZone, bayside, coogeeRunClub };
+  const perthSportsHub = await prisma.venue.create({
+    data: { ownerId: priyaId, name: "Perth Sports Hub", address: "22 Riverside Blvd", cityId: cities["Perth"].id },
+  });
+
+  const adelaideRecreation = await prisma.venue.create({
+    data: {
+      ownerId: alexId,
+      name: "Adelaide Recreation Centre",
+      address: "5 Rundle Street",
+      cityId: cities["Adelaide"].id,
+    },
+  });
+
+  const canberraCourtClub = await prisma.venue.create({
+    data: {
+      ownerId: priyaId,
+      name: "Canberra Court Club",
+      address: "9 Commonwealth Ave",
+      cityId: cities["Canberra"].id,
+    },
+  });
+
+  return {
+    riverside,
+    bondiPadel,
+    greenValley,
+    fitZone,
+    bayside,
+    coogeeRunClub,
+    perthSportsHub,
+    adelaideRecreation,
+    canberraCourtClub,
+  };
 }
 
 /**
@@ -336,6 +371,36 @@ async function seedListings(
 
   await prisma.listing.create({
     data: {
+      venueId: venues.riverside.id,
+      activityId: activities["Tennis"].id,
+      name: "Court 3",
+      capacity: 1,
+      pricePerUnit: 22,
+      operatingHoursStart: "09:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 120,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.riverside.id,
+      activityId: activities["Tennis"].id,
+      name: "Court 4",
+      capacity: 1,
+      pricePerUnit: 22,
+      operatingHoursStart: "09:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 120,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
       venueId: venues.bondiPadel.id,
       activityId: activities["Padel"].id,
       name: "Padel Court 1",
@@ -343,6 +408,66 @@ async function seedListings(
       pricePerUnit: 60,
       operatingHoursStart: "07:00",
       operatingHoursEnd: "22:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.bondiPadel.id,
+      activityId: activities["Padel"].id,
+      name: "Padel Court 2",
+      capacity: 1,
+      pricePerUnit: 60,
+      operatingHoursStart: "07:00",
+      operatingHoursEnd: "22:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.bondiPadel.id,
+      activityId: activities["Padel"].id,
+      name: "Padel Court 3",
+      capacity: 1,
+      pricePerUnit: 65,
+      operatingHoursStart: "07:00",
+      operatingHoursEnd: "22:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.perthSportsHub.id,
+      activityId: activities["Padel"].id,
+      name: "Padel Court 1",
+      capacity: 1,
+      pricePerUnit: 55,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.perthSportsHub.id,
+      activityId: activities["Padel"].id,
+      name: "Padel Court 2",
+      capacity: 1,
+      pricePerUnit: 55,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "21:00",
       minDurationMinutes: 60,
       maxDurationMinutes: 90,
       incrementMinutes: 30,
@@ -367,10 +492,130 @@ async function seedListings(
   await prisma.listing.create({
     data: {
       venueId: venues.riverside.id,
+      activityId: activities["Indoor Football"].id,
+      name: "Indoor Pitch 2",
+      capacity: 1,
+      pricePerUnit: 65,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "23:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 120,
+      incrementMinutes: 60,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.perthSportsHub.id,
+      activityId: activities["Indoor Football"].id,
+      name: "Football Pitch",
+      capacity: 1,
+      pricePerUnit: 58,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "22:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 120,
+      incrementMinutes: 60,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.adelaideRecreation.id,
+      activityId: activities["Indoor Football"].id,
+      name: "Football Pitch",
+      capacity: 1,
+      pricePerUnit: 55,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "22:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 120,
+      incrementMinutes: 60,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.canberraCourtClub.id,
+      activityId: activities["Indoor Football"].id,
+      name: "Football Pitch",
+      capacity: 1,
+      pricePerUnit: 60,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "22:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 120,
+      incrementMinutes: 60,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.riverside.id,
       activityId: activities["Basketball"].id,
       name: "Basketball Court",
       capacity: 1,
       pricePerUnit: 25,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "22:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.riverside.id,
+      activityId: activities["Basketball"].id,
+      name: "Basketball Court 2",
+      capacity: 1,
+      pricePerUnit: 25,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "22:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.perthSportsHub.id,
+      activityId: activities["Basketball"].id,
+      name: "Basketball Court",
+      capacity: 1,
+      pricePerUnit: 28,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "22:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.adelaideRecreation.id,
+      activityId: activities["Basketball"].id,
+      name: "Basketball Court",
+      capacity: 1,
+      pricePerUnit: 24,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "22:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.canberraCourtClub.id,
+      activityId: activities["Basketball"].id,
+      name: "Basketball Court",
+      capacity: 1,
+      pricePerUnit: 26,
       operatingHoursStart: "08:00",
       operatingHoursEnd: "22:00",
       minDurationMinutes: 30,
@@ -396,6 +641,66 @@ async function seedListings(
 
   await prisma.listing.create({
     data: {
+      venueId: venues.bondiPadel.id,
+      activityId: activities["Beach Volleyball"].id,
+      name: "Beach Volleyball Court 2",
+      capacity: 1,
+      pricePerUnit: 32,
+      operatingHoursStart: "07:00",
+      operatingHoursEnd: "22:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.perthSportsHub.id,
+      activityId: activities["Beach Volleyball"].id,
+      name: "Volleyball Court",
+      capacity: 1,
+      pricePerUnit: 30,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.adelaideRecreation.id,
+      activityId: activities["Beach Volleyball"].id,
+      name: "Volleyball Court",
+      capacity: 1,
+      pricePerUnit: 28,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.canberraCourtClub.id,
+      activityId: activities["Beach Volleyball"].id,
+      name: "Volleyball Court",
+      capacity: 1,
+      pricePerUnit: 29,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 90,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
       venueId: venues.riverside.id,
       activityId: activities["Table Tennis"].id,
       name: "Table Tennis Table",
@@ -412,6 +717,126 @@ async function seedListings(
   await prisma.listing.create({
     data: {
       venueId: venues.riverside.id,
+      activityId: activities["Table Tennis"].id,
+      name: "Table Tennis Table 2",
+      capacity: 1,
+      pricePerUnit: 10,
+      operatingHoursStart: "09:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 60,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.perthSportsHub.id,
+      activityId: activities["Table Tennis"].id,
+      name: "Table Tennis Table",
+      capacity: 1,
+      pricePerUnit: 12,
+      operatingHoursStart: "09:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 60,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.adelaideRecreation.id,
+      activityId: activities["Table Tennis"].id,
+      name: "Table Tennis Table",
+      capacity: 1,
+      pricePerUnit: 10,
+      operatingHoursStart: "09:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 60,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.canberraCourtClub.id,
+      activityId: activities["Table Tennis"].id,
+      name: "Table Tennis Table",
+      capacity: 1,
+      pricePerUnit: 11,
+      operatingHoursStart: "09:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 60,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.riverside.id,
+      activityId: activities["Rugby"].id,
+      name: "Rugby Pitch",
+      capacity: 1,
+      pricePerUnit: 70,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "20:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 120,
+      incrementMinutes: 60,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.riverside.id,
+      activityId: activities["Rugby"].id,
+      name: "Rugby Pitch 2",
+      capacity: 1,
+      pricePerUnit: 72,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "20:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 120,
+      incrementMinutes: 60,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.perthSportsHub.id,
+      activityId: activities["Rugby"].id,
+      name: "Rugby Pitch",
+      capacity: 1,
+      pricePerUnit: 68,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "20:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 120,
+      incrementMinutes: 60,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.adelaideRecreation.id,
+      activityId: activities["Rugby"].id,
+      name: "Rugby Pitch",
+      capacity: 1,
+      pricePerUnit: 65,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "20:00",
+      minDurationMinutes: 60,
+      maxDurationMinutes: 120,
+      incrementMinutes: 60,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.canberraCourtClub.id,
       activityId: activities["Rugby"].id,
       name: "Rugby Pitch",
       capacity: 1,
@@ -442,12 +867,132 @@ async function seedListings(
   await prisma.listing.create({
     data: {
       venueId: venues.bayside.id,
+      activityId: activities["Golf"].id,
+      name: "Golf Bay 2",
+      capacity: 1,
+      pricePerUnit: 35,
+      operatingHoursStart: "07:00",
+      operatingHoursEnd: "19:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 120,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.bayside.id,
+      activityId: activities["Golf"].id,
+      name: "Golf Bay 3",
+      capacity: 1,
+      pricePerUnit: 38,
+      operatingHoursStart: "07:00",
+      operatingHoursEnd: "19:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 120,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.perthSportsHub.id,
+      activityId: activities["Golf"].id,
+      name: "Golf Bay",
+      capacity: 1,
+      pricePerUnit: 32,
+      operatingHoursStart: "07:00",
+      operatingHoursEnd: "19:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 120,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.adelaideRecreation.id,
+      activityId: activities["Golf"].id,
+      name: "Golf Bay",
+      capacity: 1,
+      pricePerUnit: 34,
+      operatingHoursStart: "07:00",
+      operatingHoursEnd: "19:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 120,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.bayside.id,
       activityId: activities["Lap Swim"].id,
       name: "Lap Swim Lane 1",
       capacity: 1, // one lane per booking, exclusive use like a court
       pricePerUnit: 15,
       operatingHoursStart: "06:00",
       operatingHoursEnd: "21:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 60,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.bayside.id,
+      activityId: activities["Lap Swim"].id,
+      name: "Lap Swim Lane 2",
+      capacity: 1,
+      pricePerUnit: 15,
+      operatingHoursStart: "06:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 60,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.bayside.id,
+      activityId: activities["Lap Swim"].id,
+      name: "Lap Swim Lane 3",
+      capacity: 1,
+      pricePerUnit: 15,
+      operatingHoursStart: "06:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 60,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.perthSportsHub.id,
+      activityId: activities["Lap Swim"].id,
+      name: "Lap Swim Lane",
+      capacity: 1,
+      pricePerUnit: 16,
+      operatingHoursStart: "06:00",
+      operatingHoursEnd: "20:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 60,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.adelaideRecreation.id,
+      activityId: activities["Lap Swim"].id,
+      name: "Lap Swim Lane",
+      capacity: 1,
+      pricePerUnit: 14,
+      operatingHoursStart: "06:00",
+      operatingHoursEnd: "20:00",
       minDurationMinutes: 30,
       maxDurationMinutes: 60,
       incrementMinutes: 30,
@@ -475,6 +1020,42 @@ async function seedListings(
       name: "Campsite B",
       capacity: 1,
       pricePerUnit: 45,
+      minDurationDays: 1,
+      maxDurationDays: 7,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.greenValley.id,
+      activityId: activities["Camping"].id,
+      name: "Campsite C",
+      capacity: 1,
+      pricePerUnit: 45,
+      minDurationDays: 1,
+      maxDurationDays: 14,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.greenValley.id,
+      activityId: activities["Camping"].id,
+      name: "Campsite D",
+      capacity: 1,
+      pricePerUnit: 50,
+      minDurationDays: 1,
+      maxDurationDays: 10,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.greenValley.id,
+      activityId: activities["Camping"].id,
+      name: "Campsite E",
+      capacity: 1,
+      pricePerUnit: 40,
       minDurationDays: 1,
       maxDurationDays: 7,
     },
@@ -549,12 +1130,64 @@ async function seedListings(
   await prisma.listing.create({
     data: {
       venueId: venues.fitZone.id,
+      activityId: activities["Yoga Class"].id,
+      name: "Thursday 6pm Yoga",
+      capacity: 15,
+      pricePerUnit: 12,
+      recurrenceDayOfWeek: 4, // Thursday
+      recurrenceStartTime: "18:00",
+      sessionDurationMinutes: 60,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.fitZone.id,
+      activityId: activities["Yoga Class"].id,
+      name: "Sunday 8am Yoga",
+      capacity: 15,
+      pricePerUnit: 14,
+      recurrenceDayOfWeek: 0, // Sunday
+      recurrenceStartTime: "08:00",
+      sessionDurationMinutes: 60,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.fitZone.id,
       activityId: activities["Spin Class"].id,
       name: "Thursday 6pm Spin",
       capacity: 20,
       pricePerUnit: 18,
       recurrenceDayOfWeek: 4, // Thursday
       recurrenceStartTime: "18:00",
+      sessionDurationMinutes: 45,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.fitZone.id,
+      activityId: activities["Spin Class"].id,
+      name: "Tuesday 7am Spin",
+      capacity: 20,
+      pricePerUnit: 18,
+      recurrenceDayOfWeek: 2, // Tuesday
+      recurrenceStartTime: "07:00",
+      sessionDurationMinutes: 45,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.fitZone.id,
+      activityId: activities["Spin Class"].id,
+      name: "Saturday 9am Spin",
+      capacity: 20,
+      pricePerUnit: 18,
+      recurrenceDayOfWeek: 6, // Saturday
+      recurrenceStartTime: "09:00",
       sessionDurationMinutes: 45,
     },
   });
@@ -574,6 +1207,32 @@ async function seedListings(
 
   await prisma.listing.create({
     data: {
+      venueId: venues.fitZone.id,
+      activityId: activities["Boxing Class"].id,
+      name: "Monday 7pm Boxing",
+      capacity: 15,
+      pricePerUnit: 20,
+      recurrenceDayOfWeek: 1, // Monday
+      recurrenceStartTime: "19:00",
+      sessionDurationMinutes: 45,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.fitZone.id,
+      activityId: activities["Boxing Class"].id,
+      name: "Saturday 10am Boxing",
+      capacity: 15,
+      pricePerUnit: 22,
+      recurrenceDayOfWeek: 6, // Saturday
+      recurrenceStartTime: "10:00",
+      sessionDurationMinutes: 45,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
       venueId: venues.greenValley.id,
       activityId: activities["Guided Hike"].id,
       name: "Saturday 8am Guided Hike",
@@ -587,6 +1246,32 @@ async function seedListings(
 
   await prisma.listing.create({
     data: {
+      venueId: venues.greenValley.id,
+      activityId: activities["Guided Hike"].id,
+      name: "Wednesday 2pm Guided Hike",
+      capacity: null,
+      pricePerUnit: 0,
+      recurrenceDayOfWeek: 3, // Wednesday
+      recurrenceStartTime: "14:00",
+      sessionDurationMinutes: 120,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.greenValley.id,
+      activityId: activities["Guided Hike"].id,
+      name: "Sunday 9am Guided Hike",
+      capacity: null,
+      pricePerUnit: 0,
+      recurrenceDayOfWeek: 0, // Sunday
+      recurrenceStartTime: "09:00",
+      sessionDurationMinutes: 150,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
       venueId: venues.coogeeRunClub.id,
       activityId: activities["Group Run"].id,
       name: "Saturday 7am Group Run",
@@ -594,6 +1279,32 @@ async function seedListings(
       pricePerUnit: 0,
       recurrenceDayOfWeek: 6, // Saturday
       recurrenceStartTime: "07:00",
+      sessionDurationMinutes: 60,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.coogeeRunClub.id,
+      activityId: activities["Group Run"].id,
+      name: "Wednesday 6pm Group Run",
+      capacity: null,
+      pricePerUnit: 0,
+      recurrenceDayOfWeek: 3, // Wednesday
+      recurrenceStartTime: "18:00",
+      sessionDurationMinutes: 60,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.coogeeRunClub.id,
+      activityId: activities["Group Run"].id,
+      name: "Sunday 8am Group Run",
+      capacity: null,
+      pricePerUnit: 0,
+      recurrenceDayOfWeek: 0, // Sunday
+      recurrenceStartTime: "08:00",
       sessionDurationMinutes: 60,
     },
   });
@@ -615,7 +1326,7 @@ async function main() {
   const venues = await seedVenues(alex.id, priya.id, cities);
   await seedListings(activities, venues);
 
-  console.log("Seeding complete: 17 tags, 18 activities, 14 cities, 3 users, 6 venues, 21 listings.");
+  console.log("Seeding complete: 17 tags, 18 activities, 14 cities, 3 users, 9 venues, 68 listings.");
 }
 
 main()

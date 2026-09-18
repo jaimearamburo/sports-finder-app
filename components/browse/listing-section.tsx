@@ -55,6 +55,9 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
 
   const listings = await prisma.listing.findMany({
     where: {
+      // Retired listings (see Listing.archivedAt) are kept for their
+      // booking history but should never show up as bookable again.
+      archivedAt: null,
       activity: activityConditions.length > 0 ? { AND: activityConditions } : undefined,
       venue: city ? { city: { name: city } } : undefined,
       // PRICE_MAX is an open-ended "$100+" bound, so only the lower end
