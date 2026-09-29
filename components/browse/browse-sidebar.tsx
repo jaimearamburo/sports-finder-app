@@ -14,7 +14,6 @@ export function BrowseSidebar({ cities }: { cities: string[] }) {
 
   const category = searchParams.get("category") ?? "all";
   const city = searchParams.get("city") ?? "";
-  const types = new Set((searchParams.get("type") ?? "").split(",").filter(Boolean));
   const priceMin = Number(searchParams.get("priceMin") ?? PRICE_MIN);
   const priceMax = Number(searchParams.get("priceMax") ?? PRICE_MAX);
 
@@ -34,12 +33,6 @@ export function BrowseSidebar({ cities }: { cities: string[] }) {
       params.delete("city");
     } else {
       params.set("city", next.city);
-    }
-
-    if (next.types.size === 0) {
-      params.delete("type");
-    } else {
-      params.set("type", Array.from(next.types).join(","));
     }
 
     if (next.priceMin <= PRICE_MIN) {
@@ -64,7 +57,6 @@ export function BrowseSidebar({ cities }: { cities: string[] }) {
       cities={cities}
       category={category}
       city={city}
-      types={types}
       priceMin={priceMin}
       priceMax={priceMax}
       changeAction={changeAction}

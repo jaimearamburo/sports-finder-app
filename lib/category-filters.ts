@@ -1,22 +1,20 @@
-// Sidebar categories are a small, fixed, hand-picked grouping, not a
-// database table. Tags are deliberately cross-cutting: an Activity can
-// carry several, for example "Tennis Class" is tagged both "Tennis" and
-// "Classes" (see schema.prisma), so a rigid category-owns-tags hierarchy
-// would fight that design. Each category below is just a shortcut for one
-// Activity-level condition, ANDed with whatever tags are separately
-// selected in app/page.tsx.
-//
-// Tag display data (emoji, color, order) lives on the Tag model itself
-// (see schema.prisma and lib/browse-tags.ts) so the admin UI can edit it
-// without a code deploy. Categories stay hardcoded here on purpose: they
-// are a small curated product decision that rarely changes, not editable
-// data.
+// Sidebar categories are the booking-mechanic axis (see Activity.bookingMechanic
+// in schema.prisma), not a hand-picked tag grouping. An earlier version of
+// this file mapped some categories to tags (Classes, Gym, Camping) and only
+// one to a mechanic (Courts for hire) — that mix made this filter fully
+// redundant with the sidebar's separate "Booking type" checklist, since both
+// ultimately narrowed by mechanic. Folding them into one mechanic-only
+// control removes that duplication; id and BookingMechanic value are now the
+// same string, so no lookup table is needed to turn a selection into a
+// Prisma condition (see ListingSection). Tags stay entirely separate and
+// freely combinable with this filter (e.g. "Classes" + "Tennis" together
+// still narrows to Tennis classes specifically) — deliberately not merged
+// in here even though "Classes" exists as both a category and a tag.
 export const CATEGORIES = [
   { id: "all", label: "All" },
-  { id: "courts", label: "Courts for hire" },
-  { id: "classes", label: "Classes" },
-  { id: "gym", label: "Gym" },
-  { id: "camping", label: "Camping" },
+  { id: "time_range", label: "Book a time" },
+  { id: "fixed_session", label: "Classes" },
+  { id: "date_range", label: "Multi-day" },
 ] as const;
 
 export type CategoryId = (typeof CATEGORIES)[number]["id"];
@@ -28,16 +26,11 @@ export function isCategoryId(value: string): value is CategoryId {
   return CATEGORIES.some((category) => category.id === value);
 }
 
-// "all" has no entry here since spreading undefined into an object
-// literal is a no-op, so no special case is needed in ListingSection's
-// query. This file never imports the full Prisma client, since that
-// pulls in Node-only runtime code Turbopack cannot bundle for the
-// browser, and BrowseSidebarPanel, a Client Component, imports from this
-// file. That is why "time_range" below is a plain string literal instead
-// of the generated BookingMechanic enum.
-export const CATEGORY_FILTERS = {
-  courts: { bookingMechanic: "time_range" as const },
-  classes: { tags: { some: { tag: { name: "Classes" } } } },
-  gym: { tags: { some: { tag: { name: "Fitness" } } } },
-  camping: { tags: { some: { tag: { name: "Camping" } } } },
-};
+// The three real mechanics, in display order, with no "all" entry — used
+// wherever a mechanic-specific list is needed (ListingSection's grouping
+// headers) rather than the full sidebar list. This file never imports the
+// full Prisma client, since that pulls in Node-only runtime code Turbopack
+// cannot bundle for the browser, and BrowseSidebarPanel, a Client Component,
+// imports from this file. That is why the ids below are plain string
+// literals instead of the generated BookingMechanic enum.
+export const MECHANIC_CATEGORIES = CATEGORIES.filter((category) => category.id !== "all");

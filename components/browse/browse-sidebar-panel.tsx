@@ -3,7 +3,6 @@
 import { startTransition, useOptimistic, useState } from "react";
 import { cn } from "@/lib/utils";
 import { CATEGORIES } from "@/lib/category-filters";
-import { BOOKING_TYPES } from "@/lib/booking-types";
 import { PRICE_MIN, PRICE_MAX, PRICE_STEP } from "@/lib/price-range";
 import { CATEGORY_LABEL_TEXT_CLASS } from "@/lib/label-styles";
 import {
@@ -18,24 +17,24 @@ import { Slider } from "@/components/ui/slider";
 export type SidebarFilterValues = {
   category: string;
   city: string;
-  types: Set<string>;
   priceMin: number;
   priceMax: number;
 };
 
-// Renders every sidebar filter (category, city, booking type, price) with
-// no knowledge of URLs or routing. BrowseSidebar owns the URL logic and
-// passes a plain callback down; this component owns the optimistic display
-// and pending state for all of them and calls that callback inside its own
-// transition. Separating a component that reads useSearchParams() from one
-// that manages useOptimistic/startTransition state keeps rapid filter
-// changes from contending with each other during rerenders, the same
-// pattern used to split TagFilters from TagFilterChips.
+// Renders every sidebar filter (category, city, price) with no knowledge of
+// URLs or routing. BrowseSidebar owns the URL logic and passes a plain
+// callback down; this component owns the optimistic display and pending
+// state for all of them and calls that callback inside its own transition.
+// Separating a component that reads useSearchParams() from one that manages
+// useOptimistic/startTransition state keeps rapid filter changes from
+// contending with each other during rerenders, the same pattern used to
+// split TagFilters from TagFilterChips. Category now covers the
+// booking-mechanic axis on its own (see lib/category-filters.ts) — there is
+// deliberately no separate booking-type control alongside it any more.
 export function BrowseSidebarPanel({
   cities,
   category,
   city,
-  types,
   priceMin,
   priceMax,
   changeAction,
@@ -46,7 +45,6 @@ export function BrowseSidebarPanel({
   const [optimistic, setOptimistic] = useOptimistic<SidebarFilterValues>({
     category,
     city,
-    types,
     priceMin,
     priceMax,
   });
@@ -58,16 +56,6 @@ export function BrowseSidebarPanel({
       setIsPending(true);
       changeAction(next);
     });
-  }
-
-  function toggleType(id: string) {
-    const nextTypes = new Set(optimistic.types);
-    if (nextTypes.has(id)) {
-      nextTypes.delete(id);
-    } else {
-      nextTypes.add(id);
-    }
-    commitFilters({ ...optimistic, types: nextTypes });
   }
 
   return (
@@ -123,28 +111,6 @@ export function BrowseSidebarPanel({
           priceMax={optimistic.priceMax}
           onCommit={(min, max) => commitFilters({ ...optimistic, priceMin: min, priceMax: max })}
         />
-
-        <div className="border-t pt-4">
-          <h3 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Booking type
-          </h3>
-          <div className="flex flex-col gap-2.5">
-            {BOOKING_TYPES.map((type) => (
-              <label
-                key={type.id}
-                className="flex items-center gap-2.5 text-sm text-muted-foreground"
-              >
-                <input
-                  type="checkbox"
-                  className="size-3.75 accent-primary"
-                  checked={optimistic.types.has(type.id)}
-                  onChange={() => toggleType(type.id)}
-                />
-                {type.label}
-              </label>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
