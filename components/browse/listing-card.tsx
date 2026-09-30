@@ -18,8 +18,9 @@ export function getPrimaryTag(listing: ListingCardData): Tag | undefined {
 }
 
 // Booking-mechanic-specific line: duration bounds, day range, or session
-// length plus spots.
-function getMetaLine(listing: ListingCardData): string {
+// length plus spots. Exported so the listing detail page can reuse the
+// exact same compact wording rather than re-deriving it.
+export function getMetaLine(listing: ListingCardData): string {
   switch (listing.activity.bookingMechanic) {
     case "time_range":
       return `${listing.minDurationMinutes}–${listing.maxDurationMinutes} min`;
@@ -30,7 +31,7 @@ function getMetaLine(listing: ListingCardData): string {
   }
 }
 
-function getPriceSuffix(listing: ListingCardData): string {
+export function getPriceSuffix(listing: ListingCardData): string {
   switch (listing.activity.bookingMechanic) {
     case "time_range":
       return "/hr";
@@ -39,6 +40,14 @@ function getPriceSuffix(listing: ListingCardData): string {
     case "fixed_session":
       return "";
   }
+}
+
+// "Free" for a zero price rather than "$0" - shared by the card and the
+// detail page so this formatting rule only lives in one place.
+export function formatPrice(listing: ListingCardData): string {
+  return Number(listing.pricePerUnit) === 0
+    ? "Free"
+    : `$${listing.pricePerUnit.toString()}${getPriceSuffix(listing)}`;
 }
 
 export function ListingGrid({ listings }: { listings: ListingCardData[] }) {
@@ -63,7 +72,7 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
 
   return (
     <Link
-      href="#"
+      href={`/listings/${listing.id}`}
       // Color comes from the database via inline style rather than a
       // per-tag CSS class, since tags are editable data with no fixed set
       // of colors to pre-write classes for. Only the top edge picks up
@@ -83,11 +92,7 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
         </p>
         <div className={cn(CARD_META_TEXT_CLASS, "flex items-baseline justify-between text-muted-foreground")}>
           <span>{getMetaLine(listing)}</span>
-          <span className="font-mono font-semibold text-foreground">
-            {Number(listing.pricePerUnit) === 0
-              ? "Free"
-              : `$${listing.pricePerUnit.toString()}${getPriceSuffix(listing)}`}
-          </span>
+          <span className="font-mono font-semibold text-foreground">{formatPrice(listing)}</span>
         </div>
       </div>
     </Link>
