@@ -6,9 +6,17 @@ import { prisma } from "@/lib/prisma";
 // multiple tags left at the default order value fall back to a stable,
 // readable alphabetical order instead of whatever arbitrary order
 // Postgres returns for ties.
+//
+// "Classes" is excluded from this list on purpose, not deleted from the
+// database - as it's redundant with the Classes category (see
+// lib/category-filters.ts's mechanic-based CATEGORIES), so it no longer
+// needs its own quick-filter chip, but the Tag row and its ActivityTag
+// links stay intact (Tennis Class, Gym Class, etc. keep it) in case
+// anything still filters on it directly.
 export const getBrowseTags = unstable_cache(
   () =>
     prisma.tag.findMany({
+      where: { name: { not: "Classes" } },
       select: { id: true, name: true, emoji: true, color: true },
       orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
     }),
