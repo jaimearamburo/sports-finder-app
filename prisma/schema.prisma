@@ -445,8 +445,9 @@ model AvailabilityOverride {
   // one-off rule for the single date range below instead.
   daysOfWeek Int[] @map("days_of_week")
 
-  // One-off: the date(s) this override covers. Recurring: the date range
-  // during which the weekly rule is active (endDate null = indefinite).
+  // No endDate at all means this override applies on startDate only - a
+  // single day - regardless of daysOfWeek. Set endDate to actually get
+  // recurring behavior: daysOfWeek is only consulted across a real range.
   startDate DateTime  @map("start_date") @db.Date
   endDate   DateTime? @map("end_date") @db.Date
 

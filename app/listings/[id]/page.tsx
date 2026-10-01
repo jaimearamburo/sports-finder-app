@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/listings/back-button";
+import { formatTimeOfDay } from "@/lib/time-of-day";
 import {
   getMetaLine,
   formatPrice,
@@ -9,19 +10,6 @@ import {
 } from "@/components/browse/listing-card";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-// Listing.operatingHoursStart/End and recurrenceStartTime are stored as
-// plain "HH:MM" wall-clock strings (see schema.prisma) - not full
-// timestamps - so this is pure string formatting, not a timezone
-// conversion. The value already IS the venue's local time; there's
-// nothing to convert it from or to.
-function formatTimeOfDay(time: string): string {
-  const [hourStr, minute] = time.split(":");
-  const hour = Number(hourStr);
-  const period = hour < 12 ? "AM" : "PM";
-  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-  return `${displayHour}:${minute} ${period}`;
-}
 
 // The schedule-specific fact getMetaLine's compact card wording doesn't
 // already cover: operating hours for time_range, which day/time a

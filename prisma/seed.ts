@@ -339,7 +339,7 @@ async function seedListings(
 ) {
   // --- time_range: user chooses a start time + duration within bounds ---
 
-  await prisma.listing.create({
+  const court1 = await prisma.listing.create({
     data: {
       venueId: venues.riverside.id,
       activityId: activities["Tennis"].id,
@@ -1088,7 +1088,7 @@ async function seedListings(
     },
   });
 
-  await prisma.listing.create({
+  const mondayHiit = await prisma.listing.create({
     data: {
       venueId: venues.fitZone.id,
       activityId: activities["Gym Class"].id,
@@ -1308,6 +1308,44 @@ async function seedListings(
       sessionDurationMinutes: 60,
     },
   });
+
+  return { court1, mondayHiit };
+}
+
+function daysFromNowUTC(days: number): Date {
+  const d = new Date();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + days));
+}
+
+function nextWeekdayOnOrAfter(date: Date, weekday: number): Date {
+  const diff = (weekday - date.getUTCDay() + 7) % 7;
+  return new Date(date.getTime() + diff * 24 * 60 * 60 * 1000);
+}
+
+// Two sample rows so lib/availability.ts's override resolution actually
+// has something to resolve - there's no admin UI to create these yet, so
+// without seed data this whole code path would be untested. Dates are
+// computed relative to "now" rather than hardcoded, so they stay
+// meaningful (block still upcoming, open still past the 30-day window)
+// no matter when the seed script runs.
+async function seedAvailabilityOverrides(listings: Awaited<ReturnType<typeof seedListings>>) {
+  await prisma.availabilityOverride.create({
+    data: {
+      listingId: listings.court1.id,
+      kind: "block",
+      startDate: daysFromNowUTC(5),
+      reason: "Court closed for resurfacing",
+    },
+  });
+
+  await prisma.availabilityOverride.create({
+    data: {
+      listingId: listings.mondayHiit.id,
+      kind: "open",
+      startDate: nextWeekdayOnOrAfter(daysFromNowUTC(45), 1), // a Monday, well past the default 30-day window
+      reason: "Special extra session",
+    },
+  });
 }
 
 async function main() {
@@ -1324,7 +1362,8 @@ async function main() {
 
   const { alex, priya } = await seedUsers();
   const venues = await seedVenues(alex.id, priya.id, cities);
-  await seedListings(activities, venues);
+  const listings = await seedListings(activities, venues);
+  await seedAvailabilityOverrides(listings);
 
   console.log("Seeding complete: 17 tags, 18 activities, 14 cities, 3 users, 9 venues, 68 listings.");
 }
