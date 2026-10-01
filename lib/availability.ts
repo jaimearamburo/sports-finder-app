@@ -62,7 +62,7 @@ export async function getBookableDates(listing: AvailabilityListing): Promise<Da
   const windowEnd = addDays(today, listing.venue.bookingWindowDays);
   const hardCap = addDays(today, MAX_OPEN_EXTENSION_DAYS);
 
-  // fetch overrides. This query
+  // fetch overrides.
   const overrides = await prisma.availabilityOverride.findMany({
     where: {
       AND: [
