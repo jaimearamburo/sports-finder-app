@@ -1,19 +1,12 @@
 import type { Activity, AvailabilityOverride, Listing, Venue } from "../generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { minutesSinceMidnight } from "@/lib/time-of-day";
+import { startOfUTCDay, addDays } from "@/lib/dates";
 
 type AvailabilityListing = Listing & {
   venue: Pick<Venue, "bookingWindowDays">;
   activity: Pick<Activity, "bookingMechanic">;
 };
-
-function startOfUTCDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-}
-
-function addDays(date: Date, days: number): Date {
-  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
-}
 
 // Does this override apply on a given calendar date? No endDate at all
 // means it applies on startDate only - a single day - whether or not
@@ -62,7 +55,6 @@ export async function getBookableDates(listing: AvailabilityListing): Promise<Da
   const windowEnd = addDays(today, listing.venue.bookingWindowDays);
   const hardCap = addDays(today, MAX_OPEN_EXTENSION_DAYS);
 
-  // fetch overrides.
   const overrides = await prisma.availabilityOverride.findMany({
     where: {
       AND: [
