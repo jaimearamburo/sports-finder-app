@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatTimeOfDay, minutesSinceMidnight } from "@/lib/time-of-day";
-import type { PickerListing, SelectedSlot } from "./picker-types";
+import type { PickerListing, SelectedSlots } from "./picker-types";
 
 function formatOccurrenceDate(date: Date): string {
   return date.toLocaleDateString("en-AU", {
@@ -24,7 +24,7 @@ export function FixedSessionPicker({
 }: {
   listing: PickerListing;
   bookableDates: Date[];
-  onSelect: (slot: SelectedSlot | null) => void;
+  onSelect: (slots: SelectedSlots | null) => void;
 }) {
   const [selected, setSelected] = useState<number | null>(null);
 
@@ -46,7 +46,7 @@ export function FixedSessionPicker({
         startMinutes % 60
       )
     );
-    onSelect({ startsAt, endsAt: new Date(startsAt.getTime() + sessionDurationMinutes * 60000) });
+    onSelect([{ startsAt, endsAt: new Date(startsAt.getTime() + sessionDurationMinutes * 60000) }]);
   }
 
   return (

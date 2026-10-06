@@ -15,6 +15,19 @@ export type PickerListing = {
   maxDurationDays: number | null;
   recurrenceStartTime: string | null;
   sessionDurationMinutes: number | null;
+  // Only meaningful for date_range (see the field's own comment in
+  // schema.prisma) - decides both the calendar's interaction mode and the
+  // day/night wording in DateRangePicker.
+  isAccommodation: boolean;
 };
 
+// One atomic bookable span. Every mechanic produces one of these per
+// selection, except a non-accommodation date_range listing (a pass),
+// which produces one per individually-picked day - a "3-day pass"
+// selecting the 19th/23rd/30th is three separate one-day spans, not one
+// span covering the whole range (that would wrongly claim the gap days
+// too). SelectedSlots is always the array, even when every other mechanic
+// only ever puts one entry in it - that keeps SlotPicker's price/total
+// logic the same regardless of how many spans a given mechanic produces.
 export type SelectedSlot = { startsAt: Date; endsAt: Date };
+export type SelectedSlots = SelectedSlot[];

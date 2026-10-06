@@ -69,6 +69,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
     maxDurationDays: listing.maxDurationDays,
     recurrenceStartTime: listing.recurrenceStartTime,
     sessionDurationMinutes: listing.sessionDurationMinutes,
+    isAccommodation: listing.activity.isAccommodation,
   };
 
   return (

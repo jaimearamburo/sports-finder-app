@@ -213,8 +213,23 @@ model Activity {
   bookingMechanic BookingMechanic @map("booking_mechanic")
   description     String?
   icon            String?
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  // Only meaningful when bookingMechanic = date_range. true = accommodation
+  // semantics (explicit check-in/check-out, even for a 1-night stay,
+  // "night(s)" wording, one contiguous range) - e.g. Camping. false = a
+  // pass/ticket (pick which individual day(s) it covers, "day(s)" wording,
+  // non-contiguous multi-select) - e.g. a gym day pass. This binary doesn't
+  // cover every possible date_range product - a future "equipment rental"
+  // style listing (a contiguous range like accommodation, but "day" wording
+  // like a pass) wouldn't fit either value correctly. Not solved for now
+  // since nothing like it exists in this project yet; revisit as a richer
+  // type (not a boolean) if it ever does. Lives here, not on Listing, for
+  // the same reason bookingMechanic does: every Listing under one Activity
+  // should behave identically, not risk drifting row by row.
+  isAccommodation Boolean @default(false) @map("is_accommodation")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   listings Listing[]
   tags     ActivityTag[]

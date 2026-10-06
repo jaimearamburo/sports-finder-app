@@ -82,32 +82,42 @@ async function seedTags() {
  * (time_range). Same sport, genuinely different product and booking logic.
  */
 async function seedActivities() {
-  const definitions = [
-    { name: "Tennis", bookingMechanic: "time_range" as const },
-    { name: "Padel", bookingMechanic: "time_range" as const },
-    { name: "Indoor Football", bookingMechanic: "time_range" as const },
-    { name: "Camping", bookingMechanic: "date_range" as const },
-    { name: "Tennis Class", bookingMechanic: "fixed_session" as const },
-    { name: "Gym Class", bookingMechanic: "fixed_session" as const },
-    { name: "Yoga Class", bookingMechanic: "fixed_session" as const },
-    { name: "Basketball", bookingMechanic: "time_range" as const },
-    { name: "Beach Volleyball", bookingMechanic: "time_range" as const },
-    { name: "Table Tennis", bookingMechanic: "time_range" as const },
-    { name: "Rugby", bookingMechanic: "time_range" as const },
-    { name: "Golf", bookingMechanic: "time_range" as const },
-    { name: "Lap Swim", bookingMechanic: "time_range" as const },
-    { name: "Spin Class", bookingMechanic: "fixed_session" as const },
-    { name: "Boxing Class", bookingMechanic: "fixed_session" as const },
-    { name: "Guided Hike", bookingMechanic: "fixed_session" as const },
-    { name: "Group Run", bookingMechanic: "fixed_session" as const },
-    { name: "Gym Day Pass", bookingMechanic: "date_range" as const },
+  // isAccommodation only matters for date_range activities (Camping,
+  // Gym Day Pass) - see the field's own comment in schema.prisma for why
+  // it's a boolean here and not something richer.
+  const definitions: {
+    name: string;
+    bookingMechanic: "time_range" | "date_range" | "fixed_session";
+    isAccommodation?: boolean;
+  }[] = [
+    { name: "Tennis", bookingMechanic: "time_range" },
+    { name: "Padel", bookingMechanic: "time_range" },
+    { name: "Indoor Football", bookingMechanic: "time_range" },
+    { name: "Camping", bookingMechanic: "date_range", isAccommodation: true },
+    { name: "Tennis Class", bookingMechanic: "fixed_session" },
+    { name: "Gym Class", bookingMechanic: "fixed_session" },
+    { name: "Yoga Class", bookingMechanic: "fixed_session" },
+    { name: "Basketball", bookingMechanic: "time_range" },
+    { name: "Beach Volleyball", bookingMechanic: "time_range" },
+    { name: "Table Tennis", bookingMechanic: "time_range" },
+    { name: "Rugby", bookingMechanic: "time_range" },
+    { name: "Golf", bookingMechanic: "time_range" },
+    { name: "Lap Swim", bookingMechanic: "time_range" },
+    { name: "Spin Class", bookingMechanic: "fixed_session" },
+    { name: "Boxing Class", bookingMechanic: "fixed_session" },
+    { name: "Guided Hike", bookingMechanic: "fixed_session" },
+    { name: "Group Run", bookingMechanic: "fixed_session" },
+    { name: "Gym Day Pass", bookingMechanic: "date_range" },
   ];
 
   const activities = await Promise.all(
     definitions.map((activity) =>
       prisma.activity.upsert({
         where: { name: activity.name },
-        update: {},
+        // Updates isAccommodation on every run (not just creation) so the
+        // existing live Camping/Gym Day Pass rows actually pick up the
+        // field now that it's been added, not just future-reset databases.
+        update: { isAccommodation: activity.isAccommodation ?? false },
         create: activity,
       })
     )
@@ -233,7 +243,7 @@ async function seedUsers() {
   const jamie = await prisma.user.upsert({
     where: { email: "jamie.user@example.com" },
     update: {},
-    create: { name: "Jamie Rogers", email: "jaime.user@example.com", role: "user" },
+    create: { name: "Jamie Rogers", email: "jamie.user@example.com", role: "user" },
   });
 
   return { alex, priya, jamie };

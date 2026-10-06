@@ -24,8 +24,14 @@ export function getMetaLine(listing: ListingCardData): string {
   switch (listing.activity.bookingMechanic) {
     case "time_range":
       return `${listing.minDurationMinutes}–${listing.maxDurationMinutes} min`;
-    case "date_range":
-      return `${listing.minDurationDays}–${listing.maxDurationDays} day${listing.maxDurationDays === 1 ? "" : "s"}`;
+    case "date_range": {
+      // Wording and range-vs-exact phrasing both key off isAccommodation,
+      // not the day counts themselves - a 3-day pass should never read as
+      // "3 nights", (and conversely a 1-night camping stay still needs "night," not "day").
+      const { minDurationDays: min, maxDurationDays: max } = listing;
+      const unit = listing.activity.isAccommodation ? "night" : "day";
+      return min === max ? `${min} ${unit}${min === 1 ? "" : "s"}` : `${min}–${max} ${unit}s`;
+    }
     case "fixed_session":
       return `${listing.sessionDurationMinutes} min · ${listing.capacity === null ? "Unlimited spots" : `${listing.capacity} spots`}`;
   }
@@ -36,7 +42,7 @@ export function getPriceSuffix(listing: ListingCardData): string {
     case "time_range":
       return "/hr";
     case "date_range":
-      return "/day";
+      return listing.activity.isAccommodation ? "/night" : "/day";
     case "fixed_session":
       return "";
   }

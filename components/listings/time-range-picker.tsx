@@ -4,7 +4,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { startOfUTCDay } from "@/lib/dates";
 import { formatTimeOfDay, minutesSinceMidnight } from "@/lib/time-of-day";
-import type { PickerListing, SelectedSlot } from "./picker-types";
+import type { PickerListing, SelectedSlots } from "./picker-types";
 
 const CHIP_CLASS =
   "shrink-0 rounded-md border px-3 py-2 text-sm font-medium transition-colors";
@@ -32,7 +32,7 @@ export function TimeRangePicker({
 }: {
   listing: PickerListing;
   bookableDates: Date[];
-  onSelect: (slot: SelectedSlot | null) => void;
+  onSelect: (slots: SelectedSlots | null) => void;
 }) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
@@ -91,7 +91,7 @@ export function TimeRangePicker({
         startMinutes % 60
       )
     );
-    onSelect({ startsAt, endsAt: new Date(startsAt.getTime() + selectedDuration * 60000) });
+    onSelect([{ startsAt, endsAt: new Date(startsAt.getTime() + selectedDuration * 60000) }]);
   }
 
   return (
