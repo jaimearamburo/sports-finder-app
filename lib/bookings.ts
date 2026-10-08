@@ -12,7 +12,7 @@ export const bookListing = withAuth(
   ): Promise<BookListingResult> => {
     const listing = await prisma.listing.findUnique({
       where: { id: input.listingId },
-      include: { venue: true, activity: true },
+      include: { venue: { include: { city: true } }, activity: true },
     });
 
     if (!listing || listing.archivedAt) {
@@ -27,6 +27,24 @@ export const bookListing = withAuth(
     }
 
     const quantity = input.quantity ?? 1;
+
+    // ?? only catches null/undefined - a crafted 0 or negative quantity
+    // would otherwise sail through, both dodging the capacity check below
+    // (alreadyBooked + quantity > capacity gets harder or impossible to
+    // trip) and permanently corrupting this listing's remaining-capacity
+    // math afterward, since quantity gets summed into every later
+    // overlap/capacity query (this function's own aggregate above, and
+    // getSpotsRemaining).
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return { ok: false, error: "Invalid quantity." };
+    }
+
+    // The quantity stepper's own max is just UX - this is the check that
+    // actually matters, same "never trust the client" reasoning as
+    // isRequestedSlotValid above.
+    if (listing.maxBookingsPerTransaction !== null && quantity > listing.maxBookingsPerTransaction) {
+      return { ok: false, error: `This listing allows at most ${listing.maxBookingsPerTransaction} per booking.` };
+    }
 
     try {
       const booking = await prisma.$transaction(async (tx) => {

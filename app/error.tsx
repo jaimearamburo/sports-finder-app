@@ -1,9 +1,48 @@
-'use client'
+"use client";
 
-export default function Error({}){
+import { useEffect } from "react";
+import Link from "next/link";
+import { TriangleAlert } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+
+// The root error boundary - catches any uncaught error thrown while
+// rendering a route under app/ (Next.js's own error.tsx convention: it
+// receives `error` and must call `reset` to retry). Deliberately never
+// shows error.message/stack to the visitor - that's internal detail, not
+// something a user can act on, and could leak implementation details in
+// production - only its `digest` (a short, stable reference Next.js
+// attaches to the server log entry for this error) so a real user could
+// quote it if they contact support.
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
   return (
-  <>
-    <span className="inline-block p-1 px-2 bg-red-500 text-white rounded-sm m-1">error :(</span>
-  </>
+    <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-3 px-4 py-24 text-center">
+      <TriangleAlert className="size-14 text-destructive" />
+      <h1 className="text-2xl font-bold">Something went wrong</h1>
+      <p className="text-muted-foreground">
+        We hit an unexpected error loading this page. It&apos;s on us, not you - try again, or head back to
+        browsing in the meantime.
+      </p>
+      {error.digest && (
+        <p className="font-mono text-xs text-muted-foreground/60">Reference: {error.digest}</p>
+      )}
+      <div className="mt-3 flex gap-3">
+        <Button variant="default" onClick={reset}>
+          Try again
+        </Button>
+        <Link href="/" className={buttonVariants({ variant: "outline" })}>
+          Back to browse
+        </Link>
+      </div>
+    </div>
   );
 }

@@ -1,51 +1,55 @@
 "use client";
 
-import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
+import { QuickFiltersPanel, type QuickFilterValues } from "@/components/browse/quick-filters-panel";
 
-// Visual only, as per the mockup - not wired to the query yet. Sort and
-// Top rated were dropped: Sort has no real signal to sort on yet (no
-// popularity/distance data), and Top rated depends on reviews (explicitly
-// cut from MVP scope). Available today and Under $30 stay - Available
-// today is real product intent (per the mechanic-based default: courts
-// narrowed to today, classes/multi-day show everything), just not
-// wireable to an actual query until the availability/conflict-check
-// engine (ticket 5.4) exists; Under $30 is a deliberate fast one-tap
-// shortcut kept alongside the sidebar's price slider, not a duplicate to
-// remove.
-const PILLS = ["Available today", "Under $30"];
-
+// Owns the "date", "priceMin", and "priceMax" URL params directly (clone/
+// set-or-delete/push) and nothing else - the same router-only role
+// TagFilters plays for TagFilterChips, and BrowseSidebar plays for
+// BrowseSidebarPanel. Reads the current values from searchParams and
+// exposes one changeAction callback; all rendering, optimistic display,
+// and pending state lives in QuickFiltersPanel. One router component
+// owning several different quick filters as one value object (rather than
+// a separate router per pill) matches BrowseSidebar's own shape - each
+// pill here is a different kind of thing (a calendar pick vs. a price
+// toggle), not interchangeable instances of the same filter the way tag
+// chips are. priceMin/priceMax are the same params BrowseSidebar's own
+// price slider already reads and writes - both components independently
+// read/write the same URL keys, which is fine since the URL itself is the
+// single shared source of truth, not local state either one owns.
 export function QuickFilters() {
-  const [active, setActive] = useState<Set<string>>(new Set(["Available today"]));
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  function toggle(pill: string) {
-    setActive((prev) => {
-      const next = new Set(prev);
-      if (next.has(pill)) {
-        next.delete(pill);
-      } else {
-        next.add(pill);
-      }
-      return next;
-    });
+  const date = searchParams.get("date") ?? "";
+  const priceMin = searchParams.get("priceMin") ? Number(searchParams.get("priceMin")) : PRICE_MIN;
+  const priceMax = searchParams.get("priceMax") ? Number(searchParams.get("priceMax")) : PRICE_MAX;
+
+  function changeAction(next: QuickFilterValues) {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (next.date) {
+      params.set("date", next.date);
+    } else {
+      params.delete("date");
+    }
+
+    if (next.priceMin > PRICE_MIN) {
+      params.set("priceMin", String(next.priceMin));
+    } else {
+      params.delete("priceMin");
+    }
+
+    if (next.priceMax < PRICE_MAX) {
+      params.set("priceMax", String(next.priceMax));
+    } else {
+      params.delete("priceMax");
+    }
+
+    router.push(`${pathname}?${params.toString()}`);
   }
 
-  return (
-    <div className="mb-7 flex items-center gap-2.5 overflow-x-auto">
-      {PILLS.map((pill) => (
-        <button
-          key={pill}
-          type="button"
-          onClick={() => toggle(pill)}
-          aria-pressed={active.has(pill)}
-          className={cn(
-            "h-9 shrink-0 rounded-md border bg-card px-3.5 text-sm font-medium text-muted-foreground hover:border-foreground/50 hover:text-foreground",
-            active.has(pill) && "border-foreground bg-foreground text-background hover:border-foreground hover:text-background"
-          )}
-        >
-          {pill}
-        </button>
-      ))}
-    </div>
-  );
+  return <QuickFiltersPanel date={date} priceMin={priceMin} priceMax={priceMax} changeAction={changeAction} />;
 }

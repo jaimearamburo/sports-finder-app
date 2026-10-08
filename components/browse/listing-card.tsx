@@ -5,6 +5,14 @@ import { cn } from "@/lib/utils";
 export type ListingCardData = Listing & {
   activity: Activity & { tags: { tag: Tag }[] };
   venue: Venue & { city: City };
+  // Only ever attached for fixed_session listings, and only when the
+  // browse page's date filter is active (see ListingSection) - undefined
+  // means "no date filter," which getMetaLine reads as "show general
+  // capacity metadata" instead of a live count. A fixed_session listing
+  // that doesn't occur on the filtered date is excluded from the grid
+  // entirely rather than reaching this field with some "not held" state -
+  // see ListingSection's per-date filtering.
+  dateFilterSpots?: { spotsLeft: number | null };
 };
 
 // A Listing's Activity can carry several tags. "Tennis Class" is tagged
@@ -19,7 +27,13 @@ export function getPrimaryTag(listing: ListingCardData): Tag | undefined {
 
 // Booking-mechanic-specific line: duration bounds, day range, or session
 // length plus spots. Exported so the listing detail page can reuse the
-// exact same compact wording rather than re-deriving it.
+// exact same compact wording rather than re-deriving it. Fully data-driven
+// off what's attached to the listing - no caller-supplied mode - so the
+// detail page (which never sets dateFilterSpots) and the browse grid's
+// default, unfiltered state naturally agree on the cheap, query-free
+// "capacity" wording, while the browse grid's date-filtered state (the
+// only time dateFilterSpots is set - see ListingSection) gets the live
+// count instead.
 export function getMetaLine(listing: ListingCardData): string {
   switch (listing.activity.bookingMechanic) {
     case "time_range":
@@ -32,8 +46,19 @@ export function getMetaLine(listing: ListingCardData): string {
       const unit = listing.activity.isAccommodation ? "night" : "day";
       return min === max ? `${min} ${unit}${min === 1 ? "" : "s"}` : `${min}–${max} ${unit}s`;
     }
-    case "fixed_session":
-      return `${listing.sessionDurationMinutes} min · ${listing.capacity === null ? "Unlimited spots" : `${listing.capacity} spots`}`;
+    case "fixed_session": {
+      if (!listing.dateFilterSpots) {
+        return `${listing.sessionDurationMinutes} min · ${listing.capacity === null ? "Unlimited spots" : `max ${listing.capacity} spots`}`;
+      }
+      const { spotsLeft } = listing.dateFilterSpots;
+      const spotsText =
+        spotsLeft === null
+          ? null // unlimited capacity - nothing to report
+          : spotsLeft <= 0
+            ? "Fully booked"
+            : `${spotsLeft} spot${spotsLeft === 1 ? "" : "s"} left`;
+      return spotsText ? `${listing.sessionDurationMinutes} min · ${spotsText}` : `${listing.sessionDurationMinutes} min`;
+    }
   }
 }
 
@@ -84,7 +109,15 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
       // of colors to pre-write classes for. Only the top edge picks up
       // the tag color; the other three sides stay the default neutral
       // border.
-      className="block overflow-hidden rounded-[5px] border border-t-[3px] bg-card text-card-foreground transition-shadow hover:shadow-md"
+      // h-full matters only in the carousel path (HorizontalScrollRow
+      // wraps this in its own flex-item div, which stretches to match its
+      // tallest sibling by flex's default align-items: stretch - but
+      // without h-full this Link stayed at its own content height inside
+      // that taller wrapper, so cards with a short venue/city line looked
+      // visibly shorter than ones that wrapped to two lines). A no-op in
+      // the plain grid path, where this Link is already the direct grid
+      // item CSS Grid itself stretches.
+      className="block h-full overflow-hidden rounded-[5px] border border-t-[3px] bg-card text-card-foreground transition-shadow hover:shadow-md"
       style={{ borderTopColor: tag?.color }}
     >
       <div className="grid h-32 place-items-center bg-muted/60 text-3xl">{tag?.emoji}</div>

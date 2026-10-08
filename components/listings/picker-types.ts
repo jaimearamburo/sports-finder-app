@@ -19,6 +19,19 @@ export type PickerListing = {
   // schema.prisma) - decides both the calendar's interaction mode and the
   // day/night wording in DateRangePicker.
   isAccommodation: boolean;
+  // null = unlimited open spots (see the field's own comment in
+  // schema.prisma) - SlotPicker uses this to decide whether a quantity
+  // stepper makes sense at all (never, for a capacity-1 exclusive-use
+  // court) and to cap how high it can go.
+  capacity: number | null;
+  // Per-purchase cap on top of capacity itself - see the field's own
+  // comment in schema.prisma. Null means no cap beyond capacity.
+  maxBookingsPerTransaction: number | null;
+  // IANA timezone (from the listing's Venue -> City) that every
+  // date/time computation in the pickers is anchored to - operating
+  // hours, recurrence times, and "today" are all wall-clock-at-the-venue,
+  // not wall-clock-for-whoever's-booking.
+  venueTimezone: string;
 };
 
 // One atomic bookable span. Every mechanic produces one of these per

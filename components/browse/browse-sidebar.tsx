@@ -3,11 +3,12 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { BrowseSidebarPanel, type SidebarFilterValues } from "@/components/browse/browse-sidebar-panel";
 import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
+import type { BrowseCityGroup } from "@/lib/browse-cities";
 
 // Owns the URL and routing logic only. Reads every sidebar filter from
 // searchParams and decides what the URL should become. All rendering,
 // optimistic display, and pending state lives in BrowseSidebarPanel.
-export function BrowseSidebar({ cities }: { cities: string[] }) {
+export function BrowseSidebar({ cities }: { cities: BrowseCityGroup[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

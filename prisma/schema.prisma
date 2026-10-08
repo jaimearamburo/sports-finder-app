@@ -176,6 +176,24 @@ model Venue {
 // hand per venue. Curated via the seed script for now, the same way
 // Tag/Activity are — there's no admin UI yet to actually gate this behind
 // an admin-only permission.
+// Platform-curated, same pattern as City/Tag/Activity - a fixed reference
+// list a City picks from, not a free-text field a venue manager could
+// misspell or duplicate ("US" vs "USA" vs "United States").
+model Country {
+  id   String @id @default(cuid())
+  name String @unique
+  // ISO 3166-1 alpha-2 (e.g. "AU", "US", "GB") - used for the browse
+  // sidebar's city dropdown, grouped and labeled by this relation (see
+  // lib/browse-cities.ts) rather than a city-level free-text suffix.
+  code String @unique
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cities City[]
+
+  @@map("countries")
+}
+
 model City {
   id   String @id @default(cuid())
   name String @unique
@@ -189,6 +207,12 @@ model City {
   // rather than Venue storing its own and risking it drifting out of
   // sync with reality.
   timezone String
+
+  // onDelete: Restrict, not Cascade - a Country with cities still
+  // attached shouldn't be silently removable out from under them (same
+  // reasoning as Venue.city below).
+  countryId String  @map("country_id")
+  country   Country @relation(fields: [countryId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -288,19 +312,27 @@ model ActivityTag {
 //   - Belongs to one Activity (its category).
 //   - Has many Bookings.
 model Listing {
-  id           String  @id @default(cuid())
-  venueId      String  @map("venue_id")
-  activityId   String  @map("activity_id")
-  name         String
-  description  String?
+  id                        String  @id @default(cuid())
+  venueId                   String  @map("venue_id")
+  activityId                String  @map("activity_id")
+  name                      String
+  description               String?
   // Max number of simultaneous/overlapping bookings this listing allows.
   // 1 for an exclusive-use court or campsite; >1 for a class with multiple
   // open spots; null for no limit at all (a free group run or hike).
   // This single field is what lets the same conflict-check logic (see
   // Booking) cover courts, classes, and unlimited activities without
   // branching: null simply skips the count-against-capacity check.
-  capacity     Int?    @default(1)
-  pricePerUnit Decimal @map("price_per_unit") @db.Decimal(10, 2)
+  capacity                  Int?    @default(1)
+  // Caps how many quantity units a single booking transaction may claim
+  // against this listing at once (bringing a group to one class, say).
+  // Independent of `capacity` above: capacity is the listing's total
+  // ceiling shared across all bookings on a given slot, this is a
+  // per-purchase ceiling on top of that - a 20-spot class might still only
+  // let one order claim 5 of them. Null means no cap beyond capacity
+  // itself.
+  maxBookingsPerTransaction Int?    @default(5) @map("max_bookings_per_transaction")
+  pricePerUnit              Decimal @map("price_per_unit") @db.Decimal(10, 2)
 
   // --- Used when Activity.bookingMechanic = time_range ---
   // (tennis court, padel court, football pitch: user picks a start time +

@@ -8,11 +8,15 @@ import { CATEGORY_LABEL_TEXT_CLASS } from "@/lib/label-styles";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import type { BrowseCityGroup } from "@/lib/browse-cities";
 
 export type SidebarFilterValues = {
   category: string;
@@ -39,7 +43,7 @@ export function BrowseSidebarPanel({
   priceMax,
   changeAction,
 }: SidebarFilterValues & {
-  cities: string[];
+  cities: BrowseCityGroup[];
   changeAction: (next: SidebarFilterValues) => void;
 }) {
   const [optimistic, setOptimistic] = useOptimistic<SidebarFilterValues>({
@@ -86,7 +90,14 @@ export function BrowseSidebarPanel({
             City
           </h3>
           <Select
-            items={[{ label: "All cities", value: "all" }, ...cities.map((c) => ({ label: c, value: c }))]}
+            // Flat list for value resolution (the trigger needs to look up
+            // a selected city's label without walking the grouped JSX
+            // below) - the grouping itself is purely a SelectContent
+            // rendering concern.
+            items={[
+              { label: "All cities", value: "all" },
+              ...cities.flatMap((group) => group.cities.map((c) => ({ label: c.label, value: c.name }))),
+            ]}
             value={optimistic.city === "" ? "all" : optimistic.city}
             onValueChange={(value) =>
               commitFilters({ ...optimistic, city: !value || value === "all" ? "" : value })
@@ -97,10 +108,16 @@ export function BrowseSidebarPanel({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All cities</SelectItem>
-              {cities.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
+              <SelectSeparator />
+              {cities.map((group) => (
+                <SelectGroup key={group.countryName}>
+                  <SelectLabel className="bg-muted">{group.countryName}</SelectLabel>
+                  {group.cities.map((c) => (
+                    <SelectItem key={c.name} value={c.name}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               ))}
             </SelectContent>
           </Select>

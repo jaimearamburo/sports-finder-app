@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { startOfUTCDay } from "@/lib/dates";
 import { TimeRangePicker } from "./time-range-picker";
 import { DateRangePicker } from "./date-range-picker";
 import { FixedSessionPicker } from "./fixed-session-picker";
@@ -12,6 +14,9 @@ import type { PickerListing, SelectedSlots } from "./picker-types";
 // slot into an actual cost and sums across all of them. Every mechanic
 // except a non-accommodation date_range pass only ever produces one slot,
 // so this reduces to the same single-slot math as before for those.
+// Quantity (how many people/units one purchase claims) is deliberately not
+// handled in here - SlotPicker multiplies this function's result by
+// quantity once, at the top level, so this stays ignorant of it.
 function getTotalPrice(listing: PickerListing, slots: SelectedSlots): number {
   return slots.reduce((sum, slot) => {
     const durationMs = slot.endsAt.getTime() - slot.startsAt.getTime();
@@ -44,15 +49,62 @@ function getBreakdownLine(listing: PickerListing, slots: SelectedSlots): string 
 // spans. Submitting that (ticket 5.3 - bookListingAction already exists
 // and works, it just has nothing calling it yet) is deliberately out of
 // scope here; this only gets the user to a valid, visible selection.
-export function SlotPicker({ listing, bookableDates }: { listing: PickerListing; bookableDates: Date[] }) {
+export function SlotPicker({
+  listing,
+  bookableDates,
+  spotsRemaining,
+}: {
+  listing: PickerListing;
+  bookableDates: Date[];
+  // fixed_session only - see getSpotsRemaining in lib/availability.ts.
+  // Undefined for the other two mechanics, which have no such concept.
+  spotsRemaining?: Map<number, number | null>;
+}) {
   const [slots, setSlots] = useState<SelectedSlots | null>(null);
+  const [quantity, setQuantity] = useState(1);
+
+  // Resets quantity back to 1 whenever the slot selection itself changes,
+  // using React's documented "adjust state during render" pattern rather
+  // than a useEffect - a fresh selection might not even support the
+  // previous quantity (a different occurrence could have fewer spots
+  // left), so the stale value is dropped rather than re-validated.
+  const [prevSlots, setPrevSlots] = useState(slots);
+  if (slots !== prevSlots) {
+    setPrevSlots(slots);
+    setQuantity(1);
+  }
 
   if (bookableDates.length === 0) {
     return <p className="text-sm text-muted-foreground">No upcoming availability right now.</p>;
   }
 
-  const total = slots ? getTotalPrice(listing, slots) : 0;
+  // A capacity-1 listing (the typical exclusive-use court) has no room for
+  // a group booking at all, so the stepper doesn't even render for it -
+  // null (unlimited) and any capacity above 1 both get one.
+  const showQuantityStepper = listing.capacity === null || listing.capacity > 1;
+
+  // For fixed_session, also cap at the actually-selected occurrence's real
+  // remaining spots, not just the listing's general limits - otherwise the
+  // stepper would let someone pick a quantity that looks valid against
+  // capacity/maxBookingsPerTransaction alone but exceeds what's actually
+  // left for the specific class they picked (a class with 3 of 20 spots
+  // open shouldn't let a 5-person request through just because the
+  // listing's overall cap is 5). spotsRemaining is keyed by the
+  // occurrence's calendar date, same convention as bookableDates, so the
+  // selected slot's startsAt needs normalizing back to that same key.
+  const selectedOccurrenceSpotsLeft =
+    listing.bookingMechanic === "fixed_session" && slots && spotsRemaining
+      ? spotsRemaining.get(startOfUTCDay(slots[0].startsAt).getTime())
+      : undefined;
+  const quantityMax = Math.min(
+    listing.maxBookingsPerTransaction ?? Infinity,
+    listing.capacity ?? Infinity,
+    selectedOccurrenceSpotsLeft ?? Infinity
+  );
+
+  const total = slots ? getTotalPrice(listing, slots) * quantity : 0;
   const breakdown = slots ? getBreakdownLine(listing, slots) : null;
+  const breakdownWithQuantity = breakdown && quantity > 1 ? `${breakdown} × ${quantity}` : breakdown;
 
   return (
     <div className="flex flex-col gap-4">
@@ -63,7 +115,12 @@ export function SlotPicker({ listing, bookableDates }: { listing: PickerListing;
         <DateRangePicker listing={listing} bookableDates={bookableDates} onSelect={setSlots} />
       )}
       {listing.bookingMechanic === "fixed_session" && (
-        <FixedSessionPicker listing={listing} bookableDates={bookableDates} onSelect={setSlots} />
+        <FixedSessionPicker
+          listing={listing}
+          bookableDates={bookableDates}
+          spotsRemaining={spotsRemaining}
+          onSelect={setSlots}
+        />
       )}
 
       {/* Always rendered, never conditionally hidden - a running total of
@@ -71,8 +128,35 @@ export function SlotPicker({ listing, bookableDates }: { listing: PickerListing;
           more checkout-like than the old "select a slot" placeholder text
           that disappeared the moment something was picked. */}
       <div className="flex items-center justify-between border-t pt-4">
-        <p className="text-sm text-muted-foreground">{breakdown ?? "Total"}</p>
-        <p className="font-mono text-xl font-semibold">{total === 0 ? "$0.00" : `$${total.toFixed(2)}`}</p>
+        <p className="text-sm text-muted-foreground">{breakdownWithQuantity ?? "Total"}</p>
+        <div className="flex items-center gap-4">
+          {showQuantityStepper && (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-xs"
+                disabled={!slots || quantity <= 1}
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                aria-label="Decrease quantity"
+              >
+                <Minus />
+              </Button>
+              <span className="w-4 text-center text-sm font-medium tabular-nums">{quantity}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-xs"
+                disabled={!slots || quantity >= quantityMax}
+                onClick={() => setQuantity((q) => Math.min(quantityMax, q + 1))}
+                aria-label="Increase quantity"
+              >
+                <Plus />
+              </Button>
+            </div>
+          )}
+          <p className="font-mono text-xl font-semibold">{total === 0 ? "$0.00" : `$${total.toFixed(2)}`}</p>
+        </div>
       </div>
 
       {/* Stays disabled regardless of selection - there's nothing wired

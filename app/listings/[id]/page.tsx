@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { BackButton } from "@/components/listings/back-button";
 import { SlotPicker } from "@/components/listings/slot-picker";
 import type { PickerListing } from "@/components/listings/picker-types";
-import { getBookableDates } from "@/lib/availability";
+import { getBookableDates, getSpotsRemaining } from "@/lib/availability";
 import { formatTimeOfDay } from "@/lib/time-of-day";
+import { VenueLocalTime } from "@/components/listings/venue-local-time";
 import {
   getMetaLine,
   formatPrice,
@@ -57,6 +58,18 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   const scheduleLine = getScheduleLine(listing);
   const bookableDates = await getBookableDates(listing);
 
+  // Only fixed_session has a concept of "spots remaining per occurrence" -
+  // the other two mechanics pass undefined straight through to SlotPicker.
+  // This page's own summary line below deliberately doesn't surface any of
+  // this itself (see the "max" option on getMetaLine) - it's live,
+  // per-occurrence data, and belongs next to the occurrence it describes
+  // (inside the picker), not in a page-level summary with no occurrence of
+  // its own to attach to.
+  const spotsRemaining =
+    listing.activity.bookingMechanic === "fixed_session"
+      ? await getSpotsRemaining(listing, bookableDates, listing.venue.city.timezone)
+      : undefined;
+
   const pickerListing: PickerListing = {
     bookingMechanic: listing.activity.bookingMechanic,
     pricePerUnit: Number(listing.pricePerUnit),
@@ -70,6 +83,9 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
     recurrenceStartTime: listing.recurrenceStartTime,
     sessionDurationMinutes: listing.sessionDurationMinutes,
     isAccommodation: listing.activity.isAccommodation,
+    capacity: listing.capacity,
+    maxBookingsPerTransaction: listing.maxBookingsPerTransaction,
+    venueTimezone: listing.venue.city.timezone,
   };
 
   return (
@@ -101,7 +117,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           </div>
 
           {tags.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2 mb-4">
               {tags.map((tag) => (
                 <span
                   key={tag.id}
@@ -114,6 +130,8 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
             </div>
           )}
 
+          <VenueLocalTime timeZone={listing.venue.city.timezone} cityName={listing.venue.city.name} />
+
           <div className="mt-6 flex items-baseline justify-between border-t pt-4">
             <div className="text-sm text-muted-foreground">
               {scheduleLine && <p>{scheduleLine}</p>}
@@ -123,7 +141,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           </div>
 
           <div className="mt-6 border-t pt-6">
-            <SlotPicker listing={pickerListing} bookableDates={bookableDates} />
+            <SlotPicker listing={pickerListing} bookableDates={bookableDates} spotsRemaining={spotsRemaining} />
           </div>
 
           {(listing.description ?? listing.activity.description) && (

@@ -9,12 +9,15 @@
  * needs both a Venue and an Activity to exist first). The `main()` function
  * at the bottom reflects that dependency chain explicitly.
  *
- * Re-run safety: Activity, User, and Tag rows are looked up by a unique
- * field (name/email) via `upsert`, so re-running this script won't
+ * Re-run safety: Activity, User, Tag, and City rows are looked up by a
+ * unique field (name/email) via `upsert`, so re-running this script won't
  * duplicate them. Venue and Listing have no natural unique field to key
- * off, so re-running without first resetting the database (`prisma migrate
- * reset`) will create duplicate venues/listings — that's expected during
- * local development.
+ * off, so main() instead deletes every Venue before recreating them -
+ * that cascades to Listing and AvailabilityOverride too (both
+ * onDelete: Cascade on their venue/listing relations) - making a
+ * standalone `pnpm prisma db seed` re-run safe without first needing
+ * `prisma migrate reset`. Booking/BookingHold are deliberately never
+ * touched by this reset.
  */
 
 import "dotenv/config";
@@ -182,36 +185,75 @@ async function linkActivityTags(
 }
 
 /**
+ * Platform-curated countries a City belongs to (see Country in
+ * schema.prisma for why this is a table rather than a free-text field on
+ * City). Only the countries the seeded cities actually need - this isn't
+ * trying to be an exhaustive world list.
+ */
+async function seedCountries() {
+  const countryDefinitions = [
+    { name: "Australia", code: "AU" },
+    { name: "United States", code: "US" },
+    { name: "United Kingdom", code: "GB" },
+  ];
+
+  const countries = await Promise.all(
+    countryDefinitions.map((country) =>
+      prisma.country.upsert({
+        where: { name: country.name },
+        update: { code: country.code },
+        create: country,
+      })
+    )
+  );
+
+  return Object.fromEntries(countries.map((c) => [c.name, c])) as Record<string, (typeof countries)[number]>;
+}
+
+/**
  * Platform-curated cities a Venue can belong to (see City in schema.prisma
  * for why this is a table rather than a free-text field). Covers every
  * state/territory so a venue can be seeded anywhere in the country with a
  * correct timezone - ACT and most of NSW/VIC/TAS share Sydney's zone, but
  * WA, SA, QLD, and NT each observe different UTC offsets and DST rules.
  */
-async function seedCities() {
+async function seedCities(countries: Awaited<ReturnType<typeof seedCountries>>) {
   const cityDefinitions = [
-    { name: "Sydney", region: "NSW", timezone: "Australia/Sydney" },
-    { name: "Melbourne", region: "VIC", timezone: "Australia/Melbourne" },
-    { name: "Brisbane", region: "QLD", timezone: "Australia/Brisbane" },
-    { name: "Blue Mountains", region: "NSW", timezone: "Australia/Sydney" },
-    { name: "Perth", region: "WA", timezone: "Australia/Perth" },
-    { name: "Adelaide", region: "SA", timezone: "Australia/Adelaide" },
-    { name: "Canberra", region: "ACT", timezone: "Australia/Sydney" },
-    { name: "Hobart", region: "TAS", timezone: "Australia/Hobart" },
-    { name: "Darwin", region: "NT", timezone: "Australia/Darwin" },
-    { name: "Gold Coast", region: "QLD", timezone: "Australia/Brisbane" },
-    { name: "Newcastle", region: "NSW", timezone: "Australia/Sydney" },
-    { name: "Wollongong", region: "NSW", timezone: "Australia/Sydney" },
-    { name: "Cairns", region: "QLD", timezone: "Australia/Brisbane" },
-    { name: "Geelong", region: "VIC", timezone: "Australia/Melbourne" },
+    { name: "Sydney", region: "NSW", timezone: "Australia/Sydney", country: "Australia" },
+    { name: "Melbourne", region: "VIC", timezone: "Australia/Melbourne", country: "Australia" },
+    { name: "Brisbane", region: "QLD", timezone: "Australia/Brisbane", country: "Australia" },
+    { name: "Blue Mountains", region: "NSW", timezone: "Australia/Sydney", country: "Australia" },
+    { name: "Perth", region: "WA", timezone: "Australia/Perth", country: "Australia" },
+    { name: "Adelaide", region: "SA", timezone: "Australia/Adelaide", country: "Australia" },
+    { name: "Canberra", region: "ACT", timezone: "Australia/Sydney", country: "Australia" },
+    { name: "Hobart", region: "TAS", timezone: "Australia/Hobart", country: "Australia" },
+    { name: "Darwin", region: "NT", timezone: "Australia/Darwin", country: "Australia" },
+    { name: "Gold Coast", region: "QLD", timezone: "Australia/Brisbane", country: "Australia" },
+    { name: "Newcastle", region: "NSW", timezone: "Australia/Sydney", country: "Australia" },
+    { name: "Wollongong", region: "NSW", timezone: "Australia/Sydney", country: "Australia" },
+    { name: "Cairns", region: "QLD", timezone: "Australia/Brisbane", country: "Australia" },
+    { name: "Geelong", region: "VIC", timezone: "Australia/Melbourne", country: "Australia" },
+    // Three non-Australian cities, each in a genuinely different timezone,
+    // specifically to exercise venue-timezone-aware booking logic (see
+    // lib/dates.ts's todayInTimezone and lib/time-of-day.ts's
+    // zonedOccurrenceStart) against something other than every other
+    // seeded venue's shared Australian offset.
+    { name: "Los Angeles", region: "CA", timezone: "America/Los_Angeles", country: "United States" },
+    { name: "Manhattan", region: "NY", timezone: "America/New_York", country: "United States" },
+    { name: "London", region: null, timezone: "Europe/London", country: "United Kingdom" },
   ];
 
   const cities = await Promise.all(
     cityDefinitions.map((city) =>
       prisma.city.upsert({
         where: { name: city.name },
-        update: { region: city.region, timezone: city.timezone },
-        create: city,
+        update: { region: city.region, timezone: city.timezone, countryId: countries[city.country].id },
+        create: {
+          name: city.name,
+          region: city.region,
+          timezone: city.timezone,
+          countryId: countries[city.country].id,
+        },
       })
     )
   );
@@ -324,6 +366,35 @@ async function seedVenues(
     },
   });
 
+  // Three venues in genuinely different, non-Australian timezones - see
+  // seedListings below for the one listing each exercises.
+  const losAngelesCourts = await prisma.venue.create({
+    data: {
+      ownerId: alexId,
+      name: "Sunset Tennis Courts",
+      address: "7100 Sunset Blvd",
+      cityId: cities["Los Angeles"].id,
+    },
+  });
+
+  const manhattanFitness = await prisma.venue.create({
+    data: {
+      ownerId: priyaId,
+      name: "Midtown Fitness Club",
+      address: "350 5th Ave",
+      cityId: cities["Manhattan"].id,
+    },
+  });
+
+  const londonStudio = await prisma.venue.create({
+    data: {
+      ownerId: alexId,
+      name: "Shoreditch Yoga Studio",
+      address: "15 Old Street",
+      cityId: cities["London"].id,
+    },
+  });
+
   return {
     riverside,
     bondiPadel,
@@ -334,6 +405,9 @@ async function seedVenues(
     perthSportsHub,
     adelaideRecreation,
     canberraCourtClub,
+    losAngelesCourts,
+    manhattanFitness,
+    londonStudio,
   };
 }
 
@@ -1319,6 +1393,54 @@ async function seedListings(
     },
   });
 
+  // --- Three non-Australian venues, one per mechanic, specifically to
+  // exercise venue-timezone-aware booking logic end to end (see
+  // seedCities above and seedVenues' losAngelesCourts/manhattanFitness/
+  // londonStudio) ---
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.losAngelesCourts.id,
+      activityId: activities["Tennis"].id,
+      name: "Court 1",
+      capacity: 1,
+      pricePerUnit: 28,
+      operatingHoursStart: "09:00",
+      operatingHoursEnd: "21:00",
+      minDurationMinutes: 30,
+      maxDurationMinutes: 120,
+      incrementMinutes: 30,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.manhattanFitness.id,
+      activityId: activities["Gym Day Pass"].id,
+      name: "Multi-Day Pass",
+      capacity: 50,
+      pricePerUnit: 35,
+      // 1-5 days (not exactly one) - deliberately exercises the pass
+      // picker's min/max range rather than the single-day case Day Pass
+      // above already covers.
+      minDurationDays: 1,
+      maxDurationDays: 5,
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      venueId: venues.londonStudio.id,
+      activityId: activities["Yoga Class"].id,
+      name: "Tuesday 7pm Yoga Class",
+      capacity: 15,
+      pricePerUnit: 18,
+      recurrenceDayOfWeek: 2, // Tuesday
+      recurrenceStartTime: "19:00",
+      sessionDurationMinutes: 60,
+    },
+  });
+
   return { court1, mondayHiit };
 }
 
@@ -1362,20 +1484,37 @@ async function main() {
   console.log("Seeding database...");
 
   // Order reflects real foreign-key dependencies: Tags, Activities, and
-  // Cities have none, so they go first; linking activities to tags
-  // requires both to already exist; Venues require Users and a City;
-  // Listings require both Venues and Activities.
+  // Countries have none, so they go first; linking activities to tags
+  // requires both to already exist; Cities require a Country; Venues
+  // require Users and a City; Listings require both Venues and Activities.
   const tags = await seedTags();
   const activities = await seedActivities();
   await linkActivityTags(activities, tags);
-  const cities = await seedCities();
+  const countries = await seedCountries();
+  const cities = await seedCities(countries);
+
+  // Tags/Activities/Users above all upsert on a natural key, so re-running
+  // this script is already safe for them - Venue has no such key (its
+  // name isn't unique across cities) and seedVenues/seedListings/
+  // seedAvailabilityOverrides below just prisma.create() plain rows, so
+  // without this reset, every standalone `pnpm prisma db seed` run (i.e.
+  // one not preceded by `migrate reset`) would pile on another full copy.
+  // Deleting Venue cascades to Listing and AvailabilityOverride (both
+  // onDelete: Cascade on their venue/listing relations), so this one call
+  // is enough to clear all three. Booking/BookingHold are left completely
+  // alone - real booking history must never be wiped by a reseed - which
+  // is safe here only because nothing above touches them; if that ever
+  // changes, this still can't violate Booking.listing's onDelete:
+  // Restrict unless Bookings against seed listings exist, in which case
+  // this would correctly fail loudly rather than silently orphan them.
+  await prisma.venue.deleteMany();
 
   const { alex, priya } = await seedUsers();
   const venues = await seedVenues(alex.id, priya.id, cities);
   const listings = await seedListings(activities, venues);
   await seedAvailabilityOverrides(listings);
 
-  console.log("Seeding complete: 17 tags, 18 activities, 14 cities, 3 users, 9 venues, 68 listings.");
+  console.log("Seeding complete: 17 tags, 18 activities, 3 countries, 17 cities, 3 users, 12 venues, 71 listings.");
 }
 
 main()

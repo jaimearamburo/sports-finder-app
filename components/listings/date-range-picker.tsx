@@ -5,7 +5,7 @@ import type { DateRange } from "react-day-picker";
 import { Check } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { startOfUTCDay, addDays } from "@/lib/dates";
+import { addDays, localDateToUTCDay } from "@/lib/dates";
 import type { PickerListing, SelectedSlots } from "./picker-types";
 
 // react-day-picker's range `min`/`max` count differenceInCalendarDays(to,
@@ -31,7 +31,12 @@ export function DateRangePicker({
   const [selectedDates, setSelectedDates] = useState<Date[] | undefined>(undefined);
 
   const bookableSet = useMemo(() => new Set(bookableDates.map((d) => d.getTime())), [bookableDates]);
-  const isDisabled = (date: Date) => !bookableSet.has(startOfUTCDay(date).getTime());
+  // localDateToUTCDay, not startOfUTCDay: the Calendar hands back a Date
+  // built from the browser's LOCAL midnight for the clicked day, which
+  // startOfUTCDay would reinterpret through UTC's clock instead of
+  // preserving (see that function's own comment in lib/dates.ts) -
+  // silently shifting the day back by one for anyone east of UTC.
+  const isDisabled = (date: Date) => !bookableSet.has(localDateToUTCDay(date).getTime());
 
   // A pass/ticket (not accommodation): the days it covers don't need to be
   // consecutive - a "3-day pass" might mean the 19th, 23rd, and 30th, not
@@ -42,25 +47,41 @@ export function DateRangePicker({
     function handleMultiSelect(dates: Date[] | undefined) {
       setSelectedDates(dates);
       if (dates && dates.length > 0) {
-        onSelect(dates.map((d) => ({ startsAt: d, endsAt: addDays(d, 1) })));
+        // localDateToUTCDay before use, not the raw calendar Date - see
+        // isDisabled's comment above. Without it, a selected day could get
+        // booked as the wrong UTC calendar day for anyone east of UTC.
+        onSelect(
+          dates.map((d) => {
+            const utcDay = localDateToUTCDay(d);
+            return { startsAt: utcDay, endsAt: addDays(utcDay, 1) };
+          })
+        );
       } else {
         onSelect(null);
       }
     }
 
-    const required = listing.maxDurationDays ?? 1;
+    // "Required" means the minimum needed to be bookable, not the
+    // maximum - a 1-5 day pass is already a complete, valid purchase at
+    // exactly 1 day. Using maxDurationDays here (as this used to) forced
+    // the hint text to always demand the maximum selectable count even
+    // though the Calendar's own min/max props, and the onSelect/pricing
+    // flow above, already accept anywhere in that range.
+    const min = listing.minDurationDays ?? 1;
+    const max = listing.maxDurationDays ?? min;
     const selectedCount = selectedDates?.length ?? 0;
-    const complete = selectedCount >= required;
+    const complete = selectedCount >= min;
+    const rangeLabel = min === max ? `${min} day${min === 1 ? "" : "s"}` : `${min}-${max} days`;
 
     return (
       <div>
         <p className={cn("mb-2 flex items-center gap-1.5 text-sm", complete ? "text-muted-foreground/60" : "text-foreground")}>
           {complete ? (
             <>
-              <Check className="size-4" /> {required} day{required === 1 ? "" : "s"} selected
+              <Check className="size-4" /> {selectedCount} day{selectedCount === 1 ? "" : "s"} selected
             </>
           ) : (
-            `Select ${required} day${required === 1 ? "" : "s"} (${selectedCount}/${required})`
+            `Select ${rangeLabel} (${selectedCount}/${min})`
           )}
         </p>
         <Calendar
@@ -82,7 +103,10 @@ export function DateRangePicker({
   function handleRangeSelect(next: DateRange | undefined) {
     setRange(next);
     if (next?.from && next?.to) {
-      onSelect([{ startsAt: next.from, endsAt: next.to }]);
+      // Same localDateToUTCDay conversion as isDisabled/handleMultiSelect
+      // above - next.from/next.to are local-midnight Dates straight from
+      // the calendar.
+      onSelect([{ startsAt: localDateToUTCDay(next.from), endsAt: localDateToUTCDay(next.to) }]);
     } else {
       onSelect(null);
     }
