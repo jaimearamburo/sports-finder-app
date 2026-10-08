@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "tags" ADD COLUMN     "color" TEXT NOT NULL DEFAULT '#1f1f1f',
+ADD COLUMN     "display_order" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "emoji" TEXT NOT NULL DEFAULT '🏷️';

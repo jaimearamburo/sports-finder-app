@@ -1,9 +1,69 @@
-import Image from "next/image";
+import { Suspense } from "react";
+import { BrowseSidebar } from "@/components/browse/browse-sidebar";
+import { TagFilters } from "@/components/browse/tag-filters";
+import { QuickFilters } from "@/components/browse/quick-filters";
+import { ListingSection, type BrowseSearchParams } from "@/components/browse/listing-section";
+import { BrowseSidebarSkeleton, TagFiltersSkeleton, ListingGridSkeleton } from "@/components/browse/skeletons";
+import { getBrowseTags } from "@/lib/browse-tags";
+import { getBrowseCities } from "@/lib/browse-cities";
 
-export default function Home() {
+// Small async wrapper so the cached tags fetch lives inside its own
+// Suspense boundary rather than blocking the rest of the page.
+async function TagFilterSection() {
+  const tags = await getBrowseTags();
+  return <TagFilters tags={tags} />;
+}
+
+// Small async wrapper so the cached cities fetch lives inside its own
+// Suspense boundary rather than blocking the rest of the page.
+async function BrowseSidebarSection() {
+  const cities = await getBrowseCities();
+  return <BrowseSidebar cities={cities} />;
+}
+
+// The browse and landing page. Every filter control writes to the URL
+// instead of local state. Data fetching lives in separate components
+// (BrowseSidebarSection, TagFilterSection, ListingSection), each wrapped
+// in Suspense so the sidebar and chip row render immediately regardless of
+// how long the listings query takes.
+export default function Home({
+  searchParams,
+}: {
+  searchParams: Promise<BrowseSearchParams>;
+}) {
   return (
-    <div>
-      Hello World!
+    <div className="group/browse mx-auto grid w-full max-w-[1800px] grid-cols-[200px_minmax(0,1fr)] gap-8 px-4 sm:px-6">
+      {/* self-start: grid items stretch to fill row height by default,
+          which leaves a stretched sticky element no room to move.
+          top-17.25 is SiteHeader's h-17 (68px) plus its border-b (1px),
+          its true rendered height. py-7 lives here and on main, not on
+          the shared container, so the sidebar sits flush against the
+          header with no offset. */}
+      <aside className="sticky top-17.25 self-start py-7">
+        <Suspense fallback={<BrowseSidebarSkeleton />}>
+          <BrowseSidebarSection />
+        </Suspense>
+      </aside>
+
+      <main className="py-7">
+        <Suspense fallback={<TagFiltersSkeleton />}>
+          <TagFilterSection />
+        </Suspense>
+        <QuickFilters />
+
+        {/* No key on the Suspense below. A keyed boundary remounts on
+            every change and always shows its fallback again; leaving it
+            unkeyed lets a transition-wrapped filter change keep the
+            existing results visible, dimmed and blurred through
+            data-pending, while the new ones load. */}
+        <div className="group-has-data-pending/browse:blur-[1px] group-has-data-pending/browse:opacity-30 transition-[filter,opacity] duration-200">
+          <Suspense fallback={<ListingGridSkeleton />}>
+            {searchParams.then((params) => (
+              <ListingSection searchParams={params} />
+            ))}
+          </Suspense>
+        </div>
+      </main>
     </div>
   );
 }
