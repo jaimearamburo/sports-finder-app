@@ -83,7 +83,16 @@ export function formatPrice(listing: ListingCardData): string {
 
 export function ListingGrid({ listings }: { listings: ListingCardData[] }) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+    // Mobile gets exactly 2 equal, stretchy columns (grid-cols-2) rather
+    // than fixed-width auto-fill columns - at a fixed 150px, 2 columns
+    // left a visible strip of unused width on most phone screens before
+    // jumping to a 3rd column no one could see without scrolling, which
+    // read as broken rather than intentional. From `sm:` up there's
+    // enough width that a flat per-breakpoint auto-fill track (not
+    // minmax(...,1fr), which would keep stretching indefinitely) is what
+    // keeps a card a fixed, consistent size across however many columns
+    // actually fit the viewport.
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,180px)] sm:gap-4 md:grid-cols-[repeat(auto-fill,220px)]">
       {listings.map((listing) => (
         <ListingCard key={listing.id} listing={listing} />
       ))}
@@ -120,13 +129,20 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
       className="block h-full overflow-hidden rounded-[5px] border border-t-[3px] bg-card text-card-foreground transition-shadow hover:shadow-md"
       style={{ borderTopColor: tag?.color }}
     >
-      <div className="grid h-32 place-items-center bg-muted/60 text-3xl">{tag?.emoji}</div>
-      <div className="p-3.5">
-        <p className={cn(CARD_EYEBROW_TEXT_CLASS, "mb-1")} style={{ color: tag?.color }}>
+      <div className="grid h-20 place-items-center bg-muted/60 text-2xl sm:h-28 sm:text-3xl md:h-32">
+        {tag?.emoji}
+      </div>
+      <div className="p-2.5 sm:p-3.5">
+        {/* Dropped at the smallest size, not just shrunk - the category
+            name is the least load-bearing line on a card this small
+            (title + price already carry the decision), same "fewer
+            things, not just smaller things" compactness an app like
+            UberEats uses for its own narrow card variant. */}
+        <p className={cn(CARD_EYEBROW_TEXT_CLASS, "mb-1 hidden sm:block")} style={{ color: tag?.color }}>
           {listing.activity.name}
         </p>
-        <p className={CARD_TITLE_TEXT_CLASS}>{listing.name}</p>
-        <p className={cn(CARD_VENUE_TEXT_CLASS, "mb-2.5 text-muted-foreground")}>
+        <p className={cn(CARD_TITLE_TEXT_CLASS, "line-clamp-1")}>{listing.name}</p>
+        <p className={cn(CARD_VENUE_TEXT_CLASS, "mb-2.5 line-clamp-1 text-muted-foreground")}>
           {listing.venue.name}, {listing.venue.city.name}
         </p>
         <div className={cn(CARD_META_TEXT_CLASS, "flex items-baseline justify-between text-muted-foreground")}>

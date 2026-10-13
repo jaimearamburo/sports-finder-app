@@ -10,11 +10,37 @@
 // freely combinable with this filter (e.g. "Classes" + "Tennis" together
 // still narrows to Tennis classes specifically) — deliberately not merged
 // in here even though "Classes" exists as both a category and a tag.
+// description is the friendly, plain-language blurb shown in the info
+// popover next to each mechanic section heading on the browse page (see
+// listing-section.tsx) - kept alongside each category's own id/label so
+// there's one place that knows what a mechanic actually means, rather
+// than a second lookup table that could drift out of sync with this one.
 export const CATEGORIES = [
-  { id: "all", label: "All" },
-  { id: "time_range", label: "Book a time" },
-  { id: "fixed_session", label: "Classes" },
-  { id: "date_range", label: "Multi-day" },
+  {
+    id: "all",
+    label: "All",
+    description: "Every sport and activity in one place, from courts and classes to multi-day passes.",
+  },
+  {
+    id: "time_range",
+    label: "Book a time",
+    description:
+      "Hire a court or space for a set block of time. Pick a date, choose your start time, and how long you need it for.",
+  },
+  {
+    id: "fixed_session",
+    label: "Classes",
+    description: "Scheduled sessions that run on a fixed day and time each week. Just grab a spot before it fills up.",
+  },
+  {
+    id: "date_range",
+    label: "Multi-day",
+    // Not just stays - date_range covers any activity booked across a
+    // span of days, a campsite reservation and a multi-day gym pass
+    // alike, so the description can't be campsite-specific wording.
+    description:
+      "Booked by the day for however long you need it, like a campsite stay or a multi-day gym pass. Pick your desired dates.",
+  },
 ] as const;
 
 export type CategoryId = (typeof CATEGORIES)[number]["id"];

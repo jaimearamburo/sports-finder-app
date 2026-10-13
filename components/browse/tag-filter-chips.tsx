@@ -47,67 +47,100 @@ export function TagFilterChips({
   }
 
   return (
-    // ScrollArea's own Viewport does the scrolling/clipping instead of a
-    // plain overflow-x-auto div, so its custom thumb (see
-    // components/ui/scroll-area.tsx)
-    <ScrollArea
-      className="-mt-2 -mr-2 -ml-2 mb-5"
-      // mask-image fades the visible edge to transparent as a hint that
-      // the row scrolls. It has to live on the Viewport, not the scrolled
-      // content: the content's own width is the full row (~17 chips), so
-      // a mask on it would fade a fixed point near the end of all content
-      // instead of the edge of what's actually visible right now.
-      viewportClassName="mask-[linear-gradient(to_right,black_calc(100%-56px),transparent_100%)]"
-    >
-      <div
-        className="flex gap-4 pt-2 pr-2 pl-2 pb-1"
-        data-pending={isPending ? "" : undefined}
+    // relative wrapper, not ScrollArea's own className (which lands
+    // inside its Viewport and would scroll away with the content) - the
+    // selected-count badge below needs to stay pinned to this row's own
+    // corner regardless of how far the chips underneath have scrolled,
+    // which is exactly the problem it exists to solve: a selection made
+    // far enough to one side that scrolling back the other way hides it
+    // completely, with nothing on screen hinting it's still there.
+    <div className="relative">
+      {/* ScrollArea's own Viewport does the scrolling/clipping instead of
+          a plain overflow-x-auto div, so its custom thumb (see
+          components/ui/scroll-area.tsx) */}
+      <ScrollArea
+        className="-mt-2 -mr-2 -ml-2 mb-2 sm:mb-5"
+        // mask-image fades the visible edge to transparent as a hint that
+        // the row scrolls. It has to live on the Viewport, not the
+        // scrolled content: the content's own width is the full row (~17
+        // chips), so a mask on it would fade a fixed point near the end
+        // of all content instead of the edge of what's actually visible
+        // right now.
+        viewportClassName="mask-[linear-gradient(to_right,black_calc(100%-56px),transparent_100%)]"
       >
-        {tags.map((tag) => {
-          const isSelected = optimisticSelected.has(tag.name.toLowerCase());
+        <div
+          className="flex gap-4 pt-1 pr-2 pb-0.5 pl-2 sm:pt-2 sm:pb-1"
+          data-pending={isPending ? "" : undefined}
+        >
+          {tags.map((tag) => {
+            const isSelected = optimisticSelected.has(tag.name.toLowerCase());
 
-          return (
-            <div key={tag.id} className="flex shrink-0 flex-col items-center gap-2.5 pb-2.5">
-              <button
-                type="button"
-                onClick={() => handleClick(tag.name)}
-                aria-pressed={isSelected}
-                aria-label={tag.name}
-                // Named group ("chip"). Tailwind's group-hover selector
-                // matches any ancestor with a group class of the same name,
-                // not only the nearest one. app/page.tsx has its own group
-                // ("browse") for a separate dimming effect, and this needs a
-                // distinct name so the two do not trigger each other. Only
-                // the icon lives inside the button, so hover/click apply to
-                // it alone, not the label below.
-                className="group/chip"
-              >
-                {/* Color comes from the database via inline style rather
-                    than a per-tag CSS class, since tags are editable data with
-                    no fixed set of colors to pre-write classes for. */}
-                <span
-                  className={cn(
-                    "relative flex size-20 items-center justify-center overflow-hidden rounded-[20%] shadow-sm",
-                    isSelected ? "shadow-lg" : "bg-gray-50"
-                  )}
-                  style={isSelected ? { backgroundColor: tag.color } : undefined}
+            return (
+              <div key={tag.id} className="flex shrink-0 flex-col items-center gap-1 pb-1 sm:gap-2.5 sm:pb-2.5">
+                <button
+                  type="button"
+                  onClick={() => handleClick(tag.name)}
+                  aria-pressed={isSelected}
+                  aria-label={tag.name}
+                  // Named group ("chip"). Tailwind's group-hover selector
+                  // matches any ancestor with a group class of the same name,
+                  // not only the nearest one. app/page.tsx has its own group
+                  // ("browse") for a separate dimming effect, and this needs a
+                  // distinct name so the two do not trigger each other. Only
+                  // the icon lives inside the button, so hover/click apply to
+                  // it alone, not the label below.
+                  //
+                  // active:scale-95 is the entire "selected" feel now - a
+                  // flat color fill plus a quick tactile press, not simulated
+                  // lighting (no gradient, no bevel). :active only matches
+                  // while the pointer/touch is actually down, so this fires
+                  // as a brief press-feedback on every click regardless of
+                  // which way it toggles, with no JS state of its own needed.
+                  className="group/chip transition-transform duration-150 active:scale-95"
                 >
-                  {isSelected && (
-                    <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-white/25 via-transparent to-black/10" />
-                  )}
-                  <span className="relative inline-block text-2xl leading-none transition-transform duration-150 group-hover/chip:scale-[1.4]">
-                    {tag.emoji}
+                  {/* Color comes from the database via inline style rather
+                      than a per-tag CSS class, since tags are editable data with
+                      no fixed set of colors to pre-write classes for. */}
+                  <span
+                    className={cn(
+                      "relative flex size-20 items-center justify-center overflow-hidden rounded-[20%] shadow-sm",
+                      !isSelected && "bg-gray-50"
+                    )}
+                    style={isSelected ? { backgroundColor: tag.color } : undefined}
+                  >
+                    <span className="relative inline-block text-3xl leading-none transition-transform duration-150 group-hover/chip:scale-[1.4]">
+                      {tag.emoji}
+                    </span>
                   </span>
+                </button>
+                <span className={cn(TAG_LABEL_TEXT_CLASS, isSelected ? "text-foreground" : "text-muted-foreground")}>
+                  {tag.name}
                 </span>
-              </button>
-              <span className={cn(TAG_LABEL_TEXT_CLASS, isSelected ? "text-foreground" : "text-muted-foreground")}>
-                {tag.name}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      <ScrollBar orientation="horizontal" />
-    </ScrollArea>
+              </div>
+            );
+          })}
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
+
+      {/* Selected-count badge, pinned to this row's own top-right corner
+          regardless of scroll position - the only thing on screen that
+          still signals a selection exists once the chip itself has been
+          scrolled out of view. Always rendered (opacity/scale toggle,
+          not a conditional mount) for a smooth transition in and out
+          rather than a pop; aria-hidden since each chip's own
+          aria-pressed already carries this information for assistive
+          tech, which doesn't have a "scrolled off-screen" problem to
+          begin with. */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "absolute -top-1 -right-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[0.6875rem] font-semibold text-primary-foreground shadow-sm transition-all duration-150",
+          optimisticSelected.size > 0 ? "scale-100 opacity-100" : "scale-75 opacity-0"
+        )}
+      >
+        {optimisticSelected.size}
+      </span>
+    </div>
   );
 }

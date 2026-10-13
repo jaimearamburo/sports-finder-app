@@ -21,7 +21,7 @@ export function SignupForm() {
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="name">Name</Label>
-        <Input id="name" name="name" placeholder="Jane Smith" required />
+        <Input id="name" name="name" placeholder="Jane Smith" required autoFocus />
         {state?.errors?.name && (
           <p className="text-sm text-destructive">{state.errors.name}</p>
         )}

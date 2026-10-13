@@ -5,10 +5,16 @@ import { BrowseSidebarPanel, type SidebarFilterValues } from "@/components/brows
 import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
 import type { BrowseCityGroup } from "@/lib/browse-cities";
 
-// Owns the URL and routing logic only. Reads every sidebar filter from
-// searchParams and decides what the URL should become. All rendering,
-// optimistic display, and pending state lives in BrowseSidebarPanel.
-export function BrowseSidebar({ cities }: { cities: BrowseCityGroup[] }) {
+// Shared by BrowseSidebar (the desktop vertical column) and MobileFilterBar
+// (the mobile horizontal pill row) - both filter the exact same URL params
+// (category/city/priceMin/priceMax), just through two different-shaped UIs
+// shown at different breakpoints via plain CSS, not a JS viewport check
+// (see BrowsePageShell). One shared definition of how a selection
+// becomes a URL change means the two can't quietly drift apart the way two
+// independently maintained copies could.
+export function useSidebarFilterRouting(): SidebarFilterValues & {
+  changeAction: (next: SidebarFilterValues) => void;
+} {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -52,6 +58,15 @@ export function BrowseSidebar({ cities }: { cities: BrowseCityGroup[] }) {
     // entry and the back button steps back through filter states.
     router.push(`${pathname}?${params.toString()}`);
   }
+
+  return { category, city, priceMin, priceMax, changeAction };
+}
+
+// Owns the URL and routing logic only, via useSidebarFilterRouting above.
+// All rendering, optimistic display, and pending state lives in
+// BrowseSidebarPanel.
+export function BrowseSidebar({ cities }: { cities: BrowseCityGroup[] }) {
+  const { category, city, priceMin, priceMax, changeAction } = useSidebarFilterRouting();
 
   return (
     <BrowseSidebarPanel

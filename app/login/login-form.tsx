@@ -20,7 +20,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" placeholder="jane@example.com" required />
+        <Input id="email" name="email" type="email" placeholder="jane@example.com" required autoFocus />
       </div>
 
       <div className="flex flex-col gap-1.5">

@@ -133,12 +133,34 @@ export function BrowseSidebarPanel({
   );
 }
 
-// The slider fires onValueChange continuously while dragging and
+function PriceRangeFilter({
+  priceMin,
+  priceMax,
+  onCommit,
+}: {
+  priceMin: number;
+  priceMax: number;
+  onCommit: (min: number, max: number) => void;
+}) {
+  return (
+    <div className="border-t pt-4">
+      <h3 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        Price range
+      </h3>
+      <PriceRangeSlider priceMin={priceMin} priceMax={priceMax} onCommit={onCommit} />
+    </div>
+  );
+}
+
+// The value-display + slider only, with no heading or wrapper of its own -
+// factored out so MobileFilterBar's price popover can reuse the exact same
+// drag-tracking behavior inside its own container instead of duplicating
+// it. The slider fires onValueChange continuously while dragging and
 // onValueCommitted once when the drag ends. Tracking the dragged position
 // in local state and only calling commit() on release keeps every
 // intermediate pointer position from becoming its own URL update and
 // browser history entry.
-function PriceRangeFilter({
+export function PriceRangeSlider({
   priceMin,
   priceMax,
   onCommit,
@@ -160,10 +182,7 @@ function PriceRangeFilter({
   }
 
   return (
-    <div className="border-t pt-4">
-      <h3 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-        Price range
-      </h3>
+    <>
       <div className="mb-3 flex justify-between font-mono text-xs text-muted-foreground">
         <span>{liveValue[0] === PRICE_MIN ? "Free" : `$${liveValue[0]}`}</span>
         <span>{liveValue[1] >= PRICE_MAX ? `$${PRICE_MAX}+` : `$${liveValue[1]}`}</span>
@@ -179,6 +198,6 @@ function PriceRangeFilter({
           onCommit(min, max);
         }}
       />
-    </div>
+    </>
   );
 }

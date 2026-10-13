@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
@@ -21,30 +22,44 @@ function formatCityLabel(city: { name: string; region: string | null }): BrowseC
 // (rather than left flat for the component to group) since the query
 // already orders rows by country name then city name - the Map below just
 // has to preserve that order, not re-sort it.
-export const getBrowseCities = unstable_cache(
-  async (): Promise<BrowseCityGroup[]> => {
-    const cities = await prisma.city.findMany({
-      where: { venues: { some: {} } },
-      select: { name: true, region: true, country: { select: { name: true, code: true } } },
-      orderBy: [{ country: { name: "asc" } }, { name: "asc" }],
-    });
+//
+// Wrapped in both React's cache() AND unstable_cache(), not unstable_cache()
+// alone - the two solve different problems. unstable_cache() persists the
+// result ACROSS requests (so a page load an hour from now skips the
+// database entirely), but it doesn't dedupe calls that happen to overlap
+// WITHIN one request: this is called from two separate Suspense branches
+// on the browse page (the desktop sidebar and the mobile filter bar), which
+// React can start resolving concurrently, so on a cold or just-expired
+// cache both could race in and each see a miss, firing two real queries.
+// React's cache() is the request-scoped memoization that actually
+// prevents that - the first call runs for real, every other call with the
+// same arguments during that same render just reuses its result.
+export const getBrowseCities = cache(
+  unstable_cache(
+    async (): Promise<BrowseCityGroup[]> => {
+      const cities = await prisma.city.findMany({
+        where: { venues: { some: {} } },
+        select: { name: true, region: true, country: { select: { name: true, code: true } } },
+        orderBy: [{ country: { name: "asc" } }, { name: "asc" }],
+      });
 
-    const groups = new Map<string, BrowseCityGroup>();
-    for (const city of cities) {
-      const key = city.country.name;
-      const group = groups.get(key);
-      if (group) {
-        group.cities.push(formatCityLabel(city));
-      } else {
-        groups.set(key, {
-          countryName: city.country.name,
-          countryCode: city.country.code,
-          cities: [formatCityLabel(city)],
-        });
+      const groups = new Map<string, BrowseCityGroup>();
+      for (const city of cities) {
+        const key = city.country.name;
+        const group = groups.get(key);
+        if (group) {
+          group.cities.push(formatCityLabel(city));
+        } else {
+          groups.set(key, {
+            countryName: city.country.name,
+            countryCode: city.country.code,
+            cities: [formatCityLabel(city)],
+          });
+        }
       }
-    }
-    return [...groups.values()];
-  },
-  ["browse-cities"],
-  { revalidate: 3600, tags: ["browse-cities"] }
+      return [...groups.values()];
+    },
+    ["browse-cities"],
+    { revalidate: 3600, tags: ["browse-cities"] }
+  )
 );
