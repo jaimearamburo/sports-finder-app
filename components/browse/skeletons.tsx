@@ -81,29 +81,6 @@ export function BrowseSidebarSkeleton() {
           </button>
         ))}
       </div>
-
-      {/* <div className="mt-6 flex flex-col gap-6">
-        <div className="border-t pt-4">
-          <Bone className="mb-3 h-3 w-12" />
-          <Bone className="h-9 w-full rounded-md" />
-        </div>
-        <div className="border-t pt-4">
-          <Bone className="mb-3 h-3 w-16" />
-          <div className="mb-3 flex justify-between">
-            <Bone className="h-3 w-6" />
-            <Bone className="h-3 w-8" />
-          </div>
-          <Bone className="h-1.5 w-full rounded-full" />
-        </div>
-        <div className="border-t pt-4">
-          <Bone className="mb-3 h-3 w-20" />
-          <div className="flex flex-col gap-2.5">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Bone key={i} className="h-3.75 w-24" />
-            ))}
-          </div>
-        </div>
-      </div> */}
     </div>
   );
 }

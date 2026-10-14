@@ -15,27 +15,26 @@ function formatCityLabel(city: { name: string; region: string | null }): BrowseC
   return { name: city.name, label: city.region ? `${city.name}, ${city.region}` : city.name };
 }
 
-// Mirrors getBrowseTags: a small, infrequently-changing list cached across
-// requests rather than queried on every page load. Only cities with at
-// least one venue show up in the filter - City itself is a curated,
-// platform-wide list (see schema.prisma). Pre-grouped by country here
-// (rather than left flat for the component to group) since the query
-// already orders rows by country name then city name - the Map below just
-// has to preserve that order, not re-sort it.
+// A small, infrequently-changing list cached across requests rather than
+// queried on every page load. Only cities with at least one venue show up
+// in the filter - City itself is a curated, platform-wide list (see
+// schema.prisma). Grouped by country here, since the query already orders
+// rows by country then city name, so the Map below only has to preserve
+// that order, not re-sort it.
 //
-// Wrapped in both React's cache() AND unstable_cache(), not unstable_cache()
-// alone - the two solve different problems. unstable_cache() persists the
-// result ACROSS requests (so a page load an hour from now skips the
-// database entirely), but it doesn't dedupe calls that happen to overlap
-// WITHIN one request: this is called from two separate Suspense branches
-// on the browse page (the desktop sidebar and the mobile filter bar), which
-// React can start resolving concurrently, so on a cold or just-expired
-// cache both could race in and each see a miss, firing two real queries.
-// React's cache() is the request-scoped memoization that actually
-// prevents that - the first call runs for real, every other call with the
-// same arguments during that same render just reuses its result.
+// Wrapped in both React's cache() and unstable_cache(). unstable_cache()
+// persists the result across requests, so a later page load can skip the
+// database entirely, but it does not dedupe calls that overlap within one
+// request. This function is called from two separate Suspense branches on
+// the browse page (the desktop sidebar and the mobile filter bar), which
+// React can resolve concurrently, so on a cold or expired cache both
+// could race in and each trigger a real query. cache() is the
+// request-scoped memoization that prevents that: the first call runs for
+// real, and every other call with the same arguments during that render
+// reuses its result.
 export const getBrowseCities = cache(
   unstable_cache(
+    // Fetches every city that has at least one venue, grouped by country.
     async (): Promise<BrowseCityGroup[]> => {
       const cities = await prisma.city.findMany({
         where: { venues: { some: {} } },

@@ -3,12 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ResetPasswordForm } from "./reset-password-form";
 
 /**
- * TEMPORARY DEV-ONLY TOOL — delete this whole directory once a real
- * forgot-password flow exists. See actions.ts for why this is safe to keep
- * around only in non-production: `notFound()` here is defense in depth
- * (hides the page even if someone guesses the URL on a deployed build),
- * the actual enforcement is the `NODE_ENV` check in the server action
- * itself, since that's what would run the real password change.
+ * TEMPORARY DEV-ONLY TOOL. Delete this whole directory once a real
+ * forgot-password flow exists. See actions.ts for why this is safe to
+ * keep around only in non-production: `notFound()` here is defense in
+ * depth, hiding the page even if someone guesses the URL on a deployed
+ * build, while the actual enforcement is the `NODE_ENV` check in the
+ * server action itself, since that is what would run the real password
+ * change.
  */
 export default function DevResetPasswordPage() {
   if (process.env.NODE_ENV === "production") {

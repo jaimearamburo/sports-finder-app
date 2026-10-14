@@ -25,17 +25,12 @@ const PILL_CLASS =
 const PILL_ACTIVE_CLASS =
   "border-foreground bg-foreground text-background hover:border-foreground hover:text-background";
 
-// yyyy-mm-dd read off the Date's own LOCAL year/month/day, not
-// toISOString() (which converts through UTC first) - a Date built from the
-// local calendar day the user actually meant, and toISOString() shifts
-// that backwards by a day for anyone east of UTC (e.g. Australia): local
-// midnight Oct 6 AEDT is already Oct 5 in UTC, so the param would silently
-// become the wrong day. The string itself is the only thing that needs to
-// survive the trip to the server - ListingSection parses it as a UTC
-// calendar day on its own terms (matching the rest of
-// lib/availability.ts's UTC-day convention), which is a separate,
-// internally consistent interpretation that never needs to agree with
-// this component's local one, only with the same digits.
+// Reads yyyy-mm-dd off the Date's own local year/month/day, not
+// toISOString() (which converts through UTC first and would shift the
+// date backwards for anyone east of UTC, e.g. Australia). ListingSection
+// parses this string as a UTC calendar day on its own terms, matching
+// lib/availability.ts's UTC-day convention - the two interpretations
+// never need to agree on timezone, only on the same digits.
 function toDateParam(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -43,23 +38,20 @@ function toDateParam(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-// The inverse of toDateParam - built from local y/m/d rather than parsing
-// the string as a UTC instant (`new Date("...T00:00:00Z")`), so the
-// Calendar's own local-time day comparisons highlight the right date
-// regardless of which side of UTC the browser's timezone is on.
+// The inverse of toDateParam. Builds from local y/m/d rather than parsing
+// the string as a UTC instant, so the Calendar's local-time day
+// comparisons highlight the right date regardless of the browser's
+// timezone offset from UTC.
 function parseDateParam(value: string): Date {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);
 }
 
-// The nearest Saturday and Sunday each on or after the viewer's own local
-// today - there's no single venue to anchor "today" to at this point in
-// the UI, since the browse grid spans many venues/timezones at once (same
-// reasoning DateFilterPopover's own past-date disabling already uses).
-// On a Sunday this resolves to {today, next Saturday} rather than jumping
-// a full week ahead for both - a deliberate simplification: once the
-// weekend has already started, "this weekend" colloquially still means
-// the one that's ending, not next week's.
+// The nearest Saturday and Sunday on or after the viewer's own local
+// today. There is no single venue to anchor "today" to here, since the
+// browse grid spans many venues and timezones at once. On a Sunday this
+// resolves to {today, next Saturday} rather than jumping a full week
+// ahead for both, since "this weekend" still means the one ending today.
 function nextWeekendDates(): [Date, Date] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -76,15 +68,14 @@ function weekendDateParam(): string {
   return `${toDateParam(saturday)},${toDateParam(sunday)}`;
 }
 
-// Mirrors BrowseSidebarPanel's role for the quick-filters row: owns one
-// shared optimistic value and one shared pending flag for every pill here,
-// rather than each pill tracking its own. There's only ever one navigation
-// in flight for the page at a time, so one isPending is both simpler and
-// more correct than duplicating it per pill - and sharing one optimistic
-// value object is what makes "This weekend" and the specific-date popover
-// provably unable to conflict: they read and write the same `date` key on
-// the same object, so picking one always overwrites the other outright
-// rather than needing to remember to clear it.
+// Owns one shared optimistic value and one shared pending flag for every
+// pill here, rather than each pill tracking its own, the same role
+// BrowseSidebarPanel plays for the sidebar filters. There is only ever
+// one navigation in flight at a time, so a single isPending is both
+// simpler and more correct than one per pill. Sharing one optimistic
+// value also means "This weekend" and the specific-date popover can never
+// conflict: they read and write the same `date` key, so picking one
+// always overwrites the other.
 export function QuickFiltersPanel({
   date,
   priceMin,

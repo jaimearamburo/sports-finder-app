@@ -7,14 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 // `useActionState` needs a starting value for state before the form has
-// ever been submitted — matches the `undefined` branch of SignupFormState.
+// ever been submitted, matching the `undefined` branch of SignupFormState.
 const initialState: SignupFormState = undefined;
 
 export function SignupForm() {
-  // `formAction` (not the raw `signup` function) is what gets wired to the
-  // form's `action` prop — React intercepts submissions through it so it
-  // can call `signup` with the previous state and update `state`/`pending`
-  // for us on each submit, without us managing that by hand.
+  // `formAction`, not the raw `signup` function, is wired to the form's
+  // `action` prop. React intercepts submissions through it so it can call
+  // `signup` with the previous state and update `state`/`pending` on each
+  // submit automatically.
   const [state, formAction, pending] = useActionState(signup, initialState);
 
   return (
@@ -37,9 +37,10 @@ export function SignupForm() {
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password">Password</Label>
-        {/* `minLength` here is just an early client-side hint — actions.ts
+        {/* `minLength` here is just an early client-side hint. actions.ts
             re-checks length server-side, which is the check that actually
-            matters since a client can always skip/bypass HTML validation. */}
+            matters, since a client can always skip or bypass HTML
+            validation. */}
         <Input id="password" name="password" type="password" required minLength={8} />
         {state?.errors?.password && (
           <p className="text-sm text-destructive">{state.errors.password}</p>

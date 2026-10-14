@@ -60,6 +60,8 @@ export async function getBookableDates(listing: AvailabilityListing): Promise<Da
   const windowEnd = addDays(today, listing.venue.bookingWindowDays);
   const hardCap = addDays(today, MAX_OPEN_EXTENSION_DAYS);
 
+  // Fetches every override that could still apply today or later, for
+  // either this listing specifically or its venue as a whole.
   const overrides = await prisma.availabilityOverride.findMany({
     where: {
       AND: [
@@ -171,7 +173,9 @@ export async function getSpotsRemaining(
     (date) => [date, zonedOccurrenceStart(date, listing.recurrenceStartTime!, timeZone)] as const
   );
 
-  // ACCOUNTING FOR BOOKING HOLDS??
+  // Sums already-booked quantity per occurrence start time, excluding
+  // cancelled bookings. Does not account for BookingHold rows, since
+  // that cart-lock logic is not wired up yet.
   const bookedSums = await prisma.booking.groupBy({
     by: ["startsAt"],
     where: {
@@ -219,6 +223,8 @@ export async function hasAvailableSlotOnDate(
   const dayStart = zonedOccurrenceStart(date, "00:00", timeZone);
   const dayEnd = zonedOccurrenceStart(addDays(date, 1), "00:00", timeZone);
 
+  // Fetches every non-cancelled booking overlapping this calendar day,
+  // used below to compute remaining capacity at each candidate slot.
   const bookings = await prisma.booking.findMany({
     where: {
       listingId: listing.id,

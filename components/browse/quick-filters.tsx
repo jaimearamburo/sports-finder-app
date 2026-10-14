@@ -4,20 +4,14 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
 import { QuickFiltersPanel, type QuickFilterValues } from "@/components/browse/quick-filters-panel";
 
-// Owns the "date", "priceMin", and "priceMax" URL params directly (clone/
-// set-or-delete/push) and nothing else - the same router-only role
-// TagFilters plays for TagFilterChips, and BrowseSidebar plays for
-// BrowseSidebarPanel. Reads the current values from searchParams and
-// exposes one changeAction callback; all rendering, optimistic display,
-// and pending state lives in QuickFiltersPanel. One router component
-// owning several different quick filters as one value object (rather than
-// a separate router per pill) matches BrowseSidebar's own shape - each
-// pill here is a different kind of thing (a calendar pick vs. a price
-// toggle), not interchangeable instances of the same filter the way tag
-// chips are. priceMin/priceMax are the same params BrowseSidebar's own
-// price slider already reads and writes - both components independently
-// read/write the same URL keys, which is fine since the URL itself is the
-// single shared source of truth, not local state either one owns.
+// Owns the "date", "priceMin", and "priceMax" URL params directly
+// (clone/set-or-delete/push) and nothing else, the same router-only role
+// TagFilters plays for TagFilterChips and BrowseSidebar plays for
+// BrowseSidebarPanel. Exposes one changeAction callback; rendering,
+// optimistic display, and pending state all live in QuickFiltersPanel.
+// priceMin/priceMax are the same params BrowseSidebar's own price slider
+// reads and writes - both read and write the same URL keys independently,
+// since the URL itself is the single shared source of truth.
 export function QuickFilters() {
   const router = useRouter();
   const pathname = usePathname();

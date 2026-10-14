@@ -90,12 +90,9 @@ export function TagFilterChips({
                   // the icon lives inside the button, so hover/click apply to
                   // it alone, not the label below.
                   //
-                  // active:scale-95 is the entire "selected" feel now - a
-                  // flat color fill plus a quick tactile press, not simulated
-                  // lighting (no gradient, no bevel). :active only matches
-                  // while the pointer/touch is actually down, so this fires
-                  // as a brief press-feedback on every click regardless of
-                  // which way it toggles, with no JS state of its own needed.
+                  // active:scale-95 gives tap feedback: a brief scale-down
+                  // while the pointer or touch is down, independent of which
+                  // way the click toggles selection, with no JS state needed.
                   className="group/chip transition-transform duration-150 active:scale-95"
                 >
                   {/* Color comes from the database via inline style rather

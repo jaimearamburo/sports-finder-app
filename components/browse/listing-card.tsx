@@ -39,9 +39,8 @@ export function getMetaLine(listing: ListingCardData): string {
     case "time_range":
       return `${listing.minDurationMinutes}–${listing.maxDurationMinutes} min`;
     case "date_range": {
-      // Wording and range-vs-exact phrasing both key off isAccommodation,
-      // not the day counts themselves - a 3-day pass should never read as
-      // "3 nights", (and conversely a 1-night camping stay still needs "night," not "day").
+      // Wording keys off isAccommodation, not the day counts themselves:
+      // a multi-day pass reads in "days," a camping stay reads in "nights."
       const { minDurationDays: min, maxDurationDays: max } = listing;
       const unit = listing.activity.isAccommodation ? "night" : "day";
       return min === max ? `${min} ${unit}${min === 1 ? "" : "s"}` : `${min}–${max} ${unit}s`;
@@ -118,14 +117,9 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
       // of colors to pre-write classes for. Only the top edge picks up
       // the tag color; the other three sides stay the default neutral
       // border.
-      // h-full matters only in the carousel path (HorizontalScrollRow
-      // wraps this in its own flex-item div, which stretches to match its
-      // tallest sibling by flex's default align-items: stretch - but
-      // without h-full this Link stayed at its own content height inside
-      // that taller wrapper, so cards with a short venue/city line looked
-      // visibly shorter than ones that wrapped to two lines). A no-op in
-      // the plain grid path, where this Link is already the direct grid
-      // item CSS Grid itself stretches.
+      // h-full has no visible effect here: ListingCard is already a direct
+      // grid item, and CSS Grid's default align-items: stretch already
+      // matches it to its row's height.
       className="block h-full overflow-hidden rounded-[5px] border border-t-[3px] bg-card text-card-foreground transition-shadow hover:shadow-md"
       style={{ borderTopColor: tag?.color }}
     >

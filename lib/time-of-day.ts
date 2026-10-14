@@ -37,15 +37,14 @@ export function addMinutesToTime(time: string, minutes: number): string {
 }
 
 // Combines a calendar day (a UTC-midnight Date, this app's convention for
-// "just a date, no time") with a recurring "HH:MM" wall-clock time, in the
-// venue's own timezone, into one concrete instant. Replaces an earlier
-// version that built this via Date.UTC(...) directly - which silently
-// treated "HH:MM" as UTC time instead of venue-local time, the same bug
-// class the rest of this file's timezone helpers exist to fix. Used by
-// FixedSessionPicker/TimeRangePicker (building the startsAt they submit)
-// and getSpotsRemaining/hasAvailableSlotOnDate (building the same instants
-// server-side to query existing bookings against) - sharing this keeps
-// them from ever drifting apart on how that combination is computed.
+// "just a date, no time") with a recurring "HH:MM" wall-clock time,
+// interpreted in the venue's own timezone, into one concrete instant.
+// Building this through Date.UTC(...) directly would silently treat
+// "HH:MM" as UTC time instead of venue-local time. Used by
+// FixedSessionPicker/TimeRangePicker to build the startsAt they submit,
+// and by getSpotsRemaining/hasAvailableSlotOnDate to build the same
+// instants server-side when querying existing bookings, so both sides
+// compute it identically.
 export function zonedOccurrenceStart(date: Date, time: string, timeZone: string): Date {
   const minutes = minutesSinceMidnight(time);
   return new TZDate(
@@ -61,11 +60,8 @@ export function zonedOccurrenceStart(date: Date, time: string, timeZone: string)
 
 // The inverse direction: given a real instant (e.g. a submitted startsAt)
 // and the venue's timezone, what wall-clock minute-of-day does it fall on
-// there? Replaces reading instant.getUTCHours()/getUTCMinutes() directly,
-// which only gives the right answer if the instant happens to already be
-// venue-local-equals-UTC (true for every listing seeded so far, since
-// they're all in Australia and the booking logic was never actually
-// timezone-aware - false for any other timezone).
+// there? Reading instant.getUTCHours()/getUTCMinutes() directly would only
+// give the right answer when the venue's timezone happens to equal UTC.
 export function minutesOfDayInTimezone(instant: Date, timeZone: string): number {
   const zoned = new TZDate(instant, timeZone);
   return zoned.getHours() * 60 + zoned.getMinutes();
@@ -74,10 +70,11 @@ export function minutesOfDayInTimezone(instant: Date, timeZone: string): number 
 // Same idea as minutesOfDayInTimezone, but for "which calendar day" rather
 // than "which minute" - e.g. deciding whether a submitted startsAt's day
 // is actually in bookableDates, or whether endsAt fell on a different
-// venue-local day (an overnight booking). Replaces startOfUTCDay for any
-// value that's a real instant needing to be viewed through the venue's
-// zone, as opposed to a value that's already a pure calendar day (like
-// bookableDates' own entries, or an AvailabilityOverride's startDate).
+// venue-local day (an overnight booking). Use this for any value that is
+// a real instant needing to be viewed through the venue's zone; use
+// startOfUTCDay instead for a value that is already a pure calendar day
+// (like bookableDates' own entries, or an AvailabilityOverride's
+// startDate).
 export function calendarDayInTimezone(instant: Date, timeZone: string): Date {
   return localDateToUTCDay(new TZDate(instant, timeZone));
 }

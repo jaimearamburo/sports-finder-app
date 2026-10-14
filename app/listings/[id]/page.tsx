@@ -37,6 +37,8 @@ function getScheduleLine(listing: ListingCardData): string | null {
 export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
+  // Fetches the listing along with its activity, tags, venue, and city,
+  // everything this page and the slot picker below need to render.
   const listing = await prisma.listing.findUnique({
     where: { id },
     include: {

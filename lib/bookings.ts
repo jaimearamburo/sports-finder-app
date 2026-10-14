@@ -10,6 +10,8 @@ export const bookListing = withAuth(
     session,
     input: { listingId: string; startsAt: Date; endsAt: Date; quantity?: number }
   ): Promise<BookListingResult> => {
+    // Fetches the listing along with its venue, city, and activity, all
+    // required to re-validate the requested slot below.
     const listing = await prisma.listing.findUnique({
       where: { id: input.listingId },
       include: { venue: { include: { city: true } }, activity: true },
@@ -48,6 +50,8 @@ export const bookListing = withAuth(
 
     try {
       const booking = await prisma.$transaction(async (tx) => {
+        // Sums the quantity of non-cancelled bookings overlapping the
+        // requested time range, to check against remaining capacity.
         const overlapping = await tx.booking.aggregate({
           where: {
             listingId: listing.id,
@@ -63,6 +67,8 @@ export const bookListing = withAuth(
           throw new Error("FULL");
         }
 
+        // Creates the booking row inside the same transaction as the
+        // capacity check above, so the check and the write stay atomic.
         return tx.booking.create({
           data: {
             listingId: listing.id,

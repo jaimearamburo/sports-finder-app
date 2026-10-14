@@ -220,10 +220,10 @@ function CalendarDayButton({
         // deliberately a different CSS property than the selected states'
         // bg-primary/bg-primary\/15 below, so hovering an already-selected
         // date can never visually compete with or hide its blue fill the
-        // way a hover background (what used to be here) did. border-0
-        // above sets width to 0 by default; hover:border-2 brings it back
-        // to 2px - needs no !important, since a :hover-qualified selector
-        // is already more specific than the plain border-0 class.
+        // way a hover background would. border-0 above sets width to 0 by
+        // default; hover:border-2 brings it back to 2px, with no
+        // !important needed since a :hover-qualified selector is already
+        // more specific than the plain border-0 class.
         // transition-none overrides the shared Button component's own
         // transition-all (inherited, not written here) so the border
         // snaps in immediately instead of fading.

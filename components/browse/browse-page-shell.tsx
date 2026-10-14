@@ -1,18 +1,13 @@
-// The browse page's outer grid shell (aside + main) - named for the page,
+// The browse page's outer grid shell (aside + main). Named for the page,
 // not just the sidebar, since it lays out and owns the responsive
 // behavior of both columns, not only the aside one. On mobile (below
-// `md`) the sidebar slot is hidden entirely - `hidden` removes it from
-// layout, not just from view, and the grid collapses to a single column -
-// and the caller is expected to render MobileFilterBar inside `children`
+// `md`) the sidebar slot is hidden entirely: `hidden` removes it from
+// layout, not just from view, and the grid collapses to a single column.
+// The caller is expected to render MobileFilterBar inside `children`
 // instead, showing the same filters as a horizontal pill row. That swap
-// is plain `md:` breakpoint classes, not a JS viewport check, so there's
-// no post-mount "wrong layout first" flash the way reading
+// uses plain `md:` breakpoint classes, not a JS viewport check, so there
+// is no post-mount "wrong layout first" flash the way reading
 // window.innerWidth in an effect would cause.
-//
-// A manual collapse button (round toggle sitting on the aside/main
-// boundary, hiding the sidebar on desktop) was built and then pulled back
-// out for now - revisit later rather than re-deriving this shell from
-// scratch.
 export function BrowsePageShell({ sidebar, children }: { sidebar: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="mx-auto grid w-full max-w-[1800px] grid-cols-1 gap-8 px-4 sm:px-6 md:grid-cols-[200px_minmax(0,1fr)]">

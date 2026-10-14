@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 // Forces this page to run the query fresh on every visit, instead of
-// caching a snapshot from build time — important for an actual live test.
+// caching a snapshot from build time, so this is an actual live test.
 export const dynamic = "force-dynamic";
 
 export default async function TestConnectionPage() {
@@ -9,6 +9,8 @@ export default async function TestConnectionPage() {
   let error: string | null = null;
 
   try {
+    // Counts venues as a minimal round trip to confirm the database
+    // connection works.
     venueCount = await prisma.venue.count();
   } catch (e) {
     error = e instanceof Error ? e.message : "Unknown error";

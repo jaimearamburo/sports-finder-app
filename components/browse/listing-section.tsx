@@ -49,13 +49,13 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     ? rawDate.split(",").map((d) => startOfUTCDay(new Date(`${d}T00:00:00.000Z`)))
     : [];
 
-  // Category is the booking-mechanic axis (see lib/category-filters.ts) —
-  // its id is the literal BookingMechanic value itself, so it needs no
-  // lookup table, just a direct field condition. Tags are a separate,
-  // freely-combinable condition (AND'd with category, not merged into it):
-  // both go into an AND array rather than being spread into one flat
-  // object, since two spreads that both set a key on Activity would let
-  // the second silently overwrite the first.
+  // Category is the booking-mechanic axis (see lib/category-filters.ts).
+  // Its id is the literal BookingMechanic value, so it needs no lookup
+  // table, just a direct field condition. Tags are a separate,
+  // freely-combinable condition, AND'd with category rather than merged
+  // into it: both go into an AND array rather than being spread into one
+  // flat object, since two spreads that both set a key on Activity would
+  // let the second silently overwrite the first.
   const activityConditions = [];
   if (category !== "all") activityConditions.push({ bookingMechanic: category });
   if (selectedTags.length > 0) {
@@ -64,6 +64,9 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     });
   }
 
+  // Fetches every non-archived listing matching the category, tag, city,
+  // and price filters, with the activity/tag and venue/city data each
+  // card below needs to render.
   const listings = await prisma.listing.findMany({
     where: {
       // Retired listings (see Listing.archivedAt) are kept for their

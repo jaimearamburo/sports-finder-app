@@ -14,9 +14,10 @@ import { UserMenu } from "@/components/layout/user-menu";
  * and logged-in states the way a client-side useSession() version would
  * have.
  *
- * The search box and cart button are visual only for now.
+ * The search box and cart button are visual only.
  */
 export async function SiteHeader() {
+  // Reads the current session from the request cookie.
   const session = await auth();
 
   return (
@@ -43,10 +44,10 @@ export async function SiteHeader() {
             <ShoppingCart className="size-5" />
           </Button>
 
-          {/* Below md (the same mobile cutoff BrowsePageShell/
-              MobileFilterBar use, so the whole page's "mobile" boundary
-              stays one width, not several), the full Dashboard/Log out or
-              Log in/Sign up links don't fit next to a usable search box -
+          {/* Below md (the same mobile cutoff BrowsePageShell and
+              MobileFilterBar use, so the "mobile" boundary stays one
+              width across the app), the full Dashboard/Log out or
+              Log in/Sign up links don't fit next to a usable search box.
               UserMenu collapses them into one round avatar button that
               opens a small menu instead. */}
           <div className="md:hidden">

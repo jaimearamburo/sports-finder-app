@@ -1,5 +1,8 @@
 "use client";
 
+// Alternate TagFilterChips using a true squircle clip path instead of
+// rounded-[20%]. Not imported anywhere; kept as a visual reference and
+// manually mirrored whenever tag-filter-chips.tsx changes.
 import { startTransition, useOptimistic } from "react";
 import { getSvgPath } from "figma-squircle";
 import { cn } from "@/lib/utils";
@@ -95,12 +98,9 @@ export function TagFilterChips({
                 // the icon lives inside the button, so hover/click apply to
                 // it alone, not the label below.
                 //
-                // active:scale-95 is the entire "selected" feel now - a flat
-                // color fill plus a quick tactile press, not simulated
-                // lighting (no gradient, no bevel). :active only matches
-                // while the pointer/touch is actually down, so this fires as
-                // a brief press-feedback on every click regardless of which
-                // way it toggles, with no JS state of its own needed.
+                // active:scale-95 gives tap feedback: a brief scale-down
+                // while the pointer or touch is down, independent of which
+                // way the click toggles selection, with no JS state needed.
                 className="group/chip transition-transform duration-150 active:scale-95"
               >
                 {/* drop-shadow lives on a wrapper outside the clipped element:

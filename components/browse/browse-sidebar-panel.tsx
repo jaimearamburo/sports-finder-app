@@ -31,10 +31,10 @@ export type SidebarFilterValues = {
 // state for all of them and calls that callback inside its own transition.
 // Separating a component that reads useSearchParams() from one that manages
 // useOptimistic/startTransition state keeps rapid filter changes from
-// contending with each other during rerenders, the same pattern used to
-// split TagFilters from TagFilterChips. Category now covers the
-// booking-mechanic axis on its own (see lib/category-filters.ts) — there is
-// deliberately no separate booking-type control alongside it any more.
+// contending with each other during rerenders, the same pattern TagFilters
+// and TagFilterChips use. Category is the only control for the
+// booking-mechanic axis (see lib/category-filters.ts); there is no
+// separate booking-type control.
 export function BrowseSidebarPanel({
   cities,
   category,

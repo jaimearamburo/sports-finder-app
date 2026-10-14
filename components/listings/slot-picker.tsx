@@ -10,13 +10,12 @@ import { FixedSessionPicker } from "./fixed-session-picker";
 import type { PickerListing, SelectedSlots } from "./picker-types";
 
 // pricePerUnit is a per-hour/per-day/flat-per-session rate depending on
-// mechanic (see getPriceSuffix in listing-card.tsx) - this scales each
+// mechanic (see getPriceSuffix in listing-card.tsx). This scales each
 // slot into an actual cost and sums across all of them. Every mechanic
-// except a non-accommodation date_range pass only ever produces one slot,
-// so this reduces to the same single-slot math as before for those.
+// except a non-accommodation date_range pass only ever produces one slot.
 // Quantity (how many people/units one purchase claims) is deliberately not
-// handled in here - SlotPicker multiplies this function's result by
-// quantity once, at the top level, so this stays ignorant of it.
+// handled here - SlotPicker multiplies this function's result by quantity
+// once, at the top level, so this stays ignorant of it.
 function getTotalPrice(listing: PickerListing, slots: SelectedSlots): number {
   return slots.reduce((sum, slot) => {
     const durationMs = slot.endsAt.getTime() - slot.startsAt.getTime();
@@ -46,9 +45,9 @@ function getBreakdownLine(listing: PickerListing, slots: SelectedSlots): string 
 
 // Picks the mechanic-specific picker and owns the one piece of state every
 // mechanic eventually produces: one or more concrete startsAt/endsAt
-// spans. Submitting that (ticket 5.3 - bookListingAction already exists
-// and works, it just has nothing calling it yet) is deliberately out of
-// scope here; this only gets the user to a valid, visible selection.
+// spans. Submitting the selection to bookListingAction
+// (app/listings/[id]/actions.ts) is out of scope here; this only gets the
+// user to a valid, visible selection.
 export function SlotPicker({
   listing,
   bookableDates,
@@ -125,8 +124,8 @@ export function SlotPicker({
 
       {/* Always rendered, never conditionally hidden - a running total of
           $0.00 before a selection reads as "nothing to pay yet," which is
-          more checkout-like than the old "select a slot" placeholder text
-          that disappeared the moment something was picked. */}
+          more checkout-like than a placeholder that disappears the moment
+          something is picked. */}
       <div className="flex items-center justify-between border-t pt-4">
         <p className="text-sm text-muted-foreground">{breakdownWithQuantity ?? "Total"}</p>
         <div className="flex items-center gap-4">

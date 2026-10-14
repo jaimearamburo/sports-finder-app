@@ -1,16 +1,14 @@
 import { auth } from "@/auth";
 
 /**
- * Placeholder protected route (ticket #71).
- *
- * This page has no feature purpose yet — Phase 7 ("My Bookings") will
- * eventually live here or somewhere similar. Its job right now is just to
- * exist as a real route under `/dashboard` so proxy.ts 
- * has something concrete to protect and we can complete the test
+ * Placeholder protected route. Phase 7 ("My Bookings") will eventually
+ * live here. Its job for now is to exist as a real route under
+ * `/dashboard` that proxy.ts has something concrete to protect.
  */
 export default async function DashboardPage() {
-  // Safe to assume a session exists here — middleware already redirected
-  // anyone without one before this component ever rendered.
+  // Safe to assume a session exists here - middleware already redirected
+  // anyone without one before this component rendered. Reads the current
+  // session to display the signed-in user's email.
   const session = await auth();
 
   return (

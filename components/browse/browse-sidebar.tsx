@@ -8,10 +8,9 @@ import type { BrowseCityGroup } from "@/lib/browse-cities";
 // Shared by BrowseSidebar (the desktop vertical column) and MobileFilterBar
 // (the mobile horizontal pill row) - both filter the exact same URL params
 // (category/city/priceMin/priceMax), just through two different-shaped UIs
-// shown at different breakpoints via plain CSS, not a JS viewport check
-// (see BrowsePageShell). One shared definition of how a selection
-// becomes a URL change means the two can't quietly drift apart the way two
-// independently maintained copies could.
+// shown at different breakpoints via plain CSS, (see BrowsePageShell). 
+// One shared definition of how a selection becomes a URL change means one source of truth,
+// so the two can't quietly drift apart the way two independently maintained copies could.
 export function useSidebarFilterRouting(): SidebarFilterValues & {
   changeAction: (next: SidebarFilterValues) => void;
 } {

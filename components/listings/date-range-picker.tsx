@@ -63,10 +63,10 @@ export function DateRangePicker({
 
     // "Required" means the minimum needed to be bookable, not the
     // maximum - a 1-5 day pass is already a complete, valid purchase at
-    // exactly 1 day. Using maxDurationDays here (as this used to) forced
-    // the hint text to always demand the maximum selectable count even
-    // though the Calendar's own min/max props, and the onSelect/pricing
-    // flow above, already accept anywhere in that range.
+    // exactly 1 day. The hint text below is built off minDurationDays
+    // rather than maxDurationDays for that reason, even though the
+    // Calendar's own min/max props, and the onSelect/pricing flow above,
+    // already accept anywhere in that range.
     const min = listing.minDurationDays ?? 1;
     const max = listing.maxDurationDays ?? min;
     const selectedCount = selectedDates?.length ?? 0;

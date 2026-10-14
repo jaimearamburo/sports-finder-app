@@ -13,9 +13,8 @@ const CHIP_UNSELECTED = "border-border bg-card text-muted-foreground hover:borde
 const CHIP_SELECTED = "border-primary bg-primary text-primary-foreground";
 const CHIP_DISABLED = "cursor-not-allowed border-border bg-card text-muted-foreground opacity-40";
 
-// en-US, not this file's usual en-AU - you specifically asked for
-// "October 6, 2026" (month-day-year with a comma), which is en-US's
-// ordering, not en-AU's day-first "6 October 2026".
+// en-US, not this file's usual en-AU, for month-day-year ordering with a
+// comma ("October 6, 2026") rather than en-AU's day-first "6 October 2026".
 function formatFullDate(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
@@ -69,9 +68,9 @@ export function TimeRangePicker({
   // independent of which duration is currently selected - this list's
   // length/order never changes when duration changes, only each button's
   // own fits-the-current-duration state does (see fitsDuration below). A
-  // duration-dependent list used to shrink/grow the grid on every duration
-  // change, which shifted every other button's position and forced the
-  // user to re-find whichever one they were about to click.
+  // duration-dependent list would shrink or grow the grid on every
+  // duration change, shifting every other button's position and forcing
+  // the user to re-find whichever one they were about to click.
   const allStartMinutes: number[] = [];
   if (listing.operatingHoursStart && listing.operatingHoursEnd && listing.incrementMinutes) {
     const openMinutes = minutesSinceMidnight(listing.operatingHoursStart);

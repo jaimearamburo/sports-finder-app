@@ -29,10 +29,11 @@ async function BrowseSidebarSection() {
   return <BrowseSidebar cities={cities} />;
 }
 
-// Mirrors BrowseSidebarSection for the mobile pill row - a second call to
-// the same unstable_cache-wrapped getBrowseCities() rather than hoisting
-// the fetch up to Home itself, which would force the whole page shell to
-// wait on it instead of letting each piece stream in independently.
+// Mirrors BrowseSidebarSection for the mobile pill row. Calling
+// getBrowseCities() again here rather than hoisting the fetch up to Home
+// itself lets each piece stream in independently; getBrowseCities() is
+// wrapped in React's cache() specifically so this and
+// BrowseSidebarSection never trigger two real queries in one request.
 async function MobileFilterBarSection() {
   const cities = await getBrowseCities();
   return <MobileFilterBar cities={cities} />;
