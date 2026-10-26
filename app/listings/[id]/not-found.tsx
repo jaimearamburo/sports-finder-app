@@ -16,7 +16,7 @@ export default function ListingNotFound() {
         It may have been removed by the venue, or the link you followed might be out of date.
       </p>
       <BackButton className={buttonVariants({ variant: "default", className: "mt-3" })}>
-        Back to browse
+        Go back
       </BackButton>
     </div>
   );

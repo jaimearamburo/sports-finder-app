@@ -11,10 +11,11 @@ import { auth } from "@/auth";
 // "optimistic" check per the Next.js auth guide, cheap enough to run on
 // every request.
 //
-// "/dashboard" is currently just a placeholder page (see
-// app/dashboard/page.tsx) added so we can test end-to-end login/logout/hit protected routes
+// "/dashboard" and "/account" are currently just placeholder pages (see
+// app/dashboard/page.tsx, app/account/page.tsx) added so we can test
+// end-to-end login/logout/hit protected routes.
 // Add further prefixes here as real protected pages
-const protectedRoutes: string[] = ["/dashboard"];
+const protectedRoutes: string[] = ["/dashboard", "/account"];
 
 export default auth((req) => {
   const isProtectedRoute = protectedRoutes.some((route) =>

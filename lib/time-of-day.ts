@@ -3,7 +3,7 @@
 // timestamps. No timezone conversion belongs here - just string parsing.
 
 import { TZDate } from "@date-fns/tz";
-import { localDateToUTCDay } from "@/lib/dates";
+import { localDateToUTCDay, todayInTimezone } from "@/lib/dates";
 
 export function formatTimeOfDay(time: string): string {
   const [hourStr, minute] = time.split(":");
@@ -47,7 +47,7 @@ export function addMinutesToTime(time: string, minutes: number): string {
 // compute it identically.
 export function zonedOccurrenceStart(date: Date, time: string, timeZone: string): Date {
   const minutes = minutesSinceMidnight(time);
-  return new TZDate(
+  const zoned = new TZDate(
     date.getUTCFullYear(),
     date.getUTCMonth(),
     date.getUTCDate(),
@@ -56,6 +56,14 @@ export function zonedOccurrenceStart(date: Date, time: string, timeZone: string)
     0,
     timeZone
   );
+  // Converted to a plain Date - a TZDate instance passed as a Server
+  // Action argument (see TimeRangePicker/FixedSessionPicker, which build
+  // startsAt from this and submit it to createBookingHoldAction) isn't
+  // recognized as a real Date by that serialization boundary and arrives
+  // server-side as a stripped object with no prototype methods at all.
+  // Nothing downstream needs TZDate's extra timezone-aware behavior once
+  // the correct UTC instant has already been computed.
+  return new Date(zoned.getTime());
 }
 
 // The inverse direction: given a real instant (e.g. a submitted startsAt)
@@ -77,4 +85,15 @@ export function minutesOfDayInTimezone(instant: Date, timeZone: string): number 
 // startDate).
 export function calendarDayInTimezone(instant: Date, timeZone: string): Date {
   return localDateToUTCDay(new TZDate(instant, timeZone));
+}
+
+// Whether a given minute-of-day on a given calendar date has already
+// passed, as seen from the venue's own clock - used to disable picking a
+// start time earlier than right now on today's date. Any date before
+// today is never actually passed in here in practice, since callers
+// filter to bookableDates first, which already excludes earlier days.
+export function isPastToday(date: Date, minutesOfDay: number, timeZone: string): boolean {
+  const today = todayInTimezone(timeZone);
+  if (date.getTime() !== today.getTime()) return false;
+  return minutesOfDay < minutesOfDayInTimezone(new Date(), timeZone);
 }

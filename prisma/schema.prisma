@@ -149,7 +149,7 @@ model Venue {
 
   // Default minutes a BookingHold reserves a slot before it expires,
   // inherited by every Listing unless overridden there.
-  holdDurationMinutes Int @default(10) @map("hold_duration_minutes")
+  holdDurationMinutes Int @default(5) @map("hold_duration_minutes")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -415,6 +415,13 @@ model Listing {
 //   - Optionally belongs to one User (null = guest booking, no account).
 model Booking {
   id        String  @id @default(cuid())
+  // Groups every row created from one checkout attempt under one
+  // user-facing reference - a multi-day pass finalizes into several
+  // Booking rows (one per day), all sharing this same value. Generated
+  // once in application code (not a column default), first on the
+  // BookingHold rows it's carried over from at finalize time. See
+  // BookingHold.orderId for the fuller reasoning.
+  orderId   String  @map("order_id")
   listingId String  @map("listing_id")
   userId    String? @map("user_id")
 
@@ -422,6 +429,15 @@ model Booking {
   guestName  String? @map("guest_name")
   guestEmail String? @map("guest_email")
   guestPhone String? @map("guest_phone")
+
+  // Who this specific booking is for, collected at checkout regardless of
+  // account status - separate from the guest fields above, since a logged-in
+  // user can still book on behalf of someone else (a friend, a dependent).
+  // Mandatory; phone is optional since User itself has no phone field to
+  // pull from for the "booking for myself" case.
+  attendeeName  String  @map("attendee_name")
+  attendeeEmail String  @map("attendee_email")
+  attendeePhone String? @map("attendee_phone")
 
   startsAt DateTime      @map("starts_at")
   endsAt   DateTime      @map("ends_at")
@@ -450,6 +466,7 @@ model Booking {
 
   @@index([listingId, startsAt, endsAt])
   @@index([userId])
+  @@index([orderId])
   @@map("bookings")
 }
 
@@ -533,6 +550,16 @@ model AvailabilityOverride {
 //   - Optionally belongs to one User (null = guest hold, no account yet).
 model BookingHold {
   id        String   @id @default(cuid())
+  // One value shared by every hold row created from the same checkout
+  // attempt (a multi-day pass creates one row per day), generated once in
+  // application code rather than a column default - a default would give
+  // every row its own value, defeating the point of grouping them. This
+  // is the single id the URL and UI actually expose: a visitor should
+  // never see or reason about the individual row ids underneath one
+  // checkout, only this one reference. Carried over unchanged onto the
+  // Booking rows this converts into at finalize time, so a multi-day
+  // pass stays one logical booking there too, not several unrelated ones.
+  orderId   String   @map("order_id")
   listingId String   @map("listing_id")
   startsAt  DateTime @map("starts_at")
   endsAt    DateTime @map("ends_at")
@@ -542,6 +569,11 @@ model BookingHold {
   userId     String? @map("user_id")
   guestToken String? @map("guest_token")
 
+  // Mirrors Booking.quantity - how many capacity units this hold reserves,
+  // so a group's hold blocks the right amount of capacity for everyone
+  // else, not just one unit.
+  quantity Int @default(1)
+
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -550,6 +582,13 @@ model BookingHold {
 
   @@index([listingId, startsAt, endsAt])
   @@index([expiresAt])
+  @@index([orderId])
+  // Supports createBookingHold's one-active-hold-per-user lookup. This
+  // index alone doesn't prevent two concurrent requests from the same
+  // user both passing that check - see createBookingHold's own comment
+  // for the actual race-safety mechanism (a lock on the User row, same
+  // technique used for per-listing capacity).
+  @@index([userId, expiresAt])
   @@map("booking_holds")
 }
 

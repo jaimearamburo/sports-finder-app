@@ -4,6 +4,7 @@ import {
   CARD_EYEBROW_TEXT_CLASS,
   CARD_TITLE_TEXT_CLASS,
   CARD_VENUE_TEXT_CLASS,
+  CARD_LOCATION_TEXT_CLASS,
   CARD_META_TEXT_CLASS,
 } from "@/components/browse/listing-card";
 
@@ -115,7 +116,8 @@ function ListingCardSkeleton() {
       <div className="p-2.5 sm:p-3.5">
         <TextBone as="p" textClass={CARD_EYEBROW_TEXT_CLASS} className="mb-1 hidden w-16 sm:block" />
         <TextBone as="p" textClass={CARD_TITLE_TEXT_CLASS} className="mb-1.5 w-32" />
-        <TextBone as="p" textClass={CARD_VENUE_TEXT_CLASS} className="mb-2.5 w-36" />
+        <TextBone as="p" textClass={CARD_VENUE_TEXT_CLASS} className="w-36" />
+        <TextBone as="p" textClass={CARD_LOCATION_TEXT_CLASS} className="mb-2.5 w-20" />
         <div className="flex items-baseline justify-between">
           <TextBone textClass={CARD_META_TEXT_CLASS} className="w-16" />
           <TextBone textClass={CARD_META_TEXT_CLASS} className="w-10" />

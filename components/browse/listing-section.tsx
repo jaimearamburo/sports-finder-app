@@ -83,7 +83,7 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     },
     include: {
       activity: { include: { tags: { include: { tag: true } } } },
-      venue: { include: { city: true } },
+      venue: { include: { city: { include: { country: true } } } },
     },
     orderBy: { name: "asc" },
   });

@@ -1,10 +1,10 @@
 import Link from "next/link";
-import type { Activity, City, Listing, Tag, Venue } from "../../generated/prisma/client";
+import type { Activity, City, Country, Listing, Tag, Venue } from "../../generated/prisma/client";
 import { cn } from "@/lib/utils";
 
 export type ListingCardData = Listing & {
   activity: Activity & { tags: { tag: Tag }[] };
-  venue: Venue & { city: City };
+  venue: Venue & { city: City & { country: Country } };
   // Only ever attached for fixed_session listings, and only when the
   // browse page's date filter is active (see ListingSection) - undefined
   // means "no date filter," which getMetaLine reads as "show general
@@ -104,6 +104,7 @@ export function ListingGrid({ listings }: { listings: ListingCardData[] }) {
 export const CARD_EYEBROW_TEXT_CLASS = "text-xs font-bold tracking-wide uppercase";
 export const CARD_TITLE_TEXT_CLASS = "text-[1.05rem] leading-tight font-semibold";
 export const CARD_VENUE_TEXT_CLASS = "text-sm";
+export const CARD_LOCATION_TEXT_CLASS = "text-xs";
 export const CARD_META_TEXT_CLASS = "text-sm";
 
 export function ListingCard({ listing }: { listing: ListingCardData }) {
@@ -136,8 +137,12 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
           {listing.activity.name}
         </p>
         <p className={cn(CARD_TITLE_TEXT_CLASS, "line-clamp-1")}>{listing.name}</p>
-        <p className={cn(CARD_VENUE_TEXT_CLASS, "mb-2.5 line-clamp-1 text-muted-foreground")}>
-          {listing.venue.name}, {listing.venue.city.name}
+        <p className={cn(CARD_VENUE_TEXT_CLASS, "line-clamp-1 text-muted-foreground")}>{listing.venue.name}</p>
+        {/* Own line, not appended after the venue name - a long venue
+            name would otherwise push this off the end of the line and
+            line-clamp-1 would hide it entirely. */}
+        <p className={cn(CARD_LOCATION_TEXT_CLASS, "mb-2.5 line-clamp-1 text-muted-foreground/80")}>
+          {listing.venue.city.name}, {listing.venue.city.country.name}
         </p>
         <div className={cn(CARD_META_TEXT_CLASS, "flex items-baseline justify-between text-muted-foreground")}>
           <span>{getMetaLine(listing)}</span>

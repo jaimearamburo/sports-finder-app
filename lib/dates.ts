@@ -44,3 +44,30 @@ export function startOfLocalToday(): Date {
   today.setHours(0, 0, 0, 0);
   return today;
 }
+
+// A booking's real-world date/time, formatted in the venue's own
+// timezone - shared by the checkout page and the confirmation page so
+// both describe the same booking identically. Same calendar day in the
+// venue's timezone means a single-day booking (a court, a class) shows
+// one date; a multi-day one (a camping stay, a pass) shows its start and
+// end dates instead of a time range.
+export function formatBookingTime(startsAt: Date, endsAt: Date, timeZone: string): string {
+  const dateFormatter = new Intl.DateTimeFormat("en-AU", {
+    timeZone,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const timeFormatter = new Intl.DateTimeFormat("en-AU", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  const sameDay = dateFormatter.format(startsAt) === dateFormatter.format(endsAt);
+  if (sameDay) {
+    return `${dateFormatter.format(startsAt)}, ${timeFormatter.format(startsAt)} - ${timeFormatter.format(endsAt)}`;
+  }
+  return `${dateFormatter.format(startsAt)} - ${dateFormatter.format(endsAt)}`;
+}

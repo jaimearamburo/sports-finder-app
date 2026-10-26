@@ -1,66 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { startOfUTCDay } from "@/lib/dates";
 import { TimeRangePicker } from "./time-range-picker";
 import { DateRangePicker } from "./date-range-picker";
 import { FixedSessionPicker } from "./fixed-session-picker";
+import { createBookingHoldAction } from "@/app/listings/[id]/actions";
+import { getTotalPrice, getBreakdownLine } from "@/lib/booking-price";
 import type { PickerListing, SelectedSlots } from "./picker-types";
-
-// pricePerUnit is a per-hour/per-day/flat-per-session rate depending on
-// mechanic (see getPriceSuffix in listing-card.tsx). This scales each
-// slot into an actual cost and sums across all of them. Every mechanic
-// except a non-accommodation date_range pass only ever produces one slot.
-// Quantity (how many people/units one purchase claims) is deliberately not
-// handled here - SlotPicker multiplies this function's result by quantity
-// once, at the top level, so this stays ignorant of it.
-function getTotalPrice(listing: PickerListing, slots: SelectedSlots): number {
-  return slots.reduce((sum, slot) => {
-    const durationMs = slot.endsAt.getTime() - slot.startsAt.getTime();
-    switch (listing.bookingMechanic) {
-      case "time_range":
-        return sum + listing.pricePerUnit * (durationMs / (60 * 60 * 1000));
-      case "date_range":
-        return sum + listing.pricePerUnit * (durationMs / (24 * 60 * 60 * 1000));
-      case "fixed_session":
-        return sum + listing.pricePerUnit;
-    }
-  }, 0);
-}
-
-// Only date_range gets a breakdown for now - time_range's duration-based
-// price is already visible via its own picker, and fixed_session is
-// always exactly one flat-rate session, so neither needs one yet.
-function getBreakdownLine(listing: PickerListing, slots: SelectedSlots): string | null {
-  if (listing.bookingMechanic !== "date_range" || slots.length === 0) return null;
-  const totalDays = slots.reduce(
-    (sum, s) => sum + (s.endsAt.getTime() - s.startsAt.getTime()) / (24 * 60 * 60 * 1000),
-    0
-  );
-  const unit = listing.isAccommodation ? "night" : "day";
-  return `${totalDays} ${unit}${totalDays === 1 ? "" : "s"} × $${listing.pricePerUnit.toFixed(2)}`;
-}
 
 // Picks the mechanic-specific picker and owns the one piece of state every
 // mechanic eventually produces: one or more concrete startsAt/endsAt
-// spans. Submitting the selection to bookListingAction
-// (app/listings/[id]/actions.ts) is out of scope here; this only gets the
-// user to a valid, visible selection.
+// spans, plus submitting that selection to createBookingHoldAction and
+// moving on to the checkout page once a hold is secured.
 export function SlotPicker({
+  listingId,
   listing,
   bookableDates,
   spotsRemaining,
 }: {
+  listingId: string;
   listing: PickerListing;
   bookableDates: Date[];
   // fixed_session only - see getSpotsRemaining in lib/availability.ts.
   // Undefined for the other two mechanics, which have no such concept.
   spotsRemaining?: Map<number, number | null>;
 }) {
+  const router = useRouter();
   const [slots, setSlots] = useState<SelectedSlots | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   // Resets quantity back to 1 whenever the slot selection itself changes,
   // using React's documented "adjust state during render" pattern rather
@@ -104,6 +77,19 @@ export function SlotPicker({
   const total = slots ? getTotalPrice(listing, slots) * quantity : 0;
   const breakdown = slots ? getBreakdownLine(listing, slots) : null;
   const breakdownWithQuantity = breakdown && quantity > 1 ? `${breakdown} × ${quantity}` : breakdown;
+
+  function handleBookNow() {
+    if (!slots) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await createBookingHoldAction({ listingId, slots, quantity });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      router.push(`/listings/${listingId}/checkout/${result.orderId}`);
+    });
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -158,12 +144,10 @@ export function SlotPicker({
         </div>
       </div>
 
-      {/* Stays disabled regardless of selection - there's nothing wired
-          to submit to yet (ticket 5.3). An enabled button that silently
-          does nothing on click would be worse than an honestly disabled
-          one; the live price above is this ticket's actual payoff. */}
-      <Button disabled className="w-full" size="lg">
-        Booking coming soon
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <Button disabled={!slots || isPending} onClick={handleBookNow} className="w-full" size="lg">
+        Book Now
       </Button>
     </div>
   );

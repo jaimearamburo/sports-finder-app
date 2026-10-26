@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { localDateToUTCDay } from "@/lib/dates";
-import { formatTimeOfDay, minutesSinceMidnight, zonedOccurrenceStart } from "@/lib/time-of-day";
+import { formatTimeOfDay, minutesSinceMidnight, zonedOccurrenceStart, isPastToday } from "@/lib/time-of-day";
 import { Calendar } from "@/components/ui/calendar";
 import type { PickerListing, SelectedSlots } from "./picker-types";
 
@@ -90,6 +90,17 @@ export function TimeRangePicker({
     return startMinutes + selectedDuration <= minutesSinceMidnight(listing.operatingHoursEnd);
   }
 
+  // A start time on today's date that's already passed (measured against
+  // the venue's own clock, not the browser's) is never selectable, even
+  // if it would otherwise fit. The server re-derives this same rule
+  // independently in isRequestedSlotValid - this is purely so the picker
+  // doesn't offer something it already knows will be rejected.
+  function isSelectable(startMinutes: number): boolean {
+    if (!fitsDuration(startMinutes)) return false;
+    if (selectedDate && isPastToday(selectedDate, startMinutes, listing.venueTimezone)) return false;
+    return true;
+  }
+
   function pickDate(date: Date) {
     // localDateToUTCDay, not startOfUTCDay: the Calendar hands back a Date
     // built from the browser's LOCAL midnight for the clicked day.
@@ -112,7 +123,7 @@ export function TimeRangePicker({
   }
 
   function pickStartTime(startMinutes: number) {
-    if (!selectedDate || !selectedDuration || !fitsDuration(startMinutes)) return;
+    if (!selectedDate || !selectedDuration || !isSelectable(startMinutes)) return;
     setSelectedStartMinutes(startMinutes);
     // zonedOccurrenceStart, not Date.UTC directly - the chosen time is a
     // wall-clock time at the venue, not at UTC (see its own comment in
@@ -163,7 +174,7 @@ export function TimeRangePicker({
           ) : (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {allStartMinutes.map((minutes) => {
-                const disabled = !fitsDuration(minutes);
+                const disabled = !isSelectable(minutes);
                 return (
                   <button
                     key={minutes}

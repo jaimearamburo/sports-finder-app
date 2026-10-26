@@ -34,7 +34,7 @@ function FacebookIcon() {
 // don't exist yet.
 const FOOTER_LINKS = [
   { href: "#", label: "Privacy Policy" },
-  { href: "#", label: "Terms" },
+  { href: "/terms", label: "Terms" },
   { href: "#", label: "Contact" },
 ];
 

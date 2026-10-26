@@ -112,6 +112,14 @@ export function isRequestedSlotValid(
 ): boolean {
   if (endsAt <= startsAt) return false;
   const timeZone = listing.venue.city.timezone;
+
+  // time_range and fixed_session have a real wall-clock start instant, so
+  // a start time that has already passed must be rejected outright, not
+  // just a day that's too early. date_range has no equivalent concept -
+  // its "start" is a whole calendar day, not an instant - so "book
+  // starting today" stays valid regardless of what time it currently is.
+  if (listing.activity.bookingMechanic !== "date_range" && startsAt < new Date()) return false;
+
   const day = calendarDayInTimezone(startsAt, timeZone);
   const isBookableDay = bookableDates.some((d) => d.getTime() === day.getTime());
   if (!isBookableDay) return false;
@@ -152,12 +160,12 @@ export function isRequestedSlotValid(
 // getBookableDates already returns its dates in) rather than its startsAt -
 // that's what the picker actually has on hand for each button it renders.
 // Grouping the booking query by exact startsAt (rather than the general
-// overlap-range query bookListing's conflict check uses) is safe here
-// specifically because isRequestedSlotValid's fixed_session branch above
-// already guarantees every booking against this listing starts at exactly
-// the recurrence time - a fixed_session booking can never partially overlap
-// an occurrence the way a time_range one can. One query for every occurrence
-// date, not one per date.
+// overlap-range query createBookingHold's conflict check uses) is safe
+// here specifically because isRequestedSlotValid's fixed_session branch
+// above already guarantees every booking against this listing starts at
+// exactly the recurrence time - a fixed_session booking can never
+// partially overlap an occurrence the way a time_range one can. One query
+// for every occurrence date, not one per date.
 export async function getSpotsRemaining(
   listing: Pick<Listing, "id" | "capacity" | "recurrenceStartTime">,
   occurrenceDates: Date[],
@@ -172,25 +180,30 @@ export async function getSpotsRemaining(
   const startsByDate = occurrenceDates.map(
     (date) => [date, zonedOccurrenceStart(date, listing.recurrenceStartTime!, timeZone)] as const
   );
+  const starts = startsByDate.map(([, start]) => start);
 
-  // Sums already-booked quantity per occurrence start time, excluding
-  // cancelled bookings. Does not account for BookingHold rows, since
-  // that cart-lock logic is not wired up yet.
-  const bookedSums = await prisma.booking.groupBy({
-    by: ["startsAt"],
-    where: {
-      listingId: listing.id,
-      status: { not: "cancelled" },
-      startsAt: { in: startsByDate.map(([, start]) => start) },
-    },
-    _sum: { quantity: true },
-  });
+  // Sums already-claimed quantity per occurrence start time, from
+  // confirmed bookings and from active (non-expired) holds alike - a
+  // slot someone else is mid-checkout on shouldn't show as open here.
+  const [bookedSums, heldSums] = await Promise.all([
+    prisma.booking.groupBy({
+      by: ["startsAt"],
+      where: { listingId: listing.id, status: { not: "cancelled" }, startsAt: { in: starts } },
+      _sum: { quantity: true },
+    }),
+    prisma.bookingHold.groupBy({
+      by: ["startsAt"],
+      where: { listingId: listing.id, expiresAt: { gt: new Date() }, startsAt: { in: starts } },
+      _sum: { quantity: true },
+    }),
+  ]);
   const bookedByStart = new Map(bookedSums.map((row) => [row.startsAt.getTime(), row._sum.quantity ?? 0]));
+  const heldByStart = new Map(heldSums.map((row) => [row.startsAt.getTime(), row._sum.quantity ?? 0]));
 
   return new Map(
     startsByDate.map(([date, start]) => [
       date.getTime(),
-      listing.capacity! - (bookedByStart.get(start.getTime()) ?? 0),
+      listing.capacity! - (bookedByStart.get(start.getTime()) ?? 0) - (heldByStart.get(start.getTime()) ?? 0),
     ])
   );
 }
@@ -201,9 +214,9 @@ export async function getSpotsRemaining(
 // browse page's date filter: a court being "open" that day (per
 // getBookableDates) isn't enough on its own if every increment is already
 // booked out. Walks every increment-aligned candidate start time and
-// checks it against the same overlap-sum logic bookListing's own conflict
-// check uses, swept across one day's candidates instead of one proposed
-// slot - stops at the first one that clears.
+// checks it against the same overlap-sum logic createBookingHold's own
+// conflict check uses, swept across one day's candidates instead of one
+// proposed slot - stops at the first one that clears.
 export async function hasAvailableSlotOnDate(
   listing: Pick<Listing, "id" | "capacity" | "operatingHoursStart" | "operatingHoursEnd" | "minDurationMinutes" | "incrementMinutes">,
   date: Date,
@@ -223,17 +236,31 @@ export async function hasAvailableSlotOnDate(
   const dayStart = zonedOccurrenceStart(date, "00:00", timeZone);
   const dayEnd = zonedOccurrenceStart(addDays(date, 1), "00:00", timeZone);
 
-  // Fetches every non-cancelled booking overlapping this calendar day,
-  // used below to compute remaining capacity at each candidate slot.
-  const bookings = await prisma.booking.findMany({
-    where: {
-      listingId: listing.id,
-      status: { not: "cancelled" },
-      startsAt: { lt: dayEnd },
-      endsAt: { gt: dayStart },
-    },
-    select: { startsAt: true, endsAt: true, quantity: true },
-  });
+  // Fetches every non-cancelled booking, plus every active hold, that
+  // overlaps this calendar day - used below to compute remaining capacity
+  // at each candidate slot. A hold counts the same as a booking here,
+  // since it's reserving the same capacity while someone else checks out.
+  const [bookings, holds] = await Promise.all([
+    prisma.booking.findMany({
+      where: {
+        listingId: listing.id,
+        status: { not: "cancelled" },
+        startsAt: { lt: dayEnd },
+        endsAt: { gt: dayStart },
+      },
+      select: { startsAt: true, endsAt: true, quantity: true },
+    }),
+    prisma.bookingHold.findMany({
+      where: {
+        listingId: listing.id,
+        expiresAt: { gt: new Date() },
+        startsAt: { lt: dayEnd },
+        endsAt: { gt: dayStart },
+      },
+      select: { startsAt: true, endsAt: true, quantity: true },
+    }),
+  ]);
+  const claims = [...bookings, ...holds];
 
   const openMinutes = minutesSinceMidnight(listing.operatingHoursStart);
   const closeMinutes = minutesSinceMidnight(listing.operatingHoursEnd);
@@ -256,9 +283,9 @@ export async function hasAvailableSlotOnDate(
       timeZone
     );
     const slotEnd = new Date(slotStart.getTime() + listing.minDurationMinutes * 60000);
-    const overlapping = bookings
-      .filter((b) => b.startsAt < slotEnd && b.endsAt > slotStart)
-      .reduce((sum, b) => sum + b.quantity, 0);
+    const overlapping = claims
+      .filter((c) => c.startsAt < slotEnd && c.endsAt > slotStart)
+      .reduce((sum, c) => sum + c.quantity, 0);
     if (overlapping < listing.capacity) return true;
   }
   return false;

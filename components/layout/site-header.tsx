@@ -5,6 +5,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/layout/logo";
 import { UserMenu } from "@/components/layout/user-menu";
+import { getAccountLinkInfo } from "@/lib/account-nav";
 
 /**
  * Global site header: brand link, search, and auth-aware actions. An
@@ -19,6 +20,7 @@ import { UserMenu } from "@/components/layout/user-menu";
 export async function SiteHeader() {
   // Reads the current session from the request cookie.
   const session = await auth();
+  const accountLink = session ? getAccountLinkInfo(session.user.role) : null;
 
   return (
     // [will-change:transform] hints the browser to promote this sticky
@@ -51,13 +53,13 @@ export async function SiteHeader() {
               UserMenu collapses them into one round avatar button that
               opens a small menu instead. */}
           <div className="md:hidden">
-            <UserMenu loggedIn={!!session} />
+            <UserMenu role={session?.user.role ?? null} />
           </div>
           <div className="hidden items-center gap-2 md:flex">
-            {session ? (
+            {session && accountLink ? (
               <>
-                <Link href="/dashboard" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                  Dashboard
+                <Link href={accountLink.href} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                  {accountLink.label}
                 </Link>
                 {/* Links to the logout confirmation page rather than
                     signing out directly. */}

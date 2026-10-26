@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { BackButton } from "@/components/listings/back-button";
 import { SlotPicker } from "@/components/listings/slot-picker";
+import { ActiveHoldBanner } from "@/components/listings/active-hold-banner";
 import type { PickerListing } from "@/components/listings/picker-types";
 import { getBookableDates, getSpotsRemaining } from "@/lib/availability";
 import { formatTimeOfDay } from "@/lib/time-of-day";
@@ -43,7 +45,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
     where: { id },
     include: {
       activity: { include: { tags: { include: { tag: true } } } },
-      venue: { include: { city: true } },
+      venue: { include: { city: { include: { country: true } } } },
     },
   });
 
@@ -59,6 +61,22 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   const accentColor = tags[0]?.color;
   const scheduleLine = getScheduleLine(listing);
   const bookableDates = await getBookableDates(listing);
+
+  // At most one of these can exist at a time (createBookingHold enforces
+  // it), but this is a plain lookup rather than something that assumes
+  // that - it's just whichever active hold this user currently has
+  // anywhere, not necessarily one for this specific listing.
+  const session = await auth();
+  const activeHold = session
+    ? await prisma.bookingHold.findFirst({
+        where: { userId: session.user.id, expiresAt: { gt: new Date() } },
+        select: {
+          orderId: true,
+          listingId: true,
+          listing: { select: { name: true, venue: { select: { name: true } } } },
+        },
+      })
+    : null;
 
   // Only fixed_session has a concept of "spots remaining per occurrence" -
   // the other two mechanics pass undefined straight through to SlotPicker.
@@ -92,8 +110,21 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-7 sm:px-6">
+      {activeHold && (
+        <ActiveHoldBanner
+          orderId={activeHold.orderId}
+          listingId={activeHold.listingId}
+          listingName={activeHold.listing.name}
+          venueName={activeHold.listing.venue.name}
+        />
+      )}
+
+      {/* Blurred and inert, not removed - the listing is still there to
+          look at, just not something this page lets you act on while an
+          active hold elsewhere needs resolving first. */}
+      <div className={activeHold ? "pointer-events-none blur-sm select-none" : undefined}>
       <BackButton className="text-sm text-muted-foreground hover:text-foreground">
-        ← Back to browse
+        ← Go back
       </BackButton>
 
       <div className="mt-4 overflow-hidden rounded-md border bg-card shadow-sm">
@@ -143,7 +174,12 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           </div>
 
           <div className="mt-6 border-t pt-6">
-            <SlotPicker listing={pickerListing} bookableDates={bookableDates} spotsRemaining={spotsRemaining} />
+            <SlotPicker
+              listingId={listing.id}
+              listing={pickerListing}
+              bookableDates={bookableDates}
+              spotsRemaining={spotsRemaining}
+            />
           </div>
 
           {(listing.description ?? listing.activity.description) && (
@@ -173,6 +209,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           className="h-64 w-full border-0"
           loading="lazy"
         />
+      </div>
       </div>
     </div>
   );
