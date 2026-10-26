@@ -10,6 +10,7 @@ import { DateRangePicker } from "./date-range-picker";
 import { FixedSessionPicker } from "./fixed-session-picker";
 import { createBookingHoldAction } from "@/app/listings/[id]/actions";
 import { getTotalPrice, getBreakdownLine } from "@/lib/booking-price";
+import type { OccupiedInterval } from "@/lib/availability";
 import type { PickerListing, SelectedSlots } from "./picker-types";
 
 // Picks the mechanic-specific picker and owns the one piece of state every
@@ -21,6 +22,8 @@ export function SlotPicker({
   listing,
   bookableDates,
   spotsRemaining,
+  occupiedIntervals,
+  fullyBookedDates,
 }: {
   listingId: string;
   listing: PickerListing;
@@ -28,6 +31,10 @@ export function SlotPicker({
   // fixed_session only - see getSpotsRemaining in lib/availability.ts.
   // Undefined for the other two mechanics, which have no such concept.
   spotsRemaining?: Map<number, number | null>;
+  // time_range only - see getOccupiedIntervals in lib/availability.ts.
+  occupiedIntervals?: Map<number, OccupiedInterval[]>;
+  // date_range only - see getFullyBookedDates in lib/availability.ts.
+  fullyBookedDates?: Date[];
 }) {
   const router = useRouter();
   const [slots, setSlots] = useState<SelectedSlots | null>(null);
@@ -94,10 +101,20 @@ export function SlotPicker({
   return (
     <div className="flex flex-col gap-4">
       {listing.bookingMechanic === "time_range" && (
-        <TimeRangePicker listing={listing} bookableDates={bookableDates} onSelect={setSlots} />
+        <TimeRangePicker
+          listing={listing}
+          bookableDates={bookableDates}
+          occupiedIntervals={occupiedIntervals}
+          onSelect={setSlots}
+        />
       )}
       {listing.bookingMechanic === "date_range" && (
-        <DateRangePicker listing={listing} bookableDates={bookableDates} onSelect={setSlots} />
+        <DateRangePicker
+          listing={listing}
+          bookableDates={bookableDates}
+          fullyBookedDates={fullyBookedDates}
+          onSelect={setSlots}
+        />
       )}
       {listing.bookingMechanic === "fixed_session" && (
         <FixedSessionPicker

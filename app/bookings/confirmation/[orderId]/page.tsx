@@ -38,6 +38,13 @@ export default async function BookingConfirmationPage({
         <p className="text-muted-foreground">
           {bookings[0].attendeeName}, your {bookings.length > 1 ? "bookings are" : "booking is"} all set.
         </p>
+        {/* A short, display-only code derived from orderId - the full
+            orderId (already in this page's own URL) stays the real lookup
+            key everywhere else; this is purely something a visitor can
+            read aloud or write down. */}
+        <p className="mt-2 text-sm text-muted-foreground">
+          Booking reference: <span className="font-mono font-semibold text-foreground">{orderId.slice(0, 8).toUpperCase()}</span>
+        </p>
       </div>
 
       <div className="flex w-full flex-col gap-3 text-left">

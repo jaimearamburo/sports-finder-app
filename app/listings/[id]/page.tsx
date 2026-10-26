@@ -5,7 +5,7 @@ import { BackButton } from "@/components/listings/back-button";
 import { SlotPicker } from "@/components/listings/slot-picker";
 import { ActiveHoldBanner } from "@/components/listings/active-hold-banner";
 import type { PickerListing } from "@/components/listings/picker-types";
-import { getBookableDates, getSpotsRemaining } from "@/lib/availability";
+import { getBookableDates, getSpotsRemaining, getOccupiedIntervals, getFullyBookedDates } from "@/lib/availability";
 import { formatTimeOfDay } from "@/lib/time-of-day";
 import { VenueLocalTime } from "@/components/listings/venue-local-time";
 import {
@@ -88,6 +88,21 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   const spotsRemaining =
     listing.activity.bookingMechanic === "fixed_session"
       ? await getSpotsRemaining(listing, bookableDates, listing.venue.city.timezone)
+      : undefined;
+
+  // Same "fetch real occupancy once, pass it down fully resolved" pattern
+  // as spotsRemaining above, extended to the other two mechanics - see
+  // the "Booking hold + confirm flow" section of CLAUDE.md for why this
+  // was missing before (TimeRangePicker/DateRangePicker previously had no
+  // knowledge of existing Bookings/BookingHolds at all).
+  const occupiedIntervals =
+    listing.activity.bookingMechanic === "time_range"
+      ? await getOccupiedIntervals(listing, bookableDates, listing.venue.city.timezone)
+      : undefined;
+
+  const fullyBookedDates =
+    listing.activity.bookingMechanic === "date_range"
+      ? await getFullyBookedDates(listing, bookableDates)
       : undefined;
 
   const pickerListing: PickerListing = {
@@ -179,6 +194,8 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
               listing={pickerListing}
               bookableDates={bookableDates}
               spotsRemaining={spotsRemaining}
+              occupiedIntervals={occupiedIntervals}
+              fullyBookedDates={fullyBookedDates}
             />
           </div>
 
