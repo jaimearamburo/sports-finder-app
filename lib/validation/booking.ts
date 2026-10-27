@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { emailField } from "./common";
+import { emailField, NAME_MAX_LENGTH } from "./common";
 
 // Runtime shapes for the booking Server Actions' inputs. Their TypeScript
 // argument types are compile-time only - a hand-crafted POST can send a
@@ -20,7 +20,11 @@ import { emailField } from "./common";
 const PHONE_PATTERN = /^[+\d\s()-]{6,20}$/;
 
 export const attendeeSchema = z.object({
-  attendeeName: z.string().trim().min(1, { error: "Enter the attendee's full name." }),
+  attendeeName: z
+    .string()
+    .trim()
+    .min(1, { error: "Enter the attendee's full name." })
+    .max(NAME_MAX_LENGTH, { error: `Name must be ${NAME_MAX_LENGTH} characters or fewer.` }),
   attendeeEmail: emailField,
   // "" and missing both mean "no phone given," normalised to undefined so
   // the DAL stores null either way.

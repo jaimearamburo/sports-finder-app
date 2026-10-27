@@ -45,8 +45,12 @@ export async function signup(
   // Checks whether an account with this email already exists.
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
-    // Deliberately generic: don't reveal whether this email already has a
-    // password account or was created via Google sign-in.
+    // This does reveal that the email is registered - an accepted gap, not
+    // an oversight. Without email verification there's no way to hide it
+    // and still tell a real user why signup failed; rate limiting is the
+    // usual cap on bulk enumeration and is deferred (see CLAUDE.md). It
+    // deliberately doesn't say whether the account is password- or
+    // Google-based.
     return { errors: { email: "An account with this email already exists." } };
   }
 

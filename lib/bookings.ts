@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { getBookableDates, isRequestedSlotValid } from "@/lib/availability";
+import { isSlotSetValid } from "@/lib/slot-rules";
 import { getTotalPrice } from "@/lib/booking-price";
 import { getBookingReference } from "@/lib/booking-reference";
 import { withAuth } from "@/lib/auth-guards";
@@ -42,6 +43,10 @@ async function loadAndValidateListing(input: HoldInput) {
 
   if (!listing || listing.archivedAt) {
     return { ok: false as const, error: "This listing is no longer available." };
+  }
+
+  if (!isSlotSetValid(listing, input.slots)) {
+    return { ok: false as const, error: "That time is no longer available." };
   }
 
   const bookableDates = await getBookableDates(listing);

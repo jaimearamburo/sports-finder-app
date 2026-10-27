@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
+import { browsePriceSchema } from "@/lib/validation/browse";
 import { QuickFiltersPanel, type QuickFilterValues } from "@/components/browse/quick-filters-panel";
 
 // Owns the "date", "priceMin", and "priceMax" URL params directly
@@ -18,8 +19,12 @@ export function QuickFilters() {
   const searchParams = useSearchParams();
 
   const date = searchParams.get("date") ?? "";
-  const priceMin = searchParams.get("priceMin") ? Number(searchParams.get("priceMin")) : PRICE_MIN;
-  const priceMax = searchParams.get("priceMax") ? Number(searchParams.get("priceMax")) : PRICE_MAX;
+  // Same parser BrowseSidebar uses (see browsePriceSchema), so a junk
+  // value falls back to "no price filter" instead of becoming NaN.
+  const { priceMin, priceMax } = browsePriceSchema.parse({
+    priceMin: searchParams.get("priceMin") ?? undefined,
+    priceMax: searchParams.get("priceMax") ?? undefined,
+  });
 
   function changeAction(next: QuickFilterValues) {
     const params = new URLSearchParams(searchParams.toString());

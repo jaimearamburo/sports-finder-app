@@ -1,3 +1,4 @@
+import "server-only";
 import { TZDate } from "@date-fns/tz";
 import type { Activity, AvailabilityOverride, City, Listing, Venue } from "../generated/prisma/client";
 import { prisma } from "@/lib/prisma";

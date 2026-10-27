@@ -6,6 +6,13 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validation/auth";
 
+// A real bcrypt hash of a throwaway string, at the same cost factor (10)
+// as every stored password (see app/signup/actions.ts), so comparing
+// against it takes the same time as a genuine check. Matches nothing
+// anyone could log in with; it exists only for the timing equaliser in
+// authorize() below.
+const DUMMY_PASSWORD_HASH = "$2b$10$3Rb76sUdawRn1K5iws32YuGeud/q.ixcZEcA6Q.Dlt01aSkQH/.rW";
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // The adapter persists OAuth accounts/sessions to our User/Account/Session
   // tables. It is NOT used to persist Credentials-provider sessions (see
@@ -28,8 +35,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // silently skips straight to sign-in once both of those are already
     // true — fine for a real returning user, but confusing during testing
     // when you don't realize which Google account you're about to sign in as.
+    //
+    // allowDangerousEmailAccountLinking lets a Google sign-in attach to an
+    // existing password account with the same email instead of failing
+    // with OAuthAccountNotLinked. Normally risky, but safe in this
+    // direction: Google only issues verified emails, so whoever completes
+    // this sign-in really owns the address. It's how the real owner
+    // reclaims an account someone else registered under their email first
+    // (signup has no email verification) - see events.linkAccount below,
+    // which removes that squatter's password on link.
     Google({
       authorization: { params: { prompt: "select_account" } },
+      allowDangerousEmailAccountLinking: true,
     }),
     Credentials({
       credentials: {
@@ -50,8 +67,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await prisma.user.findUnique({ where: { email } });
         // No account, or the account was created via Google (no password
         // ever set) — reject rather than throwing, so the UI just shows a
-        // generic "invalid credentials" message either way.
+        // generic "invalid credentials" message either way. Still runs a
+        // full bcrypt comparison against a dummy hash first: skipping it
+        // made "no such account" answer measurably faster than "wrong
+        // password," which let anyone tell registered emails apart by
+        // timing alone, defeating the generic message.
         if (!user || !user.passwordHash) {
+          await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
           return null;
         }
 
@@ -85,6 +107,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = token.role as typeof session.user.role;
       }
       return session;
+    },
+  },
+
+  events: {
+    // Fires when a Google account is attached to an existing user (see
+    // allowDangerousEmailAccountLinking above). The Google side has just
+    // proved ownership of this email; the password side never did, since
+    // signup doesn't verify emails. Clearing passwordHash means anyone who
+    // registered this email before its real owner loses access the moment
+    // the owner signs in with Google. Trade-off: a legitimate user who
+    // signed up with a password and later links Google can no longer log
+    // in with that password, only with Google, until a real
+    // password-reset flow exists.
+    async linkAccount({ user, account }) {
+      if (account.provider !== "google" || !user.id) return;
+      await prisma.user.update({ where: { id: user.id }, data: { passwordHash: null } });
     },
   },
 
