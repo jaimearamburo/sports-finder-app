@@ -19,7 +19,9 @@ export default function DevRevalidateBrowsePage() {
     <div className="flex flex-1 items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle><span className="text-red-500 font-bold">DEV ONLY</span> - Revalidate Browse Cache</CardTitle>
+          <CardTitle>
+            <h1><span className="text-red-500 font-bold">DEV ONLY</span> - Revalidate Browse Cache</h1>
+          </CardTitle>
           <CardDescription>
             Clears the cached tag and city lists after a database reseed, so the
             browse page reflects the new data without waiting an hour or

@@ -219,7 +219,7 @@ export function CheckoutForm({
       <button
         type="button"
         onClick={handleBackToListing}
-        className="mb-4 text-sm text-muted-foreground hover:text-foreground"
+        className="mb-4 inline-flex min-h-6 items-center text-sm text-muted-foreground hover:text-foreground"
       >
         ← Back to listing
       </button>
@@ -231,7 +231,9 @@ export function CheckoutForm({
 
       <div className="mb-6 rounded-md border bg-card p-4">
         <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{activityName}</p>
-        <p className="font-semibold">{listingName}</p>
+        {/* The page's h1 - styled like the rest of the summary card, but a
+            real heading so screen-reader users can find the page's subject. */}
+        <h1 className="font-semibold">{listingName}</h1>
         <p className="text-sm text-muted-foreground">
           {venueName}, {cityName}
         </p>
@@ -254,7 +256,7 @@ export function CheckoutForm({
           doesn't fire first with different wording. */}
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
         <div>
-          <div className="mb-3 flex gap-2">
+          <div className="mb-3 flex flex-wrap gap-2">
             <Button
               type="button"
               size="sm"
@@ -282,8 +284,9 @@ export function CheckoutForm({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 aria-invalid={!!fieldErrors.attendeeName}
+                aria-describedby={fieldErrors.attendeeName ? "attendeeName-error" : undefined}
               />
-              {fieldErrors.attendeeName && <p className="text-sm text-destructive">{fieldErrors.attendeeName}</p>}
+              {fieldErrors.attendeeName && <p id="attendeeName-error" className="text-sm text-destructive">{fieldErrors.attendeeName}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="attendeeEmail">Email</Label>
@@ -293,8 +296,9 @@ export function CheckoutForm({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 aria-invalid={!!fieldErrors.attendeeEmail}
+                aria-describedby={fieldErrors.attendeeEmail ? "attendeeEmail-error" : undefined}
               />
-              {fieldErrors.attendeeEmail && <p className="text-sm text-destructive">{fieldErrors.attendeeEmail}</p>}
+              {fieldErrors.attendeeEmail && <p id="attendeeEmail-error" className="text-sm text-destructive">{fieldErrors.attendeeEmail}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="attendeePhone">Phone (optional)</Label>
@@ -304,8 +308,9 @@ export function CheckoutForm({
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 aria-invalid={!!fieldErrors.attendeePhone}
+                aria-describedby={fieldErrors.attendeePhone ? "attendeePhone-error" : undefined}
               />
-              {fieldErrors.attendeePhone && <p className="text-sm text-destructive">{fieldErrors.attendeePhone}</p>}
+              {fieldErrors.attendeePhone && <p id="attendeePhone-error" className="text-sm text-destructive">{fieldErrors.attendeePhone}</p>}
             </div>
           </div>
         </div>
@@ -389,7 +394,11 @@ export function CheckoutForm({
           </div>
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
 
         <Button type="submit" size="lg" disabled={!canSubmit}>
           {isPending ? "Confirming..." : `Pay $${total.toFixed(2)}`}

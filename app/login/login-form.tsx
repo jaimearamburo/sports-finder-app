@@ -47,7 +47,12 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         <Input id="password" name="password" type="password" />
       </div>
 
-      {message && <p className="text-sm text-destructive">{message}</p>}
+      {/* role="alert" so the message is announced as soon as it appears. */}
+      {message && (
+        <p role="alert" className="text-sm text-destructive">
+          {message}
+        </p>
+      )}
 
       <Button type="submit" disabled={pending}>
         {pending ? "Logging in..." : "Log in"}

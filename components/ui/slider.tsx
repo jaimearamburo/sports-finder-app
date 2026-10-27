@@ -7,8 +7,14 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  getThumbAriaLabel,
   ...props
-}: SliderPrimitive.Root.Props) {
+}: SliderPrimitive.Root.Props & {
+  // Accessible name for each handle, by index. Without it a screen reader
+  // announces every handle as just "slider" - unusable on a two-handle
+  // range where the user needs to know which end they're moving.
+  getThumbAriaLabel?: (index: number) => string
+}) {
   const _values = Array.isArray(value)
     ? value
     : Array.isArray(defaultValue)
@@ -40,6 +46,7 @@ function Slider({
           <SliderPrimitive.Thumb
             data-slot="slider-thumb"
             key={index}
+            getAriaLabel={getThumbAriaLabel}
             className="block size-4 shrink-0 rounded-full border border-primary bg-white shadow-sm ring-ring/50 transition-[color,box-shadow] select-none hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
           />
         ))}

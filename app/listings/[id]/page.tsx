@@ -7,6 +7,7 @@ import { ActiveHoldBanner } from "@/components/listings/active-hold-banner";
 import type { PickerListing } from "@/components/listings/picker-types";
 import { getBookableDates, getSpotsRemaining, getOccupiedIntervals, getFullyBookedDates } from "@/lib/availability";
 import { formatTimeOfDay, SAME_DAY_CUTOFF_BUFFER_MINUTES } from "@/lib/time-of-day";
+import { tagTextColor } from "@/lib/label-styles";
 import { VenueLocalTime } from "@/components/listings/venue-local-time";
 import {
   getMetaLine,
@@ -142,7 +143,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           look at, just not something this page lets you act on while an
           active hold elsewhere needs resolving first. */}
       <div className={activeHold ? "pointer-events-none blur-sm select-none" : undefined}>
-      <BackButton className="text-sm text-muted-foreground hover:text-foreground">
+      <BackButton className="inline-flex min-h-6 items-center text-sm text-muted-foreground hover:text-foreground">
         ← Go back
       </BackButton>
 
@@ -158,7 +159,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           <div>
             <p
               className="mb-1 text-xs font-bold tracking-wide uppercase"
-              style={{ color: accentColor }}
+              style={{ color: accentColor && tagTextColor(accentColor) }}
             >
               {listing.activity.name}
             </p>
@@ -174,7 +175,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
                 <span
                   key={tag.id}
                   className="rounded-full px-2.5 py-1 text-xs font-medium"
-                  style={{ backgroundColor: `${tag.color}1a`, color: tag.color }}
+                  style={{ backgroundColor: `${tag.color}1a`, color: tagTextColor(tag.color) }}
                 >
                   {tag.emoji} {tag.name}
                 </span>

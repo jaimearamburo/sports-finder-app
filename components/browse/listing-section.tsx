@@ -199,7 +199,7 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
             <Popover>
               <PopoverTrigger
                 aria-label={`What does "${type.label}" mean?`}
-                className="ml-2 inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+                className="ml-2 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
               >
                 <Info className="size-3.5" />
               </PopoverTrigger>

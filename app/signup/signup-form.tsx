@@ -42,10 +42,24 @@ export function SignupForm() {
 
   return (
     <form action={formAction} onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      {/* Each error has an id its input points at (aria-describedby), so a
+          screen reader reads out *why* a field is invalid when it's
+          focused, not just that it is. */}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="name">Name</Label>
-        <Input id="name" name="name" placeholder="Jane Smith" autoFocus aria-invalid={!!errors?.name} />
-        {errors?.name && <p className="text-sm text-destructive">{errors.name}</p>}
+        <Input
+          id="name"
+          name="name"
+          placeholder="Jane Smith"
+          autoFocus
+          aria-invalid={!!errors?.name}
+          aria-describedby={errors?.name ? "name-error" : undefined}
+        />
+        {errors?.name && (
+          <p id="name-error" className="text-sm text-destructive">
+            {errors.name}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -56,17 +70,38 @@ export function SignupForm() {
           type="email"
           placeholder="jane@example.com"
           aria-invalid={!!errors?.email}
+          aria-describedby={errors?.email ? "email-error" : undefined}
         />
-        {errors?.email && <p className="text-sm text-destructive">{errors.email}</p>}
+        {errors?.email && (
+          <p id="email-error" className="text-sm text-destructive">
+            {errors.email}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password">Password</Label>
-        <Input id="password" name="password" type="password" aria-invalid={!!errors?.password} />
-        {errors?.password && <p className="text-sm text-destructive">{errors.password}</p>}
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          aria-invalid={!!errors?.password}
+          aria-describedby={errors?.password ? "password-error" : undefined}
+        />
+        {errors?.password && (
+          <p id="password-error" className="text-sm text-destructive">
+            {errors.password}
+          </p>
+        )}
       </div>
 
-      {state?.message && <p className="text-sm text-destructive">{state.message}</p>}
+      {/* role="alert": a form-wide message has no field to be attached to,
+          so it's announced as soon as it appears instead. */}
+      {state?.message && (
+        <p role="alert" className="text-sm text-destructive">
+          {state.message}
+        </p>
+      )}
 
       <Button type="submit" disabled={pending}>
         {pending ? "Creating account..." : "Sign up"}

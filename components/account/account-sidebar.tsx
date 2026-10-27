@@ -13,7 +13,7 @@ const LINKS = [{ label: "My Bookings", href: "/account" }];
 export function AccountSidebar() {
   const pathname = usePathname();
   return (
-    <nav className="flex flex-col gap-1">
+    <nav aria-label="Account" className="flex flex-col gap-1">
       {LINKS.map((link) => {
         const active = pathname === link.href;
         return (

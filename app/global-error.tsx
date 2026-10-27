@@ -32,7 +32,7 @@ export default function GlobalError({
           We couldn&apos;t load PlayBook right now. Please try again in a moment.
         </p>
         {error.digest && (
-          <p className="font-mono text-xs text-muted-foreground/60">Reference: {error.digest}</p>
+          <p className="font-mono text-xs text-muted-foreground">Reference: {error.digest}</p>
         )}
         <button
           type="button"

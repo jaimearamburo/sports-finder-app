@@ -87,7 +87,7 @@ export function MobileFilterBar({ cities }: { cities: BrowseCityGroup[] }) {
             commitFilters({ ...optimistic, city: !value || value === "all" ? "" : value })
           }
         >
-          <SelectTrigger className={cn(PILL_CLASS, isCityActive && PILL_ACTIVE_CLASS)}>
+          <SelectTrigger className={cn(PILL_CLASS, isCityActive && PILL_ACTIVE_CLASS)} aria-label="City">
             <SelectValue />
           </SelectTrigger>
           {/* w-60 overrides the shared SelectContent's own
@@ -129,9 +129,9 @@ export function MobileFilterBar({ cities }: { cities: BrowseCityGroup[] }) {
             {formatPriceLabel(optimistic.priceMin, optimistic.priceMax)}
           </PopoverTrigger>
           <PopoverContent className="w-64" align="start">
-            <h3 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               Price range
-            </h3>
+            </h2>
             <PriceRangeSlider
               priceMin={optimistic.priceMin}
               priceMax={optimistic.priceMax}

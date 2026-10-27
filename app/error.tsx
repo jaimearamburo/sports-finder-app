@@ -36,7 +36,7 @@ export default function Error({
         browsing in the meantime.
       </p>
       {error.digest && (
-        <p className="font-mono text-xs text-muted-foreground/60">Reference: {error.digest}</p>
+        <p className="font-mono text-xs text-muted-foreground">Reference: {error.digest}</p>
       )}
       <div className="mt-3 flex gap-3">
         <Button variant="default" onClick={() => unstable_retry()}>

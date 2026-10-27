@@ -22,11 +22,13 @@ export default async function LogoutPage() {
       <div className="flex flex-1 items-center justify-center p-4">
         <Card className="w-full max-w-sm">
           <CardHeader>
-            <CardTitle>You&apos;re not logged in</CardTitle>
+            <CardTitle>
+              <h1>You&apos;re not logged in</h1>
+            </CardTitle>
             <CardDescription>There&apos;s no active session to log out of.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/login" className="text-primary underline-offset-4 hover:underline">
+            <Link href="/login" className="text-primary underline underline-offset-4">
               Go to login
             </Link>
           </CardContent>
@@ -39,7 +41,9 @@ export default async function LogoutPage() {
     <div className="flex flex-1 items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Log out</CardTitle>
+          <CardTitle>
+            <h1>Log out</h1>
+          </CardTitle>
           <CardDescription>
             Signed in as {session.user.email ?? session.user.name}.
           </CardDescription>

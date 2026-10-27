@@ -12,7 +12,7 @@ function StatusBadge({ status }: { status: BookingOrder["status"] }) {
       className={cn(
         "inline-block rounded-full px-2.5 py-1 text-xs font-medium",
         status === "upcoming"
-          ? "bg-emerald-600/10 text-emerald-700 dark:text-emerald-400"
+          ? "bg-emerald-600/10 text-emerald-800 dark:text-emerald-400"
           : "bg-muted text-muted-foreground"
       )}
     >

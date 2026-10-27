@@ -20,7 +20,9 @@ export default function DevResetPasswordPage() {
     <div className="flex flex-1 items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle><span className="text-red-500 font-bold">DEV ONLY</span> - Reset Password</CardTitle>
+          <CardTitle>
+            <h1><span className="text-red-500 font-bold">DEV ONLY</span> - Reset Password</h1>
+          </CardTitle>
           <CardDescription>
             Local development only. Sets an account&apos;s password directly, no email
             verification.
