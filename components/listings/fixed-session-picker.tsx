@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { formatTimeOfDay, addMinutesToTime, zonedOccurrenceStart } from "@/lib/time-of-day";
+import { formatTimeOfDay, addMinutesToTime, zonedOccurrenceStart, minutesSinceMidnight, isPastToday } from "@/lib/time-of-day";
 import type { PickerListing, SelectedSlots } from "./picker-types";
 
 // Two variants of the same date so the button can show the full wording on
@@ -63,6 +63,16 @@ export function FixedSessionPicker({
   // once rather than inside the map below.
   const endTime = addMinutesToTime(listing.recurrenceStartTime, sessionDurationMinutes);
 
+  // Today's occurrence drops off the list entirely once its start time has
+  // passed (measured against the venue's own clock), rather than showing
+  // disabled - a class that already started isn't a real option, same
+  // "only show what's actually bookable" rule the browse page's date
+  // filter already applies elsewhere. The server independently re-derives
+  // this same rule in isRequestedSlotValid.
+  const visibleDates = bookableDates.filter(
+    (date) => !isPastToday(date, minutesSinceMidnight(listing.recurrenceStartTime!), listing.venueTimezone)
+  );
+
   function pick(date: Date) {
     setSelected(date.getTime());
     // zonedOccurrenceStart, not Date.UTC directly - the recurrence time is
@@ -71,9 +81,13 @@ export function FixedSessionPicker({
     onSelect([{ startsAt, endsAt: new Date(startsAt.getTime() + sessionDurationMinutes * 60000) }]);
   }
 
+  if (visibleDates.length === 0) {
+    return <p className="text-sm text-muted-foreground">No upcoming availability right now.</p>;
+  }
+
   return (
     <div className="flex flex-col gap-2">
-      {bookableDates.map((date) => {
+      {visibleDates.map((date) => {
         const spotsLeft = spotsRemaining?.get(date.getTime());
         const isFull = spotsLeft !== null && spotsLeft !== undefined && spotsLeft <= 0;
         const spotsText = getSpotsText(spotsLeft);

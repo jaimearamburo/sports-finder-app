@@ -2,9 +2,8 @@ import Link from "next/link";
 import { Logo } from "@/components/layout/logo";
 
 // Simple stroke-style brand marks, hand-drawn rather than pulled from an
-// icon library — lucide-react (already used elsewhere) dropped brand/logo
-// glyphs from its icon set, so there's no Instagram/Facebook mark to
-// import.
+// icon library. lucide-react, already used elsewhere in this app, has no
+// Instagram/Facebook/X glyphs in its icon set.
 function InstagramIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-4">
@@ -31,17 +30,18 @@ function FacebookIcon() {
   );
 }
 
-// Placeholder footer links: Privacy Policy/Terms/Contact pages, these pages don't existe yet.
+// Placeholder footer links. The Privacy Policy, Terms, and Contact pages
+// don't exist yet.
 const FOOTER_LINKS = [
   { href: "#", label: "Privacy Policy" },
-  { href: "#", label: "Terms" },
+  { href: "/terms", label: "Terms" },
   { href: "#", label: "Contact" },
 ];
 
 export function SiteFooter() {
   return (
     <footer className="border-t bg-card">
-      {/* Same max-w as site-header.tsx — kept in sync so the header/footer
+      {/* Same max-w as site-header.tsx, kept in sync so the header/footer
           bars and the page content between them all line up at the same
           edges regardless of viewport width. */}
       <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-5 px-4 py-6 sm:px-6 lg:px-8">
@@ -83,7 +83,7 @@ export function SiteFooter() {
       <div className="border-t">
         <div className="mx-auto flex max-w-[1800px] justify-end px-4 py-3 sm:px-6 lg:px-8">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} PlayBook — Jaime Aramburo
+            &copy; {new Date().getFullYear()} PlayBook, Jaime Aramburo
           </p>
         </div>
       </div>

@@ -14,8 +14,8 @@ import { sanitizeCallbackUrl } from "./utils";
 export default async function LoginPage({
   searchParams,
 }: {
-  // Next.js passes searchParams as a Promise (not a plain object) as of
-  // this version — see node_modules/next/dist/docs/.../page.md.
+  // Next.js passes searchParams as a Promise, not a plain object, in
+  // this version. See node_modules/next/dist/docs/.../page.md.
   searchParams: Promise<{ callbackUrl?: string }>;
 }) {
   const { callbackUrl } = await searchParams;
@@ -37,9 +37,9 @@ export default async function LoginPage({
             <span className="h-px flex-1 bg-border" />
           </div>
 
-          {/* Google collapses "sign up" and "log in" into one click, same as
-              on the signup page — whichever page the user lands on, this
-              button does the same thing. */}
+          {/* Google collapses "sign up" and "log in" into one click, same
+              as on the signup page: whichever page a visitor lands on,
+              this button does the same thing. */}
           <form
             action={async () => {
               "use server";

@@ -3,8 +3,9 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { localDateToUTCDay } from "@/lib/dates";
-import { formatTimeOfDay, minutesSinceMidnight, zonedOccurrenceStart } from "@/lib/time-of-day";
+import { formatTimeOfDay, minutesSinceMidnight, zonedOccurrenceStart, isPastToday } from "@/lib/time-of-day";
 import { Calendar } from "@/components/ui/calendar";
+import type { OccupiedInterval } from "@/lib/availability";
 import type { PickerListing, SelectedSlots } from "./picker-types";
 
 const CHIP_CLASS =
@@ -13,9 +14,8 @@ const CHIP_UNSELECTED = "border-border bg-card text-muted-foreground hover:borde
 const CHIP_SELECTED = "border-primary bg-primary text-primary-foreground";
 const CHIP_DISABLED = "cursor-not-allowed border-border bg-card text-muted-foreground opacity-40";
 
-// en-US, not this file's usual en-AU - you specifically asked for
-// "October 6, 2026" (month-day-year with a comma), which is en-US's
-// ordering, not en-AU's day-first "6 October 2026".
+// en-US, not this file's usual en-AU, for month-day-year ordering with a
+// comma ("October 6, 2026") rather than en-AU's day-first "6 October 2026".
 function formatFullDate(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
@@ -33,10 +33,15 @@ function minutesToTimeString(minutes: number): string {
 export function TimeRangePicker({
   listing,
   bookableDates,
+  occupiedIntervals,
   onSelect,
 }: {
   listing: PickerListing;
   bookableDates: Date[];
+  // Per-date occupied ranges from existing Bookings/BookingHolds - see
+  // getOccupiedIntervals in lib/availability.ts. Undefined means "nothing
+  // fetched" and is treated as "nothing occupied," never as "unknown."
+  occupiedIntervals?: Map<number, OccupiedInterval[]>;
   onSelect: (slots: SelectedSlots | null) => void;
 }) {
   // Defaults to the earliest bookable date (ordinarily today, unless an
@@ -69,9 +74,9 @@ export function TimeRangePicker({
   // independent of which duration is currently selected - this list's
   // length/order never changes when duration changes, only each button's
   // own fits-the-current-duration state does (see fitsDuration below). A
-  // duration-dependent list used to shrink/grow the grid on every duration
-  // change, which shifted every other button's position and forced the
-  // user to re-find whichever one they were about to click.
+  // duration-dependent list would shrink or grow the grid on every
+  // duration change, shifting every other button's position and forcing
+  // the user to re-find whichever one they were about to click.
   const allStartMinutes: number[] = [];
   if (listing.operatingHoursStart && listing.operatingHoursEnd && listing.incrementMinutes) {
     const openMinutes = minutesSinceMidnight(listing.operatingHoursStart);
@@ -81,14 +86,43 @@ export function TimeRangePicker({
     }
   }
 
-  // TODO: Implement the start time conflict check in the UI.
-  // ie. a start time should also disable (same as a duration that doesn't
-  // fit, below) if it can't actually fit the selected duration due to an
-  // existing booking, the venue closing, or an override block - none of
-  // that is checked yet, only whether it fits before closing time.
   function fitsDuration(startMinutes: number): boolean {
     if (!selectedDuration || !listing.operatingHoursEnd) return false;
     return startMinutes + selectedDuration <= minutesSinceMidnight(listing.operatingHoursEnd);
+  }
+
+  // Whether an existing Booking/BookingHold already claims enough of this
+  // listing's capacity, somewhere in [startMinutes, startMinutes +
+  // selectedDuration), that this start time can't actually be booked - the
+  // picker's own mirror of the overlap-sum check createBookingHold enforces
+  // server-side. capacity: null (unlimited) skips the check entirely, same
+  // as the server does. Every seeded time_range listing is capacity: 1, so
+  // "used >= capacity" (rather than factoring in a not-yet-chosen quantity,
+  // which this component has no access to - SlotPicker's quantity stepper
+  // only appears after a slot is picked) is exactly right for the
+  // exclusive-use case this app actually has; a future capacity > 1
+  // time_range listing would still be correctly blocked server-side even
+  // if this client-side check under-blocks it slightly.
+  function hasConflict(startMinutes: number): boolean {
+    if (!selectedDate || !selectedDuration || listing.capacity === null) return false;
+    const dayIntervals = occupiedIntervals?.get(selectedDate.getTime()) ?? [];
+    const endMinutes = startMinutes + selectedDuration;
+    const used = dayIntervals
+      .filter((interval) => interval.startMinutes < endMinutes && interval.endMinutes > startMinutes)
+      .reduce((sum, interval) => sum + interval.quantity, 0);
+    return used >= listing.capacity;
+  }
+
+  // A start time on today's date that's already passed (measured against
+  // the venue's own clock, not the browser's) is never selectable, even
+  // if it would otherwise fit. The server re-derives this same rule
+  // independently in isRequestedSlotValid - this is purely so the picker
+  // doesn't offer something it already knows will be rejected.
+  function isSelectable(startMinutes: number): boolean {
+    if (!fitsDuration(startMinutes)) return false;
+    if (selectedDate && isPastToday(selectedDate, startMinutes, listing.venueTimezone)) return false;
+    if (hasConflict(startMinutes)) return false;
+    return true;
   }
 
   function pickDate(date: Date) {
@@ -113,7 +147,7 @@ export function TimeRangePicker({
   }
 
   function pickStartTime(startMinutes: number) {
-    if (!selectedDate || !selectedDuration || !fitsDuration(startMinutes)) return;
+    if (!selectedDate || !selectedDuration || !isSelectable(startMinutes)) return;
     setSelectedStartMinutes(startMinutes);
     // zonedOccurrenceStart, not Date.UTC directly - the chosen time is a
     // wall-clock time at the venue, not at UTC (see its own comment in
@@ -164,12 +198,14 @@ export function TimeRangePicker({
           ) : (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {allStartMinutes.map((minutes) => {
-                const disabled = !fitsDuration(minutes);
+                const disabled = !isSelectable(minutes);
+                const conflict = disabled && hasConflict(minutes);
                 return (
                   <button
                     key={minutes}
                     type="button"
                     disabled={disabled}
+                    title={conflict ? "Already booked" : undefined}
                     onClick={() => pickStartTime(minutes)}
                     className={cn(
                       CHIP_CLASS,

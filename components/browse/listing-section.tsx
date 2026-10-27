@@ -1,10 +1,11 @@
+import { Info } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { ListingGrid, ListingCard, getPrimaryTag, type ListingCardData } from "@/components/browse/listing-card";
-import { HorizontalScrollRow } from "@/components/browse/horizontal-scroll-row";
+import { ListingGrid, getPrimaryTag, type ListingCardData } from "@/components/browse/listing-card";
 import { isCategoryId, MECHANIC_CATEGORIES, type CategoryId } from "@/lib/category-filters";
 import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
 import { getBookableDates, getSpotsRemaining, hasAvailableSlotOnDate } from "@/lib/availability";
 import { startOfUTCDay } from "@/lib/dates";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // All URL search params ListingSection's query can filter on. Every
 // value is a raw string (or absent) since it comes straight off the URL;
@@ -48,21 +49,13 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     ? rawDate.split(",").map((d) => startOfUTCDay(new Date(`${d}T00:00:00.000Z`)))
     : [];
 
-  const hasActiveFilters =
-    category !== "all" ||
-    selectedTags.length > 0 ||
-    !!city ||
-    priceMin > PRICE_MIN ||
-    priceMax < PRICE_MAX ||
-    dates.length > 0;
-
-  // Category is the booking-mechanic axis (see lib/category-filters.ts) —
-  // its id is the literal BookingMechanic value itself, so it needs no
-  // lookup table, just a direct field condition. Tags are a separate,
-  // freely-combinable condition (AND'd with category, not merged into it):
-  // both go into an AND array rather than being spread into one flat
-  // object, since two spreads that both set a key on Activity would let
-  // the second silently overwrite the first.
+  // Category is the booking-mechanic axis (see lib/category-filters.ts).
+  // Its id is the literal BookingMechanic value, so it needs no lookup
+  // table, just a direct field condition. Tags are a separate,
+  // freely-combinable condition, AND'd with category rather than merged
+  // into it: both go into an AND array rather than being spread into one
+  // flat object, since two spreads that both set a key on Activity would
+  // let the second silently overwrite the first.
   const activityConditions = [];
   if (category !== "all") activityConditions.push({ bookingMechanic: category });
   if (selectedTags.length > 0) {
@@ -71,6 +64,9 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     });
   }
 
+  // Fetches every non-archived listing matching the category, tag, city,
+  // and price filters, with the activity/tag and venue/city data each
+  // card below needs to render.
   const listings = await prisma.listing.findMany({
     where: {
       // Retired listings (see Listing.archivedAt) are kept for their
@@ -87,7 +83,7 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     },
     include: {
       activity: { include: { tags: { include: { tag: true } } } },
-      venue: { include: { city: true } },
+      venue: { include: { city: { include: { country: true } } } },
     },
     orderBy: { name: "asc" },
   });
@@ -190,13 +186,29 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     <div className="mt-6 flex flex-col gap-10">
       {mechanicGroups.map((type) => (
         <section key={type.id}>
-          {/* Painted full-width (the section's own width, since `main` in
-              app/page.tsx carries no independent horizontal padding of its
-              own) */}
-          <h2 className="mb-4 border-primary bg-foreground/5 p-1 pl-2 text-lg font-semibold">
+          {/* Painted full-width - on mobile (where main is the only
+              column) that means bleeding past the page's own gutter
+              (BrowsePageShell's px-4/sm:px-6) out to the true screen edge,
+              via a negative margin that exactly cancels it, with matching
+              padding added back so the text itself still sits at the same
+              inset the gutter would have given it. md:mx-0 drops the
+              bleed once the sidebar returns and `main` is no longer the
+              full page width. */}
+          <h2 className="-mx-4 mb-4 flex items-center border-primary bg-foreground/5 px-4 py-1 text-lg font-extralight sm:-mx-6 sm:px-6 md:mx-0 md:p-1 md:pl-2 md:rounded-sm">
             {type.label}
+            <Popover>
+              <PopoverTrigger
+                aria-label={`What does "${type.label}" mean?`}
+                className="ml-2 inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+              >
+                <Info className="size-3.5" />
+              </PopoverTrigger>
+              <PopoverContent className="w-64 text-sm font-normal" align="start">
+                {type.description}
+              </PopoverContent>
+            </Popover>
           </h2>
-          <TagGroups listings={byMechanic.get(type.id)!} carousel={!hasActiveFilters} />
+          <TagGroups listings={byMechanic.get(type.id)!} />
         </section>
       ))}
     </div>
@@ -206,12 +218,8 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
 // Groups a set of listings by primary tag, one h3-headed section per tag.
 // Section order comes from each tag's own displayOrder column, fetched
 // alongside the listing's activity.tags.tag relation. Listings with no
-// tag sort last under "Other". carousel caps each group to a horizontal,
-// arrow-advanced row (see HorizontalScrollRow) on the default, unfiltered
-// landing view, so first load isn't an endless vertical scroll regardless
-// of how many listings a tag has - any active filter switches back to the
-// plain full vertical grid, since results are already narrowed by then.
-function TagGroups({ listings, carousel }: { listings: ListingCardData[]; carousel: boolean }) {
+// tag sort last under "Other".
+function TagGroups({ listings }: { listings: ListingCardData[] }) {
   const groups = new Map<string, typeof listings>();
   const groupOrder = new Map<string, number>();
   for (const listing of listings) {
@@ -234,17 +242,7 @@ function TagGroups({ listings, carousel }: { listings: ListingCardData[]; carous
       {groupNames.map((name) => (
         <section key={name}>
           <h3 className="mb-3 text-sm font-semibold">{name}</h3>
-          {carousel ? (
-            <HorizontalScrollRow>
-              {groups.get(name)!.map((listing) => (
-                <div key={listing.id} className="w-55 shrink-0">
-                  <ListingCard listing={listing} />
-                </div>
-              ))}
-            </HorizontalScrollRow>
-          ) : (
-            <ListingGrid listings={groups.get(name)!} />
-          )}
+          <ListingGrid listings={groups.get(name)!} />
         </section>
       ))}
     </div>

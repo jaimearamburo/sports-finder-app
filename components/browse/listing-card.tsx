@@ -1,10 +1,10 @@
 import Link from "next/link";
-import type { Activity, City, Listing, Tag, Venue } from "../../generated/prisma/client";
+import type { Activity, City, Country, Listing, Tag, Venue } from "../../generated/prisma/client";
 import { cn } from "@/lib/utils";
 
 export type ListingCardData = Listing & {
   activity: Activity & { tags: { tag: Tag }[] };
-  venue: Venue & { city: City };
+  venue: Venue & { city: City & { country: Country } };
   // Only ever attached for fixed_session listings, and only when the
   // browse page's date filter is active (see ListingSection) - undefined
   // means "no date filter," which getMetaLine reads as "show general
@@ -39,9 +39,8 @@ export function getMetaLine(listing: ListingCardData): string {
     case "time_range":
       return `${listing.minDurationMinutes}–${listing.maxDurationMinutes} min`;
     case "date_range": {
-      // Wording and range-vs-exact phrasing both key off isAccommodation,
-      // not the day counts themselves - a 3-day pass should never read as
-      // "3 nights", (and conversely a 1-night camping stay still needs "night," not "day").
+      // Wording keys off isAccommodation, not the day counts themselves:
+      // a multi-day pass reads in "days," a camping stay reads in "nights."
       const { minDurationDays: min, maxDurationDays: max } = listing;
       const unit = listing.activity.isAccommodation ? "night" : "day";
       return min === max ? `${min} ${unit}${min === 1 ? "" : "s"}` : `${min}–${max} ${unit}s`;
@@ -83,7 +82,16 @@ export function formatPrice(listing: ListingCardData): string {
 
 export function ListingGrid({ listings }: { listings: ListingCardData[] }) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+    // Mobile gets exactly 2 equal, stretchy columns (grid-cols-2) rather
+    // than fixed-width auto-fill columns - at a fixed 150px, 2 columns
+    // left a visible strip of unused width on most phone screens before
+    // jumping to a 3rd column no one could see without scrolling, which
+    // read as broken rather than intentional. From `sm:` up there's
+    // enough width that a flat per-breakpoint auto-fill track (not
+    // minmax(...,1fr), which would keep stretching indefinitely) is what
+    // keeps a card a fixed, consistent size across however many columns
+    // actually fit the viewport.
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,180px)] sm:gap-4 md:grid-cols-[repeat(auto-fill,220px)]">
       {listings.map((listing) => (
         <ListingCard key={listing.id} listing={listing} />
       ))}
@@ -96,6 +104,7 @@ export function ListingGrid({ listings }: { listings: ListingCardData[] }) {
 export const CARD_EYEBROW_TEXT_CLASS = "text-xs font-bold tracking-wide uppercase";
 export const CARD_TITLE_TEXT_CLASS = "text-[1.05rem] leading-tight font-semibold";
 export const CARD_VENUE_TEXT_CLASS = "text-sm";
+export const CARD_LOCATION_TEXT_CLASS = "text-xs";
 export const CARD_META_TEXT_CLASS = "text-sm";
 
 export function ListingCard({ listing }: { listing: ListingCardData }) {
@@ -109,25 +118,31 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
       // of colors to pre-write classes for. Only the top edge picks up
       // the tag color; the other three sides stay the default neutral
       // border.
-      // h-full matters only in the carousel path (HorizontalScrollRow
-      // wraps this in its own flex-item div, which stretches to match its
-      // tallest sibling by flex's default align-items: stretch - but
-      // without h-full this Link stayed at its own content height inside
-      // that taller wrapper, so cards with a short venue/city line looked
-      // visibly shorter than ones that wrapped to two lines). A no-op in
-      // the plain grid path, where this Link is already the direct grid
-      // item CSS Grid itself stretches.
+      // h-full has no visible effect here: ListingCard is already a direct
+      // grid item, and CSS Grid's default align-items: stretch already
+      // matches it to its row's height.
       className="block h-full overflow-hidden rounded-[5px] border border-t-[3px] bg-card text-card-foreground transition-shadow hover:shadow-md"
       style={{ borderTopColor: tag?.color }}
     >
-      <div className="grid h-32 place-items-center bg-muted/60 text-3xl">{tag?.emoji}</div>
-      <div className="p-3.5">
-        <p className={cn(CARD_EYEBROW_TEXT_CLASS, "mb-1")} style={{ color: tag?.color }}>
+      <div className="grid h-20 place-items-center bg-muted/60 text-2xl sm:h-28 sm:text-3xl md:h-32">
+        {tag?.emoji}
+      </div>
+      <div className="p-2.5 sm:p-3.5">
+        {/* Dropped at the smallest size, not just shrunk - the category
+            name is the least load-bearing line on a card this small
+            (title + price already carry the decision), same "fewer
+            things, not just smaller things" compactness an app like
+            UberEats uses for its own narrow card variant. */}
+        <p className={cn(CARD_EYEBROW_TEXT_CLASS, "mb-1 hidden sm:block")} style={{ color: tag?.color }}>
           {listing.activity.name}
         </p>
-        <p className={CARD_TITLE_TEXT_CLASS}>{listing.name}</p>
-        <p className={cn(CARD_VENUE_TEXT_CLASS, "mb-2.5 text-muted-foreground")}>
-          {listing.venue.name}, {listing.venue.city.name}
+        <p className={cn(CARD_TITLE_TEXT_CLASS, "line-clamp-1")}>{listing.name}</p>
+        <p className={cn(CARD_VENUE_TEXT_CLASS, "line-clamp-1 text-muted-foreground")}>{listing.venue.name}</p>
+        {/* Own line, not appended after the venue name - a long venue
+            name would otherwise push this off the end of the line and
+            line-clamp-1 would hide it entirely. */}
+        <p className={cn(CARD_LOCATION_TEXT_CLASS, "mb-2.5 line-clamp-1 text-muted-foreground/80")}>
+          {listing.venue.city.name}, {listing.venue.city.country.name}
         </p>
         <div className={cn(CARD_META_TEXT_CLASS, "flex items-baseline justify-between text-muted-foreground")}>
           <span>{getMetaLine(listing)}</span>

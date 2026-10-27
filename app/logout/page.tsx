@@ -10,10 +10,11 @@ import {
 } from "@/components/ui/card";
 
 export default async function LogoutPage() {
+  // Reads the current session to decide which state to show below.
   const session = await auth();
 
-  // Reachable directly (typed URL, bookmark, etc.) even with no session —
-  // show something useful instead of a "log out" button that would just
+  // Reachable directly (typed URL, bookmark, etc.) even with no session.
+  // Shows something useful instead of a "log out" button that would just
   // fail, since signOut() on an already-empty session is a harmless no-op
   // but a confusing thing to present as an action.
   if (!session) {
@@ -44,10 +45,11 @@ export default async function LogoutPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* signOut() clears the session cookie — it has to run inside a
-              Server Action (not directly in this component's render), since
-              writing/clearing cookies is only allowed there or in a Route
-              Handler, not during a plain Server Component render. */}
+          {/* signOut() clears the session cookie, so it has to run inside
+              a Server Action rather than directly in this component's
+              render: writing or clearing cookies is only allowed there or
+              in a Route Handler, not during a plain Server Component
+              render. */}
           <form
             action={async () => {
               "use server";

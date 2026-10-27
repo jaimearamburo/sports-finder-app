@@ -1,9 +1,17 @@
 import { Suspense } from "react";
 import { BrowseSidebar } from "@/components/browse/browse-sidebar";
+import { MobileFilterBar } from "@/components/browse/mobile-filter-bar";
+import { BrowsePageShell } from "@/components/browse/browse-page-shell";
+import { BackToTopButton } from "@/components/browse/back-to-top-button";
 import { TagFilters } from "@/components/browse/tag-filters";
 import { QuickFilters } from "@/components/browse/quick-filters";
 import { ListingSection, type BrowseSearchParams } from "@/components/browse/listing-section";
-import { BrowseSidebarSkeleton, TagFiltersSkeleton, ListingGridSkeleton } from "@/components/browse/skeletons";
+import {
+  BrowseSidebarSkeleton,
+  MobileFilterBarSkeleton,
+  TagFiltersSkeleton,
+  ListingGridSkeleton,
+} from "@/components/browse/skeletons";
 import { getBrowseTags } from "@/lib/browse-tags";
 import { getBrowseCities } from "@/lib/browse-cities";
 
@@ -21,6 +29,16 @@ async function BrowseSidebarSection() {
   return <BrowseSidebar cities={cities} />;
 }
 
+// Mirrors BrowseSidebarSection for the mobile pill row. Calling
+// getBrowseCities() again here rather than hoisting the fetch up to Home
+// itself lets each piece stream in independently; getBrowseCities() is
+// wrapped in React's cache() specifically so this and
+// BrowseSidebarSection never trigger two real queries in one request.
+async function MobileFilterBarSection() {
+  const cities = await getBrowseCities();
+  return <MobileFilterBar cities={cities} />;
+}
+
 // The browse and landing page. Every filter control writes to the URL
 // instead of local state. Data fetching lives in separate components
 // (BrowseSidebarSection, TagFilterSection, ListingSection), each wrapped
@@ -32,20 +50,24 @@ export default function Home({
   searchParams: Promise<BrowseSearchParams>;
 }) {
   return (
-    <div className="group/browse mx-auto grid w-full max-w-[1800px] grid-cols-[200px_minmax(0,1fr)] gap-8 px-4 sm:px-6">
-      {/* self-start: grid items stretch to fill row height by default,
-          which leaves a stretched sticky element no room to move.
-          top-17.25 is SiteHeader's h-17 (68px) plus its border-b (1px),
-          its true rendered height. py-7 lives here and on main, not on
-          the shared container, so the sidebar sits flush against the
-          header with no offset. */}
-      <aside className="sticky top-17.25 self-start py-7">
-        <Suspense fallback={<BrowseSidebarSkeleton />}>
-          <BrowseSidebarSection />
-        </Suspense>
-      </aside>
+    <div className="group/browse">
+      <BrowsePageShell
+        sidebar={
+          <Suspense fallback={<BrowseSidebarSkeleton />}>
+            <BrowseSidebarSection />
+          </Suspense>
+        }
+      >
+        {/* Mobile-only (see BrowsePageShell / MobileFilterBar) -
+            the sidebar's own filters as a pill row, shown above the tag
+            chips since it's the first narrowing step, same as the tag
+            chips are the first thing under it. */}
+        <div className="md:hidden">
+          <Suspense fallback={<MobileFilterBarSkeleton />}>
+            <MobileFilterBarSection />
+          </Suspense>
+        </div>
 
-      <main className="py-7">
         <Suspense fallback={<TagFiltersSkeleton />}>
           <TagFilterSection />
         </Suspense>
@@ -63,7 +85,8 @@ export default function Home({
             ))}
           </Suspense>
         </div>
-      </main>
+      </BrowsePageShell>
+      <BackToTopButton />
     </div>
   );
 }

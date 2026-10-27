@@ -1,5 +1,8 @@
 "use client";
 
+// Alternate TagFilterChips using a true squircle clip path instead of
+// rounded-[20%]. Not imported anywhere; kept as a visual reference and
+// manually mirrored whenever tag-filter-chips.tsx changes.
 import { startTransition, useOptimistic } from "react";
 import { getSvgPath } from "figma-squircle";
 import { cn } from "@/lib/utils";
@@ -65,7 +68,7 @@ export function TagFilterChips({
     // plain overflow-x-auto div, so its custom thumb (see
     // components/ui/scroll-area.tsx)
     <ScrollArea
-      className="-mt-2 -mr-2 -ml-2 mb-5"
+      className="-mt-2 -mr-2 -ml-2 mb-2 sm:mb-5"
       // mask-image fades the visible edge to transparent as a hint that
       // the row scrolls. It has to live on the Viewport, not the scrolled
       // content: the content's own width is the full row (~17 chips), so
@@ -74,14 +77,14 @@ export function TagFilterChips({
       viewportClassName="mask-[linear-gradient(to_right,black_calc(100%-56px),transparent_100%)]"
     >
       <div
-        className="flex gap-4 pt-2 pr-2 pl-2 pb-1"
+        className="flex gap-4 pt-1 pr-2 pb-0.5 pl-2 sm:pt-2 sm:pb-1"
         data-pending={isPending ? "" : undefined}
       >
         {tags.map((tag) => {
           const isSelected = optimisticSelected.has(tag.name.toLowerCase());
 
           return (
-            <div key={tag.id} className="flex shrink-0 flex-col items-center gap-2.5 pb-2.5">
+            <div key={tag.id} className="flex shrink-0 flex-col items-center gap-1 pb-1 sm:gap-2.5 sm:pb-2.5">
               <button
                 type="button"
                 onClick={() => handleClick(tag.name)}
@@ -94,13 +97,28 @@ export function TagFilterChips({
                 // distinct name so the two do not trigger each other. Only
                 // the icon lives inside the button, so hover/click apply to
                 // it alone, not the label below.
-                className="group/chip"
+                //
+                // active:scale-95 gives tap feedback: a brief scale-down
+                // while the pointer or touch is down, independent of which
+                // way the click toggles selection, with no JS state needed.
+                className="group/chip transition-transform duration-150 active:scale-95"
               >
                 {/* drop-shadow lives on a wrapper outside the clipped element:
                     filter and clip-path on the same element would compute the
                     shadow first and clip-path would then cut it off at the
-                    shape's own boundary. */}
-                <span className={cn(isSelected ? "drop-shadow" : "drop-shadow")}>
+                    shape's own boundary. drop-shadow-md (not the bare
+                    drop-shadow utility, a ~1px/2px blur at 10% opacity) -
+                    too faint to read reliably against this near-white
+                    bg-[#fcfcfc] card on some mobile displays; the stronger
+                    default still reads as a soft shadow, not a harsh one.
+                    transform-[translateZ(0)] forces this wrapper onto its
+                    own GPU compositing layer - without it, WebKit (every
+                    browser on iOS is WebKit under the hood, Chrome
+                    included - Apple requires it) has a known bug where a
+                    filter on an element wrapping a clip-path'd child
+                    doesn't paint at all rather than just rendering
+                    wrong. */}
+                <span className="drop-shadow-md transform-[translateZ(0)]">
                   {/* Color comes from the database via inline style, since
                       tags are editable data with no fixed palette to
                       pre-write classes for. The clip-path shape already
@@ -123,9 +141,6 @@ export function TagFilterChips({
                       ...(isSelected ? { backgroundColor: tag.color } : {}),
                     }}
                   >
-                    {isSelected && (
-                      <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-white/25 via-transparent to-black/10" />
-                    )}
                     <span className="relative inline-block text-2xl leading-none transition-transform duration-150 group-hover/chip:scale-[1.4]">
                       {tag.emoji}
                     </span>

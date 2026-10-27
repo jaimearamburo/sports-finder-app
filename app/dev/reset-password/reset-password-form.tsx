@@ -25,7 +25,7 @@ export function ResetPasswordForm() {
 
       {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
       {state?.success && (
-        <p className="text-sm text-emerald-600">Password updated — you can log in with it now.</p>
+        <p className="text-sm text-emerald-600">Password updated. You can log in with it now.</p>
       )}
 
       <Button type="submit" aria-disabled={pending}>

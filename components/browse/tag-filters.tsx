@@ -1,8 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { TagFilterChips } from "@/components/browse/tag-filter-chips-squircle";
-//import { TagFilterChips } from "@/components/browse/tag-filter-chips";
+import { TagFilterChips } from "@/components/browse/tag-filter-chips";
 
 // Owns the URL and routing logic only. Reads the current selection from
 // searchParams and decides what the URL should become. All rendering,

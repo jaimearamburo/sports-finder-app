@@ -29,11 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.className} ${oleoScript.variable} h-full antialiased`}
-      //className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className={`${geistSans.className} ${oleoScript.variable} h-full antialiased`}>
       <body className="min-h-screen flex flex-col">
         <SiteHeader />
         {/* flex flex-col here, not just flex-1, so pages that rely on

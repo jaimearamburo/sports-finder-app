@@ -13,14 +13,14 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      {/* Carries the page's (already-sanitized) callbackUrl through to the
-          server action — a plain form submit only gives the action access
-          to named form fields, not the page's own props/searchParams. */}
+      {/* Carries the page's already-sanitized callbackUrl through to the
+          server action. A plain form submit only gives the action access
+          to named form fields, not the page's own props or searchParams. */}
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" placeholder="jane@example.com" required />
+        <Input id="email" name="email" type="email" placeholder="jane@example.com" required autoFocus />
       </div>
 
       <div className="flex flex-col gap-1.5">

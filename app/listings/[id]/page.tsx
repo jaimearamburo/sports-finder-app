@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { BackButton } from "@/components/listings/back-button";
 import { SlotPicker } from "@/components/listings/slot-picker";
+import { ActiveHoldBanner } from "@/components/listings/active-hold-banner";
 import type { PickerListing } from "@/components/listings/picker-types";
-import { getBookableDates, getSpotsRemaining } from "@/lib/availability";
+import { getBookableDates, getSpotsRemaining, getOccupiedIntervals, getFullyBookedDates } from "@/lib/availability";
 import { formatTimeOfDay } from "@/lib/time-of-day";
 import { VenueLocalTime } from "@/components/listings/venue-local-time";
 import {
@@ -37,11 +39,13 @@ function getScheduleLine(listing: ListingCardData): string | null {
 export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
+  // Fetches the listing along with its activity, tags, venue, and city,
+  // everything this page and the slot picker below need to render.
   const listing = await prisma.listing.findUnique({
     where: { id },
     include: {
       activity: { include: { tags: { include: { tag: true } } } },
-      venue: { include: { city: true } },
+      venue: { include: { city: { include: { country: true } } } },
     },
   });
 
@@ -58,6 +62,22 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   const scheduleLine = getScheduleLine(listing);
   const bookableDates = await getBookableDates(listing);
 
+  // At most one of these can exist at a time (createBookingHold enforces
+  // it), but this is a plain lookup rather than something that assumes
+  // that - it's just whichever active hold this user currently has
+  // anywhere, not necessarily one for this specific listing.
+  const session = await auth();
+  const activeHold = session
+    ? await prisma.bookingHold.findFirst({
+        where: { userId: session.user.id, expiresAt: { gt: new Date() } },
+        select: {
+          orderId: true,
+          listingId: true,
+          listing: { select: { name: true, venue: { select: { name: true } } } },
+        },
+      })
+    : null;
+
   // Only fixed_session has a concept of "spots remaining per occurrence" -
   // the other two mechanics pass undefined straight through to SlotPicker.
   // This page's own summary line below deliberately doesn't surface any of
@@ -68,6 +88,21 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   const spotsRemaining =
     listing.activity.bookingMechanic === "fixed_session"
       ? await getSpotsRemaining(listing, bookableDates, listing.venue.city.timezone)
+      : undefined;
+
+  // Same "fetch real occupancy once, pass it down fully resolved" pattern
+  // as spotsRemaining above, extended to the other two mechanics - see
+  // the "Booking hold + confirm flow" section of CLAUDE.md for why this
+  // was missing before (TimeRangePicker/DateRangePicker previously had no
+  // knowledge of existing Bookings/BookingHolds at all).
+  const occupiedIntervals =
+    listing.activity.bookingMechanic === "time_range"
+      ? await getOccupiedIntervals(listing, bookableDates, listing.venue.city.timezone)
+      : undefined;
+
+  const fullyBookedDates =
+    listing.activity.bookingMechanic === "date_range"
+      ? await getFullyBookedDates(listing, bookableDates)
       : undefined;
 
   const pickerListing: PickerListing = {
@@ -90,8 +125,21 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-7 sm:px-6">
+      {activeHold && (
+        <ActiveHoldBanner
+          orderId={activeHold.orderId}
+          listingId={activeHold.listingId}
+          listingName={activeHold.listing.name}
+          venueName={activeHold.listing.venue.name}
+        />
+      )}
+
+      {/* Blurred and inert, not removed - the listing is still there to
+          look at, just not something this page lets you act on while an
+          active hold elsewhere needs resolving first. */}
+      <div className={activeHold ? "pointer-events-none blur-sm select-none" : undefined}>
       <BackButton className="text-sm text-muted-foreground hover:text-foreground">
-        ← Back to browse
+        ← Go back
       </BackButton>
 
       <div className="mt-4 overflow-hidden rounded-md border bg-card shadow-sm">
@@ -141,7 +189,14 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           </div>
 
           <div className="mt-6 border-t pt-6">
-            <SlotPicker listing={pickerListing} bookableDates={bookableDates} spotsRemaining={spotsRemaining} />
+            <SlotPicker
+              listingId={listing.id}
+              listing={pickerListing}
+              bookableDates={bookableDates}
+              spotsRemaining={spotsRemaining}
+              occupiedIntervals={occupiedIntervals}
+              fullyBookedDates={fullyBookedDates}
+            />
           </div>
 
           {(listing.description ?? listing.activity.description) && (
@@ -171,6 +226,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           className="h-64 w-full border-0"
           loading="lazy"
         />
+      </div>
       </div>
     </div>
   );

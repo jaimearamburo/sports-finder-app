@@ -27,9 +27,9 @@ export default function SignupPage() {
             <span className="h-px flex-1 bg-border" />
           </div>
 
-          {/* Google collapses "sign up" and "log in" into one click — the
+          {/* Google collapses "sign up" and "log in" into one click: the
               Prisma adapter creates the User row automatically the first
-              time this account signs in, so there's no separate Google
+              time this account signs in, so there is no separate Google
               signup path to build. */}
           <form
             action={async () => {

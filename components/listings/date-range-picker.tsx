@@ -17,10 +17,15 @@ import type { PickerListing, SelectedSlots } from "./picker-types";
 export function DateRangePicker({
   listing,
   bookableDates,
+  fullyBookedDates,
   onSelect,
 }: {
   listing: PickerListing;
   bookableDates: Date[];
+  // Dates already fully claimed by existing Bookings/BookingHolds - see
+  // getFullyBookedDates in lib/availability.ts. Undefined means "nothing
+  // fetched" and is treated as "nothing booked," never as "unknown."
+  fullyBookedDates?: Date[];
   onSelect: (slots: SelectedSlots | null) => void;
 }) {
   // Both branches' state is declared unconditionally here, even though
@@ -31,12 +36,22 @@ export function DateRangePicker({
   const [selectedDates, setSelectedDates] = useState<Date[] | undefined>(undefined);
 
   const bookableSet = useMemo(() => new Set(bookableDates.map((d) => d.getTime())), [bookableDates]);
+  const fullyBookedSet = useMemo(
+    () => new Set((fullyBookedDates ?? []).map((d) => d.getTime())),
+    [fullyBookedDates]
+  );
   // localDateToUTCDay, not startOfUTCDay: the Calendar hands back a Date
   // built from the browser's LOCAL midnight for the clicked day, which
   // startOfUTCDay would reinterpret through UTC's clock instead of
   // preserving (see that function's own comment in lib/dates.ts) -
-  // silently shifting the day back by one for anyone east of UTC.
-  const isDisabled = (date: Date) => !bookableSet.has(localDateToUTCDay(date).getTime());
+  // silently shifting the day back by one for anyone east of UTC. A
+  // fully-booked date is excluded the same way a bookable-window miss or
+  // an AvailabilityOverride block already is - this is just a third source
+  // of "not actually choosable," sourced from real reservations instead.
+  const isDisabled = (date: Date) => {
+    const utcDay = localDateToUTCDay(date).getTime();
+    return !bookableSet.has(utcDay) || fullyBookedSet.has(utcDay);
+  };
 
   // A pass/ticket (not accommodation): the days it covers don't need to be
   // consecutive - a "3-day pass" might mean the 19th, 23rd, and 30th, not
@@ -63,10 +78,10 @@ export function DateRangePicker({
 
     // "Required" means the minimum needed to be bookable, not the
     // maximum - a 1-5 day pass is already a complete, valid purchase at
-    // exactly 1 day. Using maxDurationDays here (as this used to) forced
-    // the hint text to always demand the maximum selectable count even
-    // though the Calendar's own min/max props, and the onSelect/pricing
-    // flow above, already accept anywhere in that range.
+    // exactly 1 day. The hint text below is built off minDurationDays
+    // rather than maxDurationDays for that reason, even though the
+    // Calendar's own min/max props, and the onSelect/pricing flow above,
+    // already accept anywhere in that range.
     const min = listing.minDurationDays ?? 1;
     const max = listing.maxDurationDays ?? min;
     const selectedCount = selectedDates?.length ?? 0;

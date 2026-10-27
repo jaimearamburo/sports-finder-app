@@ -6,15 +6,14 @@ import type { UserRole } from "../generated/prisma/enums";
 export type AuthResult = { ok: false; error: string };
 
 // Wraps a Data Access Layer function so it can only ever run with a real
-// session - there's no path to a `session` argument except through this
-// check, so a function written this way can't forget it the way a plain
-// `if (!session) ...` inside the function body could. See AUTHORIZATION
-// in CLAUDE.md for why this exists as a wrapper instead of a per-function
-// check.
+// session. There is no path to a `session` argument except through this
+// check, so a wrapped function cannot forget it the way a plain
+// `if (!session) ...` inside the function body could.
 export function withAuth<Args extends unknown[], Result>(
   fn: (session: Session, ...args: Args) => Promise<Result>
 ): (...args: Args) => Promise<Result | AuthResult> {
   return async (...args: Args) => {
+    // Reads the current session from the request cookie.
     const session = await auth();
     if (!session) return { ok: false, error: "You must be logged in." };
     return fn(session, ...args);

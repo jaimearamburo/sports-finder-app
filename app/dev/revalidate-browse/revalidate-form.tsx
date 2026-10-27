@@ -11,7 +11,7 @@ export function RevalidateForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      {state?.success && <p className="text-sm text-emerald-600">Cache cleared — refresh the browse page.</p>}
+      {state?.success && <p className="text-sm text-emerald-600">Cache cleared. Refresh the browse page.</p>}
 
       <Button type="submit" aria-disabled={pending}>
         {pending ? "Revalidating..." : "Revalidate tags and cities"}

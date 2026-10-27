@@ -72,8 +72,10 @@ export function VenueLocalTime({ timeZone, cityName }: { timeZone: string; cityN
 
   return (
     <p className="mt-2 text-sm text-black/80 bg-amber-100/50 p-2 rounded-sm">
-      All dates and times are displayed in the venue&apos;s local time <br></br>
-      Current time in {cityName} - {" "}
+      All dates and times are displayed in the venue&apos;s local time. <br></br>
+      Current time in{" "}
+      <span className="text-base font-semibold text-[#1967D2]">{cityName}</span>
+      {" - "}
       <span className="font-medium text-foreground">{time}</span>.
     </p>
   );

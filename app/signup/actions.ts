@@ -5,9 +5,9 @@ import { AuthError } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { signIn } from "@/auth";
 
-// Per-field validation messages, shown under the matching input. A field is
-// only present here if it actually failed — the form checks `errors?.name`
-// etc. to decide what to render.
+// Per-field validation messages, shown under the matching input. A field
+// is only present here if it actually failed; the form checks
+// `errors?.name` etc. to decide what to render.
 type SignupErrors = {
   name?: string;
   email?: string;
@@ -21,11 +21,12 @@ type SignupErrors = {
 // is the initial state, before the form has ever been submitted.
 export type SignupFormState = { errors?: SignupErrors; message?: string } | undefined;
 
-// Deliberately loose ("something@something.something") rather than a strict
-// RFC 5322 email regex — this is just a first-pass sanity check to reject
-// obvious typos before hitting the database; Prisma's `@unique` constraint
-// and the real-world act of receiving mail are the actual sources of truth,
-// no regex fully validates an email is deliverable anyway.
+// Deliberately loose ("something@something.something") rather than a
+// strict RFC 5322 email regex. This is just a first-pass sanity check to
+// reject obvious typos before hitting the database; Prisma's `@unique`
+// constraint and the real-world act of receiving mail are the actual
+// sources of truth, since no regex fully validates that an email is
+// deliverable.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function signup(
@@ -34,9 +35,9 @@ export async function signup(
 ): Promise<SignupFormState> {
   const name = (formData.get("name") as string | null)?.trim() ?? "";
   // Normalized to lowercase here (and in auth.ts's login lookup) so a
-  // "Jane@Example.com" signup and a "jane@example.com" login later refer to
-  // the same row — Postgres string equality is case-sensitive, and email is
-  // our only unique identifier.
+  // "Jane@Example.com" signup and a "jane@example.com" login later refer
+  // to the same row. Postgres string equality is case-sensitive, and
+  // email is the only unique identifier on User.
   const email = ((formData.get("email") as string | null)?.trim() ?? "").toLowerCase();
   const password = (formData.get("password") as string | null) ?? "";
 
@@ -49,6 +50,7 @@ export async function signup(
     return { errors };
   }
 
+  // Checks whether an account with this email already exists.
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
     // Deliberately generic: don't reveal whether this email already has a
@@ -57,6 +59,7 @@ export async function signup(
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
+  // Creates the new user account.
   await prisma.user.create({ data: { name, email, passwordHash } });
 
   try {
@@ -65,11 +68,11 @@ export async function signup(
     await signIn("credentials", { email, password, redirectTo: "/" });
   } catch (error) {
     // signIn's success path redirects internally by throwing a special
-    // Next.js error that isn't an AuthError — only rethrowing anything
-    // that *is* an AuthError here would swallow that redirect.
+    // Next.js error that isn't an AuthError. Only rethrowing an actual
+    // AuthError here avoids swallowing that redirect.
     if (error instanceof AuthError) {
       return {
-        message: "Account created, but automatic sign-in failed — please log in.",
+        message: "Account created, but automatic sign-in failed. Please log in.",
       };
     }
     throw error;
