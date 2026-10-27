@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buttonVariants } from "@/components/ui/button";
 import { formatBookingTime } from "@/lib/dates";
+import { getBookingReference } from "@/lib/booking-reference";
 
 // Minimal confirmation page, not a full "My Bookings" dashboard - that's
 // its own later phase. Keyed by orderId rather than individual booking
@@ -43,7 +44,7 @@ export default async function BookingConfirmationPage({
             key everywhere else; this is purely something a visitor can
             read aloud or write down. */}
         <p className="mt-2 text-sm text-muted-foreground">
-          Booking reference: <span className="font-mono font-semibold text-foreground">{orderId.slice(0, 8).toUpperCase()}</span>
+          Booking reference: <span className="font-mono font-semibold text-foreground">{getBookingReference(orderId)}</span>
         </p>
       </div>
 

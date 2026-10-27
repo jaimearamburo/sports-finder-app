@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { getBookableDates, isRequestedSlotValid } from "@/lib/availability";
 import { getTotalPrice } from "@/lib/booking-price";
+import { getBookingReference } from "@/lib/booking-reference";
 import { withAuth } from "@/lib/auth-guards";
 
 export type CreateBookingHoldResult =
@@ -274,3 +275,73 @@ export const releaseBookingHold = withAuth(
     return { ok: true };
   }
 );
+
+export type BookingOrderSlot = { id: string; startsAt: Date; endsAt: Date; quantity: number };
+
+export type BookingOrder = {
+  orderId: string;
+  reference: string;
+  status: "upcoming" | "past";
+  listingName: string;
+  venueName: string;
+  cityName: string;
+  timeZone: string;
+  attendeeName: string;
+  attendeeEmail: string;
+  attendeePhone: string | null;
+  totalAmountPaid: number;
+  slots: BookingOrderSlot[];
+};
+
+// Every order (one or more Booking rows sharing an orderId) the signed-in
+// user has ever made, for the "My Bookings" page - the same grouping the
+// confirmation page already does for a single order, just across all of
+// them. "Upcoming" vs "past" is decided by the LATEST slot in the order,
+// not the earliest: a multi-day pass whose first day has already gone but
+// whose last day hasn't is still something the user hasn't finished using,
+// so it stays "upcoming" until every slot in it has.
+export const getUserBookingOrders = withAuth(async (session): Promise<BookingOrder[]> => {
+  const bookings = await prisma.booking.findMany({
+    where: { userId: session.user.id },
+    include: { listing: { include: { venue: { include: { city: true } } } } },
+    orderBy: { startsAt: "asc" },
+  });
+
+  const byOrder = new Map<string, typeof bookings>();
+  for (const booking of bookings) {
+    const existing = byOrder.get(booking.orderId);
+    if (existing) existing.push(booking);
+    else byOrder.set(booking.orderId, [booking]);
+  }
+
+  const now = new Date();
+  const orders: BookingOrder[] = [];
+  for (const [orderId, rows] of byOrder) {
+    const first = rows[0];
+    const latestEnd = rows.reduce((max, r) => (r.endsAt > max ? r.endsAt : max), rows[0].endsAt);
+    orders.push({
+      orderId,
+      reference: getBookingReference(orderId),
+      status: latestEnd > now ? "upcoming" : "past",
+      listingName: first.listing.name,
+      venueName: first.listing.venue.name,
+      cityName: first.listing.venue.city.name,
+      timeZone: first.listing.venue.city.timezone,
+      attendeeName: first.attendeeName,
+      attendeeEmail: first.attendeeEmail,
+      attendeePhone: first.attendeePhone,
+      totalAmountPaid: rows.reduce((sum, r) => sum + Number(r.amountPaid), 0),
+      slots: rows.map((r) => ({ id: r.id, startsAt: r.startsAt, endsAt: r.endsAt, quantity: r.quantity })),
+    });
+  }
+
+  // Upcoming orders first, soonest start first - the most actionable
+  // information; past orders after, most recently finished first.
+  const upcoming = orders
+    .filter((o) => o.status === "upcoming")
+    .sort((a, b) => a.slots[0].startsAt.getTime() - b.slots[0].startsAt.getTime());
+  const past = orders
+    .filter((o) => o.status === "past")
+    .sort((a, b) => b.slots[0].startsAt.getTime() - a.slots[0].startsAt.getTime());
+  return [...upcoming, ...past];
+});
