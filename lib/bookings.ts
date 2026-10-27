@@ -302,6 +302,9 @@ export type BookingOrder = {
   venueName: string;
   cityName: string;
   timeZone: string;
+  // Needed to format the order's dates correctly - see formatBookingTime.
+  bookingMechanic: "time_range" | "date_range" | "fixed_session";
+  isAccommodation: boolean;
   attendeeName: string;
   attendeeEmail: string;
   attendeePhone: string | null;
@@ -319,7 +322,7 @@ export type BookingOrder = {
 export const getUserBookingOrders = withAuth(async (session): Promise<BookingOrder[]> => {
   const bookings = await prisma.booking.findMany({
     where: { userId: session.user.id },
-    include: { listing: { include: { venue: { include: { city: true } } } } },
+    include: { listing: { include: { venue: { include: { city: true } }, activity: true } } },
     orderBy: { startsAt: "asc" },
   });
 
@@ -343,6 +346,8 @@ export const getUserBookingOrders = withAuth(async (session): Promise<BookingOrd
       venueName: first.listing.venue.name,
       cityName: first.listing.venue.city.name,
       timeZone: first.listing.venue.city.timezone,
+      bookingMechanic: first.listing.activity.bookingMechanic,
+      isAccommodation: first.listing.activity.isAccommodation,
       attendeeName: first.attendeeName,
       attendeeEmail: first.attendeeEmail,
       attendeePhone: first.attendeePhone,

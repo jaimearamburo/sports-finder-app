@@ -45,13 +45,38 @@ export function startOfLocalToday(): Date {
   return today;
 }
 
-// A booking's real-world date/time, formatted in the venue's own
-// timezone - shared by the checkout page and the confirmation page so
-// both describe the same booking identically. Same calendar day in the
-// venue's timezone means a single-day booking (a court, a class) shows
-// one date; a multi-day one (a camping stay, a pass) shows its start and
-// end dates instead of a time range.
-export function formatBookingTime(startsAt: Date, endsAt: Date, timeZone: string): string {
+// A booking's real-world date/time - shared by checkout, confirmation and
+// My Bookings so all three describe the same booking identically.
+//
+// Courts and classes store real instants, so they're formatted in the
+// venue's timezone: one date plus a start-end time.
+//
+// date_range bookings (stays, passes) store plain calendar days as UTC
+// midnight, so they're formatted in UTC. Formatting them in the venue's
+// timezone shifted every date a day early at venues behind UTC. Their end
+// is exclusive (the day after the last booked day), which is shown as-is
+// for a stay - it's the check-out date - but pulled back a day for a pass,
+// so one pass day reads as a single date rather than "27 Oct - 28 Oct".
+export function formatBookingTime(
+  startsAt: Date,
+  endsAt: Date,
+  timeZone: string,
+  kind: { bookingMechanic: "time_range" | "date_range" | "fixed_session"; isAccommodation: boolean }
+): string {
+  if (kind.bookingMechanic === "date_range") {
+    const dayFormatter = new Intl.DateTimeFormat("en-AU", {
+      timeZone: "UTC",
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    const shownEnd = kind.isAccommodation ? endsAt : addDays(endsAt, -1);
+    const start = dayFormatter.format(startsAt);
+    const end = dayFormatter.format(shownEnd);
+    return start === end ? start : `${start} - ${end}`;
+  }
+
   const dateFormatter = new Intl.DateTimeFormat("en-AU", {
     timeZone,
     weekday: "short",

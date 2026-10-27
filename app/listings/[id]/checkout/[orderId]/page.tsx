@@ -61,7 +61,7 @@ export default async function CheckoutPage({
   // each needs its own line rather than one range that would wrongly
   // imply the days in between are included too.
   const scheduleLines = slots.map((slot) =>
-    formatBookingTime(slot.startsAt, slot.endsAt, listing.venue.city.timezone)
+    formatBookingTime(slot.startsAt, slot.endsAt, listing.venue.city.timezone, listing.activity)
   );
 
   return (

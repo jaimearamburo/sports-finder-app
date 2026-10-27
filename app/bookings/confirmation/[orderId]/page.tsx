@@ -24,7 +24,7 @@ export default async function BookingConfirmationPage({
   const bookings = session
     ? await prisma.booking.findMany({
         where: { orderId, userId: session.user.id },
-        include: { listing: { include: { venue: { include: { city: true } } } } },
+        include: { listing: { include: { venue: { include: { city: true } }, activity: true } } },
         orderBy: { startsAt: "asc" },
       })
     : [];
@@ -56,7 +56,12 @@ export default async function BookingConfirmationPage({
               {booking.listing.venue.name}, {booking.listing.venue.city.name}
             </p>
             <p className="mt-2 text-sm">
-              {formatBookingTime(booking.startsAt, booking.endsAt, booking.listing.venue.city.timezone)}
+              {formatBookingTime(
+                booking.startsAt,
+                booking.endsAt,
+                booking.listing.venue.city.timezone,
+                booking.listing.activity
+              )}
             </p>
           </div>
         ))}
