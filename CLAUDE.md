@@ -104,7 +104,13 @@ Reviews/ratings, real-time notifications, venue-owner/multi-role staff accounts,
 **Phase 5 (Booking Flow) — done**, including the concurrency hardening originally planned as a later ticket (5.4) pulled forward to ship with the rest of this phase rather than deferred, per an explicit decision to treat race-safety as non-negotiable even at MVP stage.
 - **5.1 (server action + conflict-check), 5.2 (slot selection UI)** — `lib/availability.ts`, `components/listings/slot-picker.tsx` + the mechanic-specific pickers.
 - **5.3 (the "Book Now" action), 5.4 (concurrency hardening), 5.5 (error surfacing), 5.7 (confirmation step)** — all shipped together as one hold-then-confirm flow; see "Booking hold + confirm flow" above for the full design.
-- **5.6 (optimistic UI on booking submission) — not started.** The hold/finalize steps show a plain pending state (disabled button + "Reserving..."/"Confirming..." text), not an optimistic one — reasonable given each step is a real reservation, not a value that's safe to assume succeeded before the server confirms it.
+- **5.6 (optimistic UI on booking submission) — closed, deliberately not built.** The hold/finalize steps show a plain pending state (disabled button + "Reserving..."/"Confirming..." text), not an optimistic one — each step is a real reservation, not a value that's safe to assume succeeded before the server confirms it.
+
+**Phase 7 (User Dashboard) — done for MVP.** See "My Bookings" under Auth model above.
+- **7.1 (My Bookings page)** — done.
+- **7.2 (upcoming vs past split)** — closed as satisfied by the per-row "Upcoming"/"Past" badge plus upcoming-first ordering, in one list. No separate sections, tabs, or filtering; reopen if filtering is ever wanted.
+- **7.3 (cancel booking)** — deferred, not built. Cancellation is really a refund/policy question (refund amount, cut-off window, venue policy) that can't be designed properly until Phase 6's real payments exist; building it before then would just be a status flip that has to be reworked later. Should be listed in the README's "intentionally cut" section.
+- **7.5 (empty state)** — done ("You haven't made any bookings yet.").
 
 ## Prisma 7 gotchas (important — Claude Code's training data may predate these and give outdated advice)
 
