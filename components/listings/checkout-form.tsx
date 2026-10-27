@@ -17,6 +17,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { finalizeBookingHoldAction } from "@/app/listings/[id]/actions";
+import type { z } from "zod";
+import { attendeeSchema } from "@/lib/validation/booking";
+import { getFieldErrors } from "@/lib/validation/field-errors";
+
+type AttendeeInput = z.input<typeof attendeeSchema>;
 
 function formatCountdown(ms: number): string {
   const totalSeconds = Math.max(0, Math.round(ms / 1000));
@@ -84,6 +89,7 @@ export function CheckoutForm({
   const [cardCvc, setCardCvc] = useState("");
 
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof AttendeeInput, string>>>({});
   const [isPending, startTransition] = useTransition();
 
   // Re-syncs to the real wall clock every second rather than counting
@@ -163,6 +169,17 @@ export function CheckoutForm({
     e.preventDefault();
     if (!canSubmit) return;
     setError(null);
+
+    // Same attendee rules finalizeBookingHold re-checks server-side, run
+    // first so a typo'd email or junk phone number is flagged inline,
+    // under the field, with no round trip.
+    const attendee = attendeeSchema.safeParse({ attendeeName: name, attendeeEmail: email, attendeePhone: phone });
+    if (!attendee.success) {
+      setFieldErrors(getFieldErrors(attendee.error));
+      return;
+    }
+    setFieldErrors({});
+
     startTransition(async () => {
       const result = await finalizeBookingHoldAction({
         orderId,
@@ -232,7 +249,10 @@ export function CheckoutForm({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      {/* noValidate: attendeeSchema in handleSubmit is the single
+          client-side check, so the browser's own type="email" popup
+          doesn't fire first with different wording. */}
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
         <div>
           <div className="mb-3 flex gap-2">
             <Button
@@ -261,8 +281,9 @@ export function CheckoutForm({
                 id="attendeeName"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                required
+                aria-invalid={!!fieldErrors.attendeeName}
               />
+              {fieldErrors.attendeeName && <p className="text-sm text-destructive">{fieldErrors.attendeeName}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="attendeeEmail">Email</Label>
@@ -271,12 +292,20 @@ export function CheckoutForm({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
+                aria-invalid={!!fieldErrors.attendeeEmail}
               />
+              {fieldErrors.attendeeEmail && <p className="text-sm text-destructive">{fieldErrors.attendeeEmail}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="attendeePhone">Phone (optional)</Label>
-              <Input id="attendeePhone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Input
+                id="attendeePhone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                aria-invalid={!!fieldErrors.attendeePhone}
+              />
+              {fieldErrors.attendeePhone && <p className="text-sm text-destructive">{fieldErrors.attendeePhone}</p>}
             </div>
           </div>
         </div>

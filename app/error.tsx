@@ -6,8 +6,11 @@ import { TriangleAlert } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 
 // The root error boundary - catches any uncaught error thrown while
-// rendering a route under app/ (Next.js's own error.tsx convention: it
-// receives `error` and must call `reset` to retry). Deliberately never
+// rendering a route under app/ (but not the root layout itself - that's
+// app/global-error.tsx). "Try again" calls unstable_retry, not reset:
+// reset only re-renders the boundary's children without re-fetching, so a
+// page that failed on a database query would just throw the same error
+// again; unstable_retry re-fetches and re-renders. Deliberately never
 // shows error.message/stack to the visitor - that's internal detail, not
 // something a user can act on, and could leak implementation details in
 // production - only its `digest` (a short, stable reference Next.js
@@ -15,10 +18,10 @@ import { Button, buttonVariants } from "@/components/ui/button";
 // quote it if they contact support.
 export default function Error({
   error,
-  reset,
+  unstable_retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  unstable_retry: () => void;
 }) {
   useEffect(() => {
     console.error(error);
@@ -36,7 +39,7 @@ export default function Error({
         <p className="font-mono text-xs text-muted-foreground/60">Reference: {error.digest}</p>
       )}
       <div className="mt-3 flex gap-3">
-        <Button variant="default" onClick={reset}>
+        <Button variant="default" onClick={() => unstable_retry()}>
           Try again
         </Button>
         <Link href="/" className={buttonVariants({ variant: "outline" })}>

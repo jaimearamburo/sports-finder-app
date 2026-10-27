@@ -2,7 +2,8 @@
 
 import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
-import { sanitizeCallbackUrl } from "./utils";
+import { sanitizeCallbackUrl, LOGIN_INVALID_INPUT_MESSAGE } from "./utils";
+import { loginSchema } from "@/lib/validation/auth";
 
 // A single whole-form message rather than per-field errors - unlike
 // signup, this deliberately never says which of email/password was wrong,
@@ -15,13 +16,19 @@ export async function login(
   _prevState: LoginFormState,
   formData: FormData
 ): Promise<LoginFormState> {
-  const email = ((formData.get("email") as string | null)?.trim() ?? "").toLowerCase();
-  const password = (formData.get("password") as string | null) ?? "";
   const callbackUrl = sanitizeCallbackUrl((formData.get("callbackUrl") as string | null) ?? undefined);
 
-  if (!email || !password) {
-    return { message: "Enter your email and password." };
+  // Same schema LoginForm runs client-side, re-checked here since this
+  // action is a public endpoint. Collapsed to one whole-form message on
+  // purpose (see LoginFormState above) rather than per-field errors.
+  const parsed = loginSchema.safeParse({
+    email: formData.get("email") ?? "",
+    password: formData.get("password") ?? "",
+  });
+  if (!parsed.success) {
+    return { message: LOGIN_INVALID_INPUT_MESSAGE };
   }
+  const { email, password } = parsed.data;
 
   try {
     await signIn("credentials", { email, password, redirectTo: callbackUrl });

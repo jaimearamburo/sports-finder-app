@@ -4,6 +4,7 @@ import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { loginSchema } from "@/lib/validation/auth";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // The adapter persists OAuth accounts/sessions to our User/Account/Session
@@ -36,11 +37,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const email = credentials?.email;
-        const password = credentials?.password;
-        if (typeof email !== "string" || typeof password !== "string") {
+        // Auth.js's own sign-in endpoint (/api/auth/callback/credentials)
+        // reaches this directly, not only via the login Server Action, so
+        // the input is re-parsed here with the same schema rather than
+        // trusted. Normalises email the same way signup stored it.
+        const parsed = loginSchema.safeParse(credentials);
+        if (!parsed.success) {
           return null;
         }
+        const { email, password } = parsed.data;
 
         const user = await prisma.user.findUnique({ where: { email } });
         // No account, or the account was created via Google (no password
