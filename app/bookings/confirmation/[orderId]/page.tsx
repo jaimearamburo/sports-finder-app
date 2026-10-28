@@ -55,13 +55,18 @@ export default async function BookingConfirmationPage({
             <p className="text-sm text-muted-foreground">
               {booking.listing.venue.name}, {booking.listing.venue.city.name}
             </p>
-            <p className="mt-2 text-sm">
-              {formatBookingTime(
-                booking.startsAt,
-                booking.endsAt,
-                booking.listing.venue.city.timezone,
-                booking.listing.activity
-              )}
+            {/* "× n" when the booking covers several people/passes - see
+                the same label in My Bookings' detail dialog. */}
+            <p className="mt-2 flex justify-between gap-3 text-sm">
+              <span>
+                {formatBookingTime(
+                  booking.startsAt,
+                  booking.endsAt,
+                  booking.listing.venue.city.timezone,
+                  booking.listing.activity
+                )}
+              </span>
+              {booking.quantity > 1 && <span className="shrink-0 font-medium tabular-nums">× {booking.quantity}</span>}
             </p>
           </div>
         ))}
