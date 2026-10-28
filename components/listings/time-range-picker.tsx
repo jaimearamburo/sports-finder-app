@@ -175,7 +175,7 @@ export function TimeRangePicker({
       {selectedDate && durationOptions.length > 0 && (
         <div>
           <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Duration</p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {durationOptions.map((duration) => (
               <button
                 key={duration}

@@ -51,6 +51,11 @@ export default function Home({
 }) {
   return (
     <div className="group/browse">
+      {/* Screen-reader-only page heading: the browse layout has no visible
+          title (the filters and listings speak for themselves visually),
+          but screen-reader users navigate by headings and need an h1 to
+          land on. */}
+      <h1 className="sr-only">Browse activities</h1>
       <BrowsePageShell
         sidebar={
           <Suspense fallback={<BrowseSidebarSkeleton />}>

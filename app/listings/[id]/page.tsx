@@ -6,7 +6,8 @@ import { SlotPicker } from "@/components/listings/slot-picker";
 import { ActiveHoldBanner } from "@/components/listings/active-hold-banner";
 import type { PickerListing } from "@/components/listings/picker-types";
 import { getBookableDates, getSpotsRemaining, getOccupiedIntervals, getFullyBookedDates } from "@/lib/availability";
-import { formatTimeOfDay } from "@/lib/time-of-day";
+import { formatTimeOfDay, SAME_DAY_CUTOFF_BUFFER_MINUTES } from "@/lib/time-of-day";
+import { tagTextColor } from "@/lib/label-styles";
 import { VenueLocalTime } from "@/components/listings/venue-local-time";
 import {
   getMetaLine,
@@ -17,10 +18,10 @@ import {
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 // The schedule-specific fact getMetaLine's compact card wording doesn't
-// already cover: operating hours for time_range, which day/time a
-// fixed_session recurs on. date_range has no such extra fact - its stay
-// length is the whole story, already in getMetaLine - so it returns
-// nothing to add there.
+// already cover: operating hours for time_range and for a date_range pass,
+// the check-in deadline for a stay (operatingHoursEnd doubles as that -
+// see isSameDayBookingClosed), and which day/time a fixed_session recurs
+// on.
 function getScheduleLine(listing: ListingCardData): string | null {
   switch (listing.activity.bookingMechanic) {
     case "time_range":
@@ -28,7 +29,11 @@ function getScheduleLine(listing: ListingCardData): string | null {
         ? `Open ${formatTimeOfDay(listing.operatingHoursStart)} – ${formatTimeOfDay(listing.operatingHoursEnd)} daily`
         : null;
     case "date_range":
-      return null;
+      if (!listing.operatingHoursEnd) return null;
+      if (listing.activity.isAccommodation) return `Check-in until ${formatTimeOfDay(listing.operatingHoursEnd)}`;
+      return listing.operatingHoursStart
+        ? `Open ${formatTimeOfDay(listing.operatingHoursStart)} – ${formatTimeOfDay(listing.operatingHoursEnd)} daily`
+        : null;
     case "fixed_session":
       return listing.recurrenceDayOfWeek !== null && listing.recurrenceStartTime
         ? `Every ${DAY_NAMES[listing.recurrenceDayOfWeek]}, ${formatTimeOfDay(listing.recurrenceStartTime)}`
@@ -138,7 +143,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           look at, just not something this page lets you act on while an
           active hold elsewhere needs resolving first. */}
       <div className={activeHold ? "pointer-events-none blur-sm select-none" : undefined}>
-      <BackButton className="text-sm text-muted-foreground hover:text-foreground">
+      <BackButton className="inline-flex min-h-6 items-center text-sm text-muted-foreground hover:text-foreground">
         ← Go back
       </BackButton>
 
@@ -154,7 +159,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           <div>
             <p
               className="mb-1 text-xs font-bold tracking-wide uppercase"
-              style={{ color: accentColor }}
+              style={{ color: accentColor && tagTextColor(accentColor) }}
             >
               {listing.activity.name}
             </p>
@@ -170,7 +175,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
                 <span
                   key={tag.id}
                   className="rounded-full px-2.5 py-1 text-xs font-medium"
-                  style={{ backgroundColor: `${tag.color}1a`, color: tag.color }}
+                  style={{ backgroundColor: `${tag.color}1a`, color: tagTextColor(tag.color) }}
                 >
                   {tag.emoji} {tag.name}
                 </span>
@@ -183,6 +188,15 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           <div className="mt-6 flex items-baseline justify-between border-t pt-4">
             <div className="text-sm text-muted-foreground">
               {scheduleLine && <p>{scheduleLine}</p>}
+              {/* Explains why today can disappear from the calendar later
+                  in the day - see isSameDayBookingClosed. */}
+              {listing.activity.bookingMechanic === "date_range" && listing.operatingHoursEnd && (
+                <p>
+                  Same-day bookings close {SAME_DAY_CUTOFF_BUFFER_MINUTES / 60} hour
+                  {SAME_DAY_CUTOFF_BUFFER_MINUTES === 60 ? "" : "s"} before{" "}
+                  {listing.activity.isAccommodation ? "check-in closes" : "closing"}
+                </p>
+              )}
               <p>{getMetaLine(listing)}</p>
             </div>
             <p className="font-mono text-xl font-semibold">{formatPrice(listing)}</p>

@@ -90,7 +90,7 @@ export function DateRangePicker({
 
     return (
       <div>
-        <p className={cn("mb-2 flex items-center gap-1.5 text-sm", complete ? "text-muted-foreground/60" : "text-foreground")}>
+        <p className={cn("mb-2 flex items-center gap-1.5 text-sm", complete ? "text-muted-foreground" : "text-foreground")}>
           {complete ? (
             <>
               <Check className="size-4" /> {selectedCount} day{selectedCount === 1 ? "" : "s"} selected
@@ -131,7 +131,7 @@ export function DateRangePicker({
 
   return (
     <div>
-      <p className={cn("mb-2 flex items-center gap-1.5 text-sm", complete ? "text-muted-foreground/60" : "text-foreground")}>
+      <p className={cn("mb-2 flex items-center gap-1.5 text-sm", complete ? "text-muted-foreground" : "text-foreground")}>
         {complete ? (
           <>
             <Check className="size-4" /> Stay dates selected

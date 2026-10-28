@@ -86,9 +86,9 @@ export function BrowseSidebarPanel({
 
       <div className="mt-6 flex flex-col gap-6">
         <div className="border-t pt-4">
-          <h3 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             City
-          </h3>
+          </h2>
           <Select
             // Flat list for value resolution (the trigger needs to look up
             // a selected city's label without walking the grouped JSX
@@ -103,7 +103,10 @@ export function BrowseSidebarPanel({
               commitFilters({ ...optimistic, city: !value || value === "all" ? "" : value })
             }
           >
-            <SelectTrigger className="w-full">
+            {/* aria-label: the visible "City" heading above isn't tied to
+                this control, so without it a screen reader announced an
+                unnamed combobox. The selected value is announced as well. */}
+            <SelectTrigger className="w-full" aria-label="City">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -144,9 +147,9 @@ function PriceRangeFilter({
 }) {
   return (
     <div className="border-t pt-4">
-      <h3 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+      <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         Price range
-      </h3>
+      </h2>
       <PriceRangeSlider priceMin={priceMin} priceMax={priceMax} onCommit={onCommit} />
     </div>
   );
@@ -192,6 +195,7 @@ export function PriceRangeSlider({
         max={PRICE_MAX}
         step={PRICE_STEP}
         value={liveValue}
+        getThumbAriaLabel={(index) => (index === 0 ? "Minimum price" : "Maximum price")}
         onValueChange={(value) => setLiveValue(value as [number, number])}
         onValueCommitted={(value) => {
           const [min, max] = value as [number, number];

@@ -1,8 +1,15 @@
+import "server-only";
 import { TZDate } from "@date-fns/tz";
 import type { Activity, AvailabilityOverride, City, Listing, Venue } from "../generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { minutesSinceMidnight, zonedOccurrenceStart, minutesOfDayInTimezone, calendarDayInTimezone } from "@/lib/time-of-day";
-import { addDays, todayInTimezone } from "@/lib/dates";
+import {
+  minutesSinceMidnight,
+  zonedOccurrenceStart,
+  minutesOfDayInTimezone,
+  calendarDayInTimezone,
+  isSameDayBookingClosed,
+} from "@/lib/time-of-day";
+import { addDays, startOfUTCDay, todayInTimezone } from "@/lib/dates";
 
 type AvailabilityListing = Listing & {
   // city.timezone, not just bookingWindowDays - every date/time
@@ -90,9 +97,21 @@ export async function getBookableDates(listing: AvailabilityListing): Promise<Da
   const matchesPattern = (date: Date) =>
     listing.activity.bookingMechanic !== "fixed_session" || date.getUTCDay() === listing.recurrenceDayOfWeek;
 
+  // Same-day cut-off for date_range listings (see isSameDayBookingClosed).
+  // Applied here, the one place that decides bookable days, so the
+  // calendar, the browse date filter and the server's own check of a
+  // submitted booking all agree without each re-implementing it. Courts
+  // and classes don't need it: their pickers and isRequestedSlotValid
+  // already reject start times that have passed, and a court booking must
+  // end by closing time.
+  const todayClosed =
+    listing.activity.bookingMechanic === "date_range" &&
+    isSameDayBookingClosed(listing.operatingHoursEnd, listing.venue.city.timezone);
+
   const dates: Date[] = [];
   for (let d = today; d <= cappedLoopEnd; d = addDays(d, 1)) {
     if (!matchesPattern(d)) continue;
+    if (todayClosed && d.getTime() === today.getTime()) continue;
     const kind = resolveOverrideKind(d, overrides, listing.id);
     const available = d <= windowEnd ? kind !== "block" : kind === "open";
     if (available) dates.push(d);
@@ -120,7 +139,15 @@ export function isRequestedSlotValid(
   // starting today" stays valid regardless of what time it currently is.
   if (listing.activity.bookingMechanic !== "date_range" && startsAt < new Date()) return false;
 
-  const day = calendarDayInTimezone(startsAt, timeZone);
+  // date_range slots are stored as plain calendar days (UTC midnight of the
+  // picked day - see DateRangePicker), not real instants, so their day is
+  // read straight off the UTC date. Viewing one through the venue's
+  // timezone, as the other mechanics correctly do, shifted it to the
+  // previous day at any venue behind UTC (UTC midnight on the 28th is 8pm
+  // on the 27th in New York): "today" was rejected as already past, and
+  // every other day was checked against the wrong date.
+  const day =
+    listing.activity.bookingMechanic === "date_range" ? startOfUTCDay(startsAt) : calendarDayInTimezone(startsAt, timeZone);
   const isBookableDay = bookableDates.some((d) => d.getTime() === day.getTime());
   if (!isBookableDay) return false;
 

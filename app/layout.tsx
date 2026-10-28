@@ -31,11 +31,23 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.className} ${oleoScript.variable} h-full antialiased`}>
       <body className="min-h-screen flex flex-col">
+        {/* Skip link: the first thing a keyboard user tabs to, so they can
+            jump past the header to the page content instead of tabbing
+            through it on every page. Hidden until focused. */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+        >
+          Skip to content
+        </a>
         <SiteHeader />
         {/* flex flex-col here, not just flex-1, so pages that rely on
             being a flex-column child themselves, such as login and
-            signup's centered card layout, keep working. */}
-        <main className="flex flex-1 flex-col">{children}</main>
+            signup's centered card layout, keep working. tabIndex={-1} lets
+            the skip link above move focus here, not just scroll. */}
+        <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col outline-none">
+          {children}
+        </main>
         <SiteFooter />
       </body>
     </html>

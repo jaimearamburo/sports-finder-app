@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { BrowseSidebarPanel, type SidebarFilterValues } from "@/components/browse/browse-sidebar-panel";
 import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
+import { browsePriceSchema } from "@/lib/validation/browse";
 import type { BrowseCityGroup } from "@/lib/browse-cities";
 
 // Shared by BrowseSidebar (the desktop vertical column) and MobileFilterBar
@@ -20,8 +21,14 @@ export function useSidebarFilterRouting(): SidebarFilterValues & {
 
   const category = searchParams.get("category") ?? "all";
   const city = searchParams.get("city") ?? "";
-  const priceMin = Number(searchParams.get("priceMin") ?? PRICE_MIN);
-  const priceMax = Number(searchParams.get("priceMax") ?? PRICE_MAX);
+  // Parsed, not just Number()'d - see browsePriceSchema for the render loop
+  // a non-numeric value used to cause. `?? undefined`, not `?? null`: a
+  // missing param must fall back to the default, and coercing null would
+  // read as 0.
+  const { priceMin, priceMax } = browsePriceSchema.parse({
+    priceMin: searchParams.get("priceMin") ?? undefined,
+    priceMax: searchParams.get("priceMax") ?? undefined,
+  });
 
   function changeAction(next: SidebarFilterValues) {
     // Cloned from the current params so tags stay put. Each filter maps

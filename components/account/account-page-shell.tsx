@@ -12,7 +12,9 @@ export function AccountPageShell({ sidebar, children }: { sidebar: ReactNode; ch
   return (
     <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-8 px-4 py-7 sm:px-6 md:grid-cols-[180px_minmax(0,1fr)]">
       <aside className="hidden self-start md:block">{sidebar}</aside>
-      <main className="min-w-0">{children}</main>
+      {/* A div, not <main> - see BrowsePageShell; the root layout owns the
+          one <main> landmark. */}
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }

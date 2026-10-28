@@ -15,7 +15,9 @@ export default function SignupPage() {
     <div className="flex flex-1 items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Create an account</CardTitle>
+          <CardTitle>
+            <h1>Create an account</h1>
+          </CardTitle>
           <CardDescription>Sign up to book courts, campsites, and classes.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -44,7 +46,7 @@ export default function SignupPage() {
 
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="text-primary underline-offset-4 hover:underline">
+            <Link href="/login" className="text-primary underline underline-offset-4">
               Log in
             </Link>
           </p>

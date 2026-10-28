@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Activity, City, Country, Listing, Tag, Venue } from "../../generated/prisma/client";
 import { cn } from "@/lib/utils";
+import { tagTextColor } from "@/lib/label-styles";
 
 export type ListingCardData = Listing & {
   activity: Activity & { tags: { tag: Tag }[] };
@@ -133,7 +134,7 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
             (title + price already carry the decision), same "fewer
             things, not just smaller things" compactness an app like
             UberEats uses for its own narrow card variant. */}
-        <p className={cn(CARD_EYEBROW_TEXT_CLASS, "mb-1 hidden sm:block")} style={{ color: tag?.color }}>
+        <p className={cn(CARD_EYEBROW_TEXT_CLASS, "mb-1 hidden sm:block")} style={{ color: tag?.color && tagTextColor(tag.color) }}>
           {listing.activity.name}
         </p>
         <p className={cn(CARD_TITLE_TEXT_CLASS, "line-clamp-1")}>{listing.name}</p>
@@ -141,7 +142,7 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
         {/* Own line, not appended after the venue name - a long venue
             name would otherwise push this off the end of the line and
             line-clamp-1 would hide it entirely. */}
-        <p className={cn(CARD_LOCATION_TEXT_CLASS, "mb-2.5 line-clamp-1 text-muted-foreground/80")}>
+        <p className={cn(CARD_LOCATION_TEXT_CLASS, "mb-2.5 line-clamp-1 text-muted-foreground")}>
           {listing.venue.city.name}, {listing.venue.city.country.name}
         </p>
         <div className={cn(CARD_META_TEXT_CLASS, "flex items-baseline justify-between text-muted-foreground")}>

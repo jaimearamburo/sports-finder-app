@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Skeleton as Bone } from "@/components/ui/skeleton";
 import { CATEGORY_LABEL_TEXT_CLASS, TAG_LABEL_TEXT_CLASS } from "@/lib/label-styles";
 import {
   CARD_EYEBROW_TEXT_CLASS,
@@ -12,10 +13,6 @@ import {
 // requirement that any component calling useSearchParams() sits inside a
 // Suspense boundary. They render almost instantly since there is no real
 // data fetch behind them. ListingGridSkeleton covers actual query time.
-
-function Bone({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded bg-foreground/10", className)} />;
-}
 
 // Sizes a text placeholder relative to the font size it is given instead
 // of a fixed pixel height, so it tracks whatever text class is passed in.

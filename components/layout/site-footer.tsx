@@ -47,7 +47,7 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-5 px-4 py-6 sm:px-6 lg:px-8">
         <Logo size="sm" />
 
-        <nav className="flex gap-5 text-sm text-muted-foreground">
+        <nav aria-label="Footer" className="flex gap-5 text-sm text-muted-foreground">
           {FOOTER_LINKS.map((link) => (
             <Link key={link.label} href={link.href} className="hover:text-foreground hover:underline">
               {link.label}

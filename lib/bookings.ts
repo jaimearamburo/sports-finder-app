@@ -1,9 +1,12 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { getBookableDates, isRequestedSlotValid } from "@/lib/availability";
+import { isSlotSetValid } from "@/lib/slot-rules";
 import { getTotalPrice } from "@/lib/booking-price";
 import { getBookingReference } from "@/lib/booking-reference";
 import { withAuth } from "@/lib/auth-guards";
+import type { z } from "zod";
+import { createHoldSchema, finalizeHoldSchema, releaseHoldSchema } from "@/lib/validation/booking";
 
 export type CreateBookingHoldResult =
   | { ok: true; orderId: string; expiresAt: Date }
@@ -13,23 +16,26 @@ export type FinalizeBookingHoldResult = { ok: true; orderId: string } | { ok: fa
 
 export type ReleaseBookingHoldResult = { ok: true } | { ok: false; error: string };
 
-type Slot = { startsAt: Date; endsAt: Date };
 // slots is always an array, even though time_range, fixed_session, and an
 // accommodation date_range always produce exactly one entry - only a
 // non-accommodation date_range "pass" (several individually-picked days,
 // e.g. the 19th/23rd/30th) ever produces more than one. Keeping this plural
 // everywhere avoids a separate single-slot code path that the multi-day
-// case would otherwise have to awkwardly bypass.
-type HoldInput = { listingId: string; slots: Slot[]; quantity?: number };
+// case would otherwise have to awkwardly bypass. This is the *declared*
+// argument type only - the runtime shape is enforced by createHoldSchema.
+type HoldInput = z.infer<typeof createHoldSchema>;
+
+// Shown for any input that fails a booking schema. Never reached by the
+// real UI (the pickers and checkout form only ever send well-formed
+// input), so it doesn't need to say which field was wrong - only a
+// hand-crafted request gets here.
+const INVALID_REQUEST = "Invalid booking request.";
 
 // Fetches the listing and re-validates every requested slot against it,
 // shared by createBookingHold so the hold step and the picker UI it
 // follows can never silently disagree on what counts as a legal request.
+// Expects input that has already passed createHoldSchema.
 async function loadAndValidateListing(input: HoldInput) {
-  if (input.slots.length === 0) {
-    return { ok: false as const, error: "No slot was selected." };
-  }
-
   const listing = await prisma.listing.findUnique({
     where: { id: input.listingId },
     include: { venue: { include: { city: true } }, activity: true },
@@ -39,6 +45,10 @@ async function loadAndValidateListing(input: HoldInput) {
     return { ok: false as const, error: "This listing is no longer available." };
   }
 
+  if (!isSlotSetValid(listing, input.slots)) {
+    return { ok: false as const, error: "That time is no longer available." };
+  }
+
   const bookableDates = await getBookableDates(listing);
   for (const slot of input.slots) {
     if (!isRequestedSlotValid(listing, slot.startsAt, slot.endsAt, bookableDates)) {
@@ -46,16 +56,8 @@ async function loadAndValidateListing(input: HoldInput) {
     }
   }
 
+  // Already a positive integer when present (createHoldSchema).
   const quantity = input.quantity ?? 1;
-
-  // ?? only catches null/undefined - a crafted 0 or negative quantity
-  // would otherwise sail through, both dodging the capacity check below
-  // and permanently corrupting this listing's remaining-capacity math
-  // afterward, since quantity gets summed into every later overlap/
-  // capacity query.
-  if (!Number.isInteger(quantity) || quantity < 1) {
-    return { ok: false as const, error: "Invalid quantity." };
-  }
 
   // The quantity stepper's own max is just UX - this is the check that
   // actually matters, same "never trust the client" reasoning as
@@ -77,7 +79,11 @@ async function loadAndValidateListing(input: HoldInput) {
 // fail together: a 3-day pass missing even one of its picked days isn't
 // a valid purchase.
 export const createBookingHold = withAuth(
-  async (session, input: HoldInput): Promise<CreateBookingHoldResult> => {
+  async (session, rawInput: HoldInput): Promise<CreateBookingHoldResult> => {
+    const parsed = createHoldSchema.safeParse(rawInput);
+    if (!parsed.success) return { ok: false, error: INVALID_REQUEST };
+    const input = parsed.data;
+
     const validated = await loadAndValidateListing(input);
     if (!validated.ok) return validated;
     const { listing, quantity } = validated;
@@ -176,15 +182,21 @@ export const createBookingHold = withAuth(
 // so this never needs to re-run the capacity check itself, only confirm
 // the order is still genuinely valid at the moment it's consumed.
 export const finalizeBookingHold = withAuth(
-  async (
-    session,
-    input: { orderId: string; attendeeName: string; attendeeEmail: string; attendeePhone?: string }
-  ): Promise<FinalizeBookingHoldResult> => {
-    const attendeeName = input.attendeeName.trim();
-    const attendeeEmail = input.attendeeEmail.trim().toLowerCase();
-    if (!attendeeName || !attendeeEmail) {
-      return { ok: false, error: "Attendee name and email are required." };
+  async (session, rawInput: z.input<typeof finalizeHoldSchema>): Promise<FinalizeBookingHoldResult> => {
+    // Trims/lowercases the attendee fields as part of parsing. An attendee
+    // field failing here is a real (if client-bypassing) user mistake, so
+    // its own message is returned; a malformed orderId can only be a
+    // crafted request, and gets the same answer as an unknown one.
+    const parsed = finalizeHoldSchema.safeParse(rawInput);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return {
+        ok: false,
+        error: issue.path[0] === "orderId" ? "This booking hold could not be found." : issue.message,
+      };
     }
+    const input = parsed.data;
+    const { attendeeName, attendeeEmail } = input;
 
     try {
       await prisma.$transaction(async (tx) => {
@@ -239,7 +251,7 @@ export const finalizeBookingHold = withAuth(
                 amountPaid: getTotalPrice(priceInfo, [{ startsAt: hold.startsAt, endsAt: hold.endsAt }]) * hold.quantity,
                 attendeeName,
                 attendeeEmail,
-                attendeePhone: input.attendeePhone?.trim() || null,
+                attendeePhone: input.attendeePhone ?? null,
               },
             })
           )
@@ -268,7 +280,11 @@ export const finalizeBookingHold = withAuth(
 // finalized or already expired holds have nothing left to release, and
 // the caller is moving on regardless.
 export const releaseBookingHold = withAuth(
-  async (session, input: { orderId: string }): Promise<ReleaseBookingHoldResult> => {
+  async (session, rawInput: { orderId: string }): Promise<ReleaseBookingHoldResult> => {
+    const parsed = releaseHoldSchema.safeParse(rawInput);
+    if (!parsed.success) return { ok: false, error: INVALID_REQUEST };
+    const input = parsed.data;
+
     await prisma.bookingHold.deleteMany({
       where: { orderId: input.orderId, userId: session.user.id },
     });
@@ -286,6 +302,9 @@ export type BookingOrder = {
   venueName: string;
   cityName: string;
   timeZone: string;
+  // Needed to format the order's dates correctly - see formatBookingTime.
+  bookingMechanic: "time_range" | "date_range" | "fixed_session";
+  isAccommodation: boolean;
   attendeeName: string;
   attendeeEmail: string;
   attendeePhone: string | null;
@@ -303,7 +322,7 @@ export type BookingOrder = {
 export const getUserBookingOrders = withAuth(async (session): Promise<BookingOrder[]> => {
   const bookings = await prisma.booking.findMany({
     where: { userId: session.user.id },
-    include: { listing: { include: { venue: { include: { city: true } } } } },
+    include: { listing: { include: { venue: { include: { city: true } }, activity: true } } },
     orderBy: { startsAt: "asc" },
   });
 
@@ -327,6 +346,8 @@ export const getUserBookingOrders = withAuth(async (session): Promise<BookingOrd
       venueName: first.listing.venue.name,
       cityName: first.listing.venue.city.name,
       timeZone: first.listing.venue.city.timezone,
+      bookingMechanic: first.listing.activity.bookingMechanic,
+      isAccommodation: first.listing.activity.isAccommodation,
       attendeeName: first.attendeeName,
       attendeeEmail: first.attendeeEmail,
       attendeePhone: first.attendeePhone,

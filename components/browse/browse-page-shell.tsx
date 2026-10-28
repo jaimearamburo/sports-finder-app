@@ -24,7 +24,10 @@ export function BrowsePageShell({ sidebar, children }: { sidebar: React.ReactNod
           only needs to clear the mobile filter bar's own row, not the
           taller sidebar's category list, which doesn't exist at this
           width. */}
-      <main className="min-w-0 pt-4 pb-7 sm:pt-7">{children}</main>
+      {/* A div, not <main>: the root layout already provides the page's
+          single <main> landmark, and nesting a second one inside it
+          confuses screen-reader landmark navigation. */}
+      <div className="min-w-0 pt-4 pb-7 sm:pt-7">{children}</div>
     </div>
   );
 }

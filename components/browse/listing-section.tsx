@@ -4,7 +4,7 @@ import { ListingGrid, getPrimaryTag, type ListingCardData } from "@/components/b
 import { isCategoryId, MECHANIC_CATEGORIES, type CategoryId } from "@/lib/category-filters";
 import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
 import { getBookableDates, getSpotsRemaining, hasAvailableSlotOnDate } from "@/lib/availability";
-import { startOfUTCDay } from "@/lib/dates";
+import { browseParamsSchema } from "@/lib/validation/browse";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // All URL search params ListingSection's query can filter on. Every
@@ -35,19 +35,19 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
   } = searchParams;
 
   const category: CategoryId = rawCategory && isCategoryId(rawCategory) ? rawCategory : "all";
-  const selectedTags = rawTags ? rawTags.split(",").filter(Boolean) : [];
-  const priceMin = rawPriceMin ? Number(rawPriceMin) : PRICE_MIN;
-  const priceMax = rawPriceMax ? Number(rawPriceMax) : PRICE_MAX;
-  // One date (a specific day picked from the calendar) or two (the "This
-  // weekend" pill's Saturday+Sunday) - resolved to concrete calendar days
-  // entirely client-side (see components/browse/date-filter-popover.tsx and
+  // Price, date and tag params are parsed (and bounded) by
+  // browseParamsSchema - see lib/validation/browse.ts. Dates are one day
+  // (a specific day picked from the calendar) or two (the "This weekend"
+  // pill's Saturday+Sunday), resolved to concrete calendar days entirely
+  // client-side (see components/browse/date-filter-popover.tsx and
   // quick-filters-panel.tsx), so this never needs to know which pill
-  // produced them or whose timezone defined "today". Each is normalized to
-  // UTC midnight so it compares equal to the Date objects
-  // getBookableDates/getSpotsRemaining already produce and key by.
-  const dates = rawDate
-    ? rawDate.split(",").map((d) => startOfUTCDay(new Date(`${d}T00:00:00.000Z`)))
-    : [];
+  // produced them or whose timezone defined "today".
+  const {
+    priceMin,
+    priceMax,
+    dates,
+    tags: selectedTags,
+  } = browseParamsSchema.parse({ priceMin: rawPriceMin, priceMax: rawPriceMax, dates: rawDate, tags: rawTags });
 
   // Category is the booking-mechanic axis (see lib/category-filters.ts).
   // Its id is the literal BookingMechanic value, so it needs no lookup
@@ -199,7 +199,7 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
             <Popover>
               <PopoverTrigger
                 aria-label={`What does "${type.label}" mean?`}
-                className="ml-2 inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+                className="ml-2 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
               >
                 <Info className="size-3.5" />
               </PopoverTrigger>

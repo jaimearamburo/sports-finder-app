@@ -1089,6 +1089,10 @@ async function seedListings(
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Camping"].id,
+      // operatingHoursEnd doubles as the check-in deadline - same-day stays
+      // close an hour before it (see isSameDayBookingClosed).
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "20:00",
       name: "Campsite A",
       capacity: 1, // one booking occupies the entire site for its date range
       pricePerUnit: 45, // priced per night
@@ -1101,6 +1105,10 @@ async function seedListings(
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Camping"].id,
+      // operatingHoursEnd doubles as the check-in deadline - same-day stays
+      // close an hour before it (see isSameDayBookingClosed).
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "20:00",
       name: "Campsite B",
       capacity: 1,
       pricePerUnit: 45,
@@ -1113,6 +1121,10 @@ async function seedListings(
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Camping"].id,
+      // operatingHoursEnd doubles as the check-in deadline - same-day stays
+      // close an hour before it (see isSameDayBookingClosed).
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "20:00",
       name: "Campsite C",
       capacity: 1,
       pricePerUnit: 45,
@@ -1125,6 +1137,10 @@ async function seedListings(
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Camping"].id,
+      // operatingHoursEnd doubles as the check-in deadline - same-day stays
+      // close an hour before it (see isSameDayBookingClosed).
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "20:00",
       name: "Campsite D",
       capacity: 1,
       pricePerUnit: 50,
@@ -1137,6 +1153,10 @@ async function seedListings(
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Camping"].id,
+      // operatingHoursEnd doubles as the check-in deadline - same-day stays
+      // close an hour before it (see isSameDayBookingClosed).
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "20:00",
       name: "Campsite E",
       capacity: 1,
       pricePerUnit: 40,
@@ -1149,6 +1169,10 @@ async function seedListings(
     data: {
       venueId: venues.fitZone.id,
       activityId: activities["Gym Day Pass"].id,
+      // Opening hours - same-day passes stop selling an hour before
+      // closing (see isSameDayBookingClosed).
+      operatingHoursStart: "06:00",
+      operatingHoursEnd: "22:00",
       name: "Day Pass",
       capacity: 50, // many concurrent visitors, unlike an exclusive-use court
       pricePerUnit: 25,
@@ -1417,6 +1441,10 @@ async function seedListings(
     data: {
       venueId: venues.manhattanFitness.id,
       activityId: activities["Gym Day Pass"].id,
+      // Opening hours - same-day passes stop selling an hour before
+      // closing (see isSameDayBookingClosed).
+      operatingHoursStart: "06:00",
+      operatingHoursEnd: "22:00",
       name: "Multi-Day Pass",
       capacity: 50,
       pricePerUnit: 35,

@@ -87,6 +87,27 @@ export function calendarDayInTimezone(instant: Date, timeZone: string): Date {
   return localDateToUTCDay(new TZDate(instant, timeZone));
 }
 
+// How long before a multi-day listing's closing time same-day booking
+// stops. Without a buffer someone could buy today's gym pass at 9:55pm for
+// a 10pm close and get nothing for it; an hour leaves a pass bought at the
+// cut-off with real time to use. One app-wide setting rather than a
+// database column - no venue needs a different value yet.
+export const SAME_DAY_CUTOFF_BUFFER_MINUTES = 60;
+
+// Whether same-day booking has closed for a date_range listing (a gym pass,
+// a campsite), as seen from the venue's own clock. These listings have no
+// start times, so without this "today" stayed bookable right up to
+// midnight, even hours after the venue had shut. operatingHoursEnd is the
+// closing time for a pass and the check-in deadline for a campsite. With
+// no closing time set, same-day booking is always closed: there's no way
+// to prove the venue is still open, and booking a closed venue must never
+// be possible. `now` is a parameter only so tests can pin the time.
+export function isSameDayBookingClosed(operatingHoursEnd: string | null, timeZone: string, now: Date = new Date()): boolean {
+  if (!operatingHoursEnd) return true;
+  const cutoffMinutes = minutesSinceMidnight(operatingHoursEnd) - SAME_DAY_CUTOFF_BUFFER_MINUTES;
+  return minutesOfDayInTimezone(now, timeZone) >= cutoffMinutes;
+}
+
 // Whether a given minute-of-day on a given calendar date has already
 // passed, as seen from the venue's own clock - used to disable picking a
 // start time earlier than right now on today's date. Any date before

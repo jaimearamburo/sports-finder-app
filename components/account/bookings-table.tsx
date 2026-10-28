@@ -12,7 +12,7 @@ function StatusBadge({ status }: { status: BookingOrder["status"] }) {
       className={cn(
         "inline-block rounded-full px-2.5 py-1 text-xs font-medium",
         status === "upcoming"
-          ? "bg-emerald-600/10 text-emerald-700 dark:text-emerald-400"
+          ? "bg-emerald-600/10 text-emerald-800 dark:text-emerald-400"
           : "bg-muted text-muted-foreground"
       )}
     >
@@ -80,7 +80,7 @@ export function BookingsTable({ orders }: { orders: BookingOrder[] }) {
                   </p>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
-                  {formatBookingTime(firstSlot.startsAt, lastSlot.endsAt, order.timeZone)}
+                  {formatBookingTime(firstSlot.startsAt, lastSlot.endsAt, order.timeZone, order)}
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={order.status} />
@@ -112,7 +112,7 @@ export function BookingsTable({ orders }: { orders: BookingOrder[] }) {
               {order.venueName}, {order.cityName}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {formatBookingTime(firstSlot.startsAt, lastSlot.endsAt, order.timeZone)}
+              {formatBookingTime(firstSlot.startsAt, lastSlot.endsAt, order.timeZone, order)}
             </p>
           </div>
         ))}
@@ -152,7 +152,7 @@ export function BookingsTable({ orders }: { orders: BookingOrder[] }) {
                   </p>
                   <ul className="flex flex-col gap-1">
                     {openOrder.slots.map((slot) => (
-                      <li key={slot.id}>{formatBookingTime(slot.startsAt, slot.endsAt, openOrder.timeZone)}</li>
+                      <li key={slot.id}>{formatBookingTime(slot.startsAt, slot.endsAt, openOrder.timeZone, openOrder)}</li>
                     ))}
                   </ul>
                 </div>

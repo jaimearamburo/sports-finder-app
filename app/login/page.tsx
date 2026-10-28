@@ -25,7 +25,9 @@ export default async function LoginPage({
     <div className="flex flex-1 items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Log in</CardTitle>
+          <CardTitle>
+            <h1>Log in</h1>
+          </CardTitle>
           <CardDescription>Welcome back.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -53,7 +55,7 @@ export default async function LoginPage({
 
           <p className="text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-primary underline-offset-4 hover:underline">
+            <Link href="/signup" className="text-primary underline underline-offset-4">
               Sign up
             </Link>
           </p>
