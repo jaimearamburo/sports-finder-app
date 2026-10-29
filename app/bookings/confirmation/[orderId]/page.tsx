@@ -1,16 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, CircleX, Hourglass } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buttonVariants } from "@/components/ui/button";
 import { formatBookingTime } from "@/lib/dates";
 import { getBookingReference } from "@/lib/booking-reference";
+import { NoticePage } from "@/components/notice-page";
+import { RefreshWhilePending } from "@/components/listings/refresh-while-pending";
 
 // Minimal confirmation page, not a full "My Bookings" dashboard - that's
 // its own later phase. Keyed by orderId rather than individual booking
 // ids, since a multi-day pass finalizes into several Booking rows that
 // all share one orderId, and this page shows all of them together.
+//
+// Also the page a payment lands on, so it covers the two in-between payment
+// states as well (see completeOrderPayment in lib/bookings.ts): "pending"
+// bookings whose card capture hasn't settled yet, which the webhook
+// confirms shortly, and "cancelled" ones whose payment failed at capture.
 export default async function BookingConfirmationPage({
   params,
 }: {
@@ -30,6 +37,34 @@ export default async function BookingConfirmationPage({
     : [];
 
   if (bookings.length === 0) notFound();
+
+  // Every row in an order shares one payment, so they always share a status.
+  const status = bookings[0].status;
+
+  if (status === "cancelled") {
+    return (
+      <NoticePage
+        icon={CircleX}
+        tone="error"
+        title="Payment didn't go through"
+        actions={
+          <Link href={`/listings/${bookings[0].listingId}`} className={buttonVariants({ variant: "default" })}>
+            Back to slot selection
+          </Link>
+        }
+      >
+        <p>We couldn&apos;t complete your payment, so this booking wasn&apos;t made. Your card hasn&apos;t been charged.</p>
+      </NoticePage>
+    );
+  }
+
+  if (status === "pending") {
+    return (
+      <NoticePage icon={Hourglass} tone="muted" title="Finishing your payment" actions={<RefreshWhilePending />}>
+        <p>Your booking is reserved and your payment is being confirmed. This page will update by itself.</p>
+      </NoticePage>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col items-center gap-6 px-4 py-16 text-center">

@@ -448,8 +448,14 @@ model Booking {
   // claiming several spots in one class/session in a single purchase.
   quantity Int @default(1)
 
-  stripeCheckoutSessionId String?  @map("stripe_checkout_session_id")
-  amountPaid              Decimal? @map("amount_paid") @db.Decimal(10, 2)
+  // The Stripe PaymentIntent that paid for this booking. Every row in one
+  // order shares it. The card is authorized first and only captured once
+  // the hold is confirmed still valid, so a "pending" booking is one whose
+  // PaymentIntent is authorized but not yet captured (see
+  // completeOrderPayment in lib/bookings.ts). Null only on bookings made
+  // before payments existed.
+  stripePaymentIntentId String?  @map("stripe_payment_intent_id")
+  amountPaid            Decimal? @map("amount_paid") @db.Decimal(10, 2)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -467,6 +473,8 @@ model Booking {
   @@index([listingId, startsAt, endsAt])
   @@index([userId])
   @@index([orderId])
+  // The payment webhook looks bookings up by PaymentIntent.
+  @@index([stripePaymentIntentId])
   @@map("bookings")
 }
 

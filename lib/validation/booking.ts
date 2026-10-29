@@ -55,8 +55,17 @@ export const createHoldSchema = z.object({
   quantity: z.number().int().min(1).optional(),
 });
 
-export const finalizeHoldSchema = attendeeSchema.extend({
+// Starting payment is the point where the attendee details are final:
+// they travel with the PaymentIntent (as metadata), so the payment webhook
+// can complete the booking even if the browser never comes back.
+export const startPaymentSchema = attendeeSchema.extend({
   orderId: z.uuid(),
+});
+
+export const confirmPaymentSchema = z.object({
+  orderId: z.uuid(),
+  // Stripe PaymentIntent ids always start with "pi_".
+  paymentIntentId: z.string().startsWith("pi_").max(255),
 });
 
 export const releaseHoldSchema = z.object({

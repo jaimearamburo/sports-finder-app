@@ -5,6 +5,7 @@ import { HoldExpiredNotice } from "@/components/listings/hold-expired-notice";
 import { getTotalPrice, getBreakdownLine } from "@/lib/booking-price";
 import { formatBookingTime } from "@/lib/dates";
 import { CheckoutForm } from "@/components/listings/checkout-form";
+import { PAYMENT_CURRENCY, toMinorUnits } from "@/lib/stripe";
 
 export default async function CheckoutPage({
   params,
@@ -82,6 +83,8 @@ export default async function CheckoutPage({
       scheduleLines={scheduleLines}
       quantity={quantity}
       total={total}
+      amountMinor={toMinorUnits(total)}
+      currency={PAYMENT_CURRENCY}
       breakdown={breakdown}
       defaultName={session.user.name ?? ""}
       defaultEmail={session.user.email ?? ""}
