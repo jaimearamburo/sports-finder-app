@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PlayBook
 
-## Getting Started
+Discover and book sports courts, fitness classes, day passes and campsites across multiple cities, with live availability and race-safe checkout.
 
-First, run the development server:
+**Live:** [playbook-app-mauve.vercel.app](https://playbook-app-mauve.vercel.app)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+![Browse](docs/screenshots/browse.png)
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/booking.png" alt="Picking a court time" /></td>
+    <td><img src="docs/screenshots/checkout.png" alt="Checkout with a live hold timer" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/my-bookings.png" alt="My Bookings" /></td>
+    <td align="center"><img src="docs/screenshots/mobile.png" alt="Mobile browse" width="240" /></td>
+  </tr>
+</table>
+
+## What's implemented
+
+- Reserve-then-confirm booking holds with expiring checkout timers
+- Double-booking protection under concurrent requests (row-level locking)
+- One active hold per user, platform-wide
+- Three booking models: time slots, recurring classes, multi-day passes and stays
+- Live availability that accounts for checkouts in progress
+- Multi-city venues across time zones
+- Time-zone-correct scheduling, validation and display
+- Same-day booking cut-offs derived from opening hours
+- Venue and listing availability overrides
+- Shared client and server-side validation (Zod)
+- Role-based access with structurally enforced auth guards
+- Email/password and Google sign-in
+- Security hardening: row-level security, server-enforced business rules, timing-safe login
+- WCAG 2.2 AA accessibility, verified with axe-core
+- Responsive, mobile-first UI with streaming loading states
+
+## How a booking works
+
+```mermaid
+flowchart LR
+  A[Pick a slot] --> B{Hold request<br/>capacity check under row lock}
+  B -- full --> R[Rejected]
+  B -- available --> C[Checkout<br/>5-minute hold]
+  C -- pay --> D[Confirmed booking]
+  C -- timeout or cancel --> E[Hold released<br/>capacity freed]
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Requests flow through Server Components and Server Actions into an auth-guarded data layer, then Prisma and PostgreSQL. Capacity checks and the hold-to-booking conversion run inside transactions, so two people can never both secure the last spot.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui (Base UI) · Prisma 7 · PostgreSQL (Supabase) · Auth.js v5 · Zod 4 · Vercel
 
-## Learn More
+## Running locally
 
-To learn more about Next.js, take a look at the following resources:
+Requires Node 20.9+, pnpm and a PostgreSQL database.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm install
+# .env: POSTGRES_PRISMA_URL, POSTGRES_URL_NON_POOLING, AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET
+pnpm exec prisma migrate deploy
+pnpm exec prisma db seed
+pnpm dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Next up
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Stripe test-mode payments · booking cancellation and refunds · rate limiting and email verification · guest checkout · dark theme · venue owner dashboard
