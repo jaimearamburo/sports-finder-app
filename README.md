@@ -4,7 +4,7 @@ Discover and book sports courts, fitness classes, day passes and campsites acros
 
 **Live:** [playbook-app-mauve.vercel.app](https://playbook-app-mauve.vercel.app)
 
-![Browse](docs/screenshots/browse.png)
+![AI search: "racquet sports this weekend in sydney" interpreted as filter chips](docs/screenshots/browse.png)
 
 <table>
   <tr>
