@@ -30,7 +30,7 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
   const {
     category: rawCategory,
     tags: rawTags,
-    city,
+    city: rawCity,
     priceMin: rawPriceMin,
     priceMax: rawPriceMax,
     date: rawDate,
@@ -49,7 +49,14 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     priceMax,
     dates,
     tags: selectedTags,
-  } = browseParamsSchema.parse({ priceMin: rawPriceMin, priceMax: rawPriceMax, dates: rawDate, tags: rawTags });
+    cities,
+  } = browseParamsSchema.parse({
+    priceMin: rawPriceMin,
+    priceMax: rawPriceMax,
+    dates: rawDate,
+    tags: rawTags,
+    cities: rawCity,
+  });
 
   // Category is the booking-mechanic axis (see lib/category-filters.ts).
   // Its id is the literal BookingMechanic value, so it needs no lookup
@@ -75,7 +82,8 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
       // booking history but should never show up as bookable again.
       archivedAt: null,
       activity: activityConditions.length > 0 ? { AND: activityConditions } : undefined,
-      venue: city ? { city: { name: city } } : undefined,
+      // One city or several (see lib/city-filter.ts) - "any of these".
+      venue: cities.length > 0 ? { city: { name: { in: cities } } } : undefined,
       // PRICE_MAX is an open-ended "$100+" bound, so only the lower end
       // is enforced once the range reaches it.
       pricePerUnit: {
@@ -185,7 +193,7 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
   const mechanicGroups = MECHANIC_CATEGORIES.filter((type) => byMechanic.has(type.id));
 
   return (
-    <div className="mt-6 flex flex-col gap-10">
+    <div className="mt-5 flex flex-col gap-10">
       {mechanicGroups.map((type) => (
         <section key={type.id}>
           {/* Painted full-width - on mobile (where main is the only

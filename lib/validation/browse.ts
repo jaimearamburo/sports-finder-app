@@ -26,6 +26,10 @@ const MAX_DATES = 2;
 // the size of the tag-name IN list sent to the database.
 const MAX_TAGS = 20;
 
+// More than enough for any real search (there are ten cities with venues);
+// bounds the city IN list the same way MAX_TAGS bounds tags.
+const MAX_CITIES = 10;
+
 // Split out because the price pair is also read client-side, by the
 // sidebar/mobile filter bar's URL routing hook (useSidebarFilterRouting).
 // That reader used to do a bare Number(), so "?priceMin=abc" produced NaN,
@@ -63,5 +67,15 @@ export const browseParamsSchema = browsePriceSchema.extend({
     .string()
     .optional()
     .transform((raw) => (raw ? raw.split(",").filter(Boolean).slice(0, MAX_TAGS) : []))
+    .catch([]),
+  // One city, or several comma-separated ones (a search like "somewhere
+  // warm" can match more than one - see lib/city-filter.ts). De-duplicated
+  // and capped like tags.
+  cities: z
+    .string()
+    .optional()
+    .transform((raw) =>
+      raw ? [...new Set(raw.split(",").map((c) => c.trim()).filter(Boolean))].slice(0, MAX_CITIES) : []
+    )
     .catch([]),
 });

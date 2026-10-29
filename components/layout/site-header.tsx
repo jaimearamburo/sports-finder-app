@@ -1,9 +1,10 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { auth } from "@/auth";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Logo } from "@/components/layout/logo";
-import { HeaderSearch } from "@/components/layout/header-search";
+import { HeaderSearch, HeaderSearchFallback } from "@/components/layout/header-search";
 import { UserMenu } from "@/components/layout/user-menu";
 import { getAccountLinkInfo } from "@/lib/account-nav";
 
@@ -15,7 +16,8 @@ import { getAccountLinkInfo } from "@/lib/account-nav";
  * and logged-in states the way a client-side useSession() version would
  * have.
  *
- * The search box and cart button are visual only.
+ * The cart button is visual only; the search box runs natural-language
+ * search (see HeaderSearch and app/search/actions.ts).
  */
 export async function SiteHeader() {
   // Reads the current session from the request cookie.
@@ -38,7 +40,11 @@ export async function SiteHeader() {
       <div className="mx-auto grid h-17 max-w-[1800px] grid-cols-[auto_minmax(0,640px)_auto] items-center gap-4 px-4 sm:gap-5 sm:px-6 md:grid-cols-[200px_minmax(0,1fr)_auto] md:gap-x-8">
         <Logo />
 
-        <HeaderSearch />
+        {/* Suspense: HeaderSearch reads the URL (useSearchParams) to show the
+            current search, which needs a boundary in this Next version. */}
+        <Suspense fallback={<HeaderSearchFallback />}>
+          <HeaderSearch />
+        </Suspense>
 
         <div className="flex items-center justify-self-end gap-2">
           <Button variant="ghost" size="icon" aria-label="Cart" className="relative rounded-full">
