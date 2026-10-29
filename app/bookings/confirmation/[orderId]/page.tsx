@@ -72,9 +72,14 @@ export default async function BookingConfirmationPage({
         ))}
       </div>
 
-      <Link href="/" className={buttonVariants({ variant: "default" })}>
-        Back to browse
-      </Link>
+      <div className="flex flex-wrap justify-center gap-3">
+        <Link href="/" className={buttonVariants({ variant: "default" })}>
+          Back to browse
+        </Link>
+        <Link href="/account" className={buttonVariants({ variant: "outline" })}>
+          View my bookings
+        </Link>
+      </div>
     </div>
   );
 }

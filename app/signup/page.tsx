@@ -15,7 +15,7 @@ export default function SignupPage() {
     <div className="flex flex-1 items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="text-xl font-semibold">
             <h1>Create an account</h1>
           </CardTitle>
           <CardDescription>Sign up to book courts, campsites, and classes.</CardDescription>

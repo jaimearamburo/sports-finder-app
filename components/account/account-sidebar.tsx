@@ -17,12 +17,17 @@ export function AccountSidebar() {
       {LINKS.map((link) => {
         const active = pathname === link.href;
         return (
+          // Same selected style as the browse sidebar's categories
+          // (BrowseSidebarPanel) - blue left edge on a light tint - so the
+          // app's two sidebars read as one design.
           <Link
             key={link.href}
             href={link.href}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded-md px-3 py-2 text-sm font-medium transition-colors",
-              active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              "border-l-2 border-transparent px-2.5 py-2 text-sm font-medium transition-colors",
+              "text-muted-foreground hover:bg-foreground/3 hover:text-foreground/80",
+              active && "border-primary bg-foreground/3 text-foreground/80"
             )}
           >
             {link.label}

@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { TriangleAlert } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { tagTextColor } from "@/lib/label-styles";
+import { HoldExpiredNotice } from "@/components/listings/hold-expired-notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,6 +55,7 @@ export function CheckoutForm({
   listingId,
   listingName,
   activityName,
+  accentColor,
   venueName,
   cityName,
   scheduleLines,
@@ -68,6 +70,9 @@ export function CheckoutForm({
   listingId: string;
   listingName: string;
   activityName: string;
+  // The listing's primary tag colour, for the category label - same source
+  // as the listing page's own label. Undefined falls back to grey.
+  accentColor?: string;
   venueName: string;
   cityName: string;
   scheduleLines: string[];
@@ -136,19 +141,12 @@ export function CheckoutForm({
   // router.back(), not router.push - pushing a fresh entry for a URL
   // already in history is what caused a real reported bug: going back to
   // the listing, then clicking "Back to browse" there, only popped this
-  // new pushed entry and landed back on checkout instead of browse.
-  // router.refresh() right after is also required, not optional - back()
-  // restores the listing page from Next's in-memory navigation history
-  // rather than always re-fetching, which could otherwise show its
-  // pre-hold render (no active-hold banner) even though the hold this
-  // page was just holding is still genuinely active.
+  // new pushed entry and landed back on checkout instead of browse. No
+  // refresh needed here: back() is a history navigation, so
+  // RefreshOnHistoryNavigation (root layout) re-fetches the listing page,
+  // exactly as it does for the browser's own back button.
   function handleBackToListing() {
     router.back();
-    // Deferred one tick - back() triggers the history pop asynchronously,
-    // and calling refresh() in the same tick races against that, often
-    // refreshing whatever route the router still considers current at
-    // that exact instant rather than the one just navigated back to.
-    setTimeout(() => router.refresh(), 0);
   }
 
   // Billing fields are required but never actually validated or charged -
@@ -196,22 +194,7 @@ export function CheckoutForm({
   }
 
   if (expired) {
-    return (
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-3 px-4 py-24 text-center">
-        <TriangleAlert className="size-14 text-destructive" />
-        <h1 className="text-2xl font-bold text-destructive">Your hold has expired</h1>
-        <p className="text-muted-foreground">
-          Your checkout session timed out and this slot is no longer reserved for you. Go back and pick a slot
-          again - it may still be available.
-        </p>
-        <Link
-          href={`/listings/${listingId}`}
-          className={buttonVariants({ variant: "default", className: "mt-3" })}
-        >
-          Back to slot selection
-        </Link>
-      </div>
-    );
+    return <HoldExpiredNotice listingId={listingId} />;
   }
 
   return (
@@ -230,7 +213,12 @@ export function CheckoutForm({
       </div>
 
       <div className="mb-6 rounded-md border bg-card p-4">
-        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{activityName}</p>
+        <p
+          className={cn("text-xs font-bold tracking-wide uppercase", !accentColor && "text-muted-foreground")}
+          style={{ color: accentColor && tagTextColor(accentColor) }}
+        >
+          {activityName}
+        </p>
         {/* The page's h1 - styled like the rest of the summary card, but a
             real heading so screen-reader users can find the page's subject. */}
         <h1 className="font-semibold">{listingName}</h1>
@@ -354,7 +342,7 @@ export function CheckoutForm({
         <div className="border-t pt-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold">Billing details</h2>
-            <Button type="button" variant="destructive" size="sm" onClick={fillRandomCard}>
+            <Button type="button" variant="outline" size="sm" onClick={fillRandomCard}>
               Generate random card details
             </Button>
           </div>

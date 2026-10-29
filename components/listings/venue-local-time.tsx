@@ -71,7 +71,10 @@ export function VenueLocalTime({ timeZone, cityName }: { timeZone: string; cityN
   if (!time) return null;
 
   return (
-    <p className="mt-2 text-sm text-black/80 bg-amber-100/50 p-2 rounded-sm">
+    // Neutral grey, not yellow: this is information, and yellow is kept
+    // for the time-sensitive hold warnings (checkout countdown, active-hold
+    // banner) so it keeps meaning "act on this".
+    <p className="mt-2 rounded-md bg-muted p-3 text-sm text-foreground">
       All dates and times are displayed in the venue&apos;s local time. <br></br>
       Current time in{" "}
       <span className="text-base font-semibold text-[#1967D2]">{cityName}</span>

@@ -22,7 +22,7 @@ export default async function LogoutPage() {
       <div className="flex flex-1 items-center justify-center p-4">
         <Card className="w-full max-w-sm">
           <CardHeader>
-            <CardTitle>
+            <CardTitle className="text-xl font-semibold">
               <h1>You&apos;re not logged in</h1>
             </CardTitle>
             <CardDescription>There&apos;s no active session to log out of.</CardDescription>
@@ -41,7 +41,7 @@ export default async function LogoutPage() {
     <div className="flex flex-1 items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="text-xl font-semibold">
             <h1>Log out</h1>
           </CardTitle>
           <CardDescription>
