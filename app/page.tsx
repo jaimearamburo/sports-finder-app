@@ -5,6 +5,7 @@ import { BrowsePageShell } from "@/components/browse/browse-page-shell";
 import { BackToTopButton } from "@/components/browse/back-to-top-button";
 import { TagFilters } from "@/components/browse/tag-filters";
 import { QuickFilters } from "@/components/browse/quick-filters";
+import { SearchInterpretation } from "@/components/browse/search-interpretation";
 import { ListingSection, type BrowseSearchParams } from "@/components/browse/listing-section";
 import {
   BrowseSidebarSkeleton,
@@ -77,6 +78,7 @@ export default function Home({
           <TagFilterSection />
         </Suspense>
         <QuickFilters />
+        <SearchInterpretation />
 
         {/* No key on the Suspense below. A keyed boundary remounts on
             every change and always shows its fallback again; leaving it

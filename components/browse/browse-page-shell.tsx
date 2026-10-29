@@ -8,6 +8,10 @@
 // uses plain `md:` breakpoint classes, not a JS viewport check, so there
 // is no post-mount "wrong layout first" flash the way reading
 // window.innerWidth in an effect would cause.
+//
+// The sidebar column (200px), gap-8 and side padding are mirrored by
+// SiteHeader so its search box lines up with the content column - change
+// them together.
 export function BrowsePageShell({ sidebar, children }: { sidebar: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="mx-auto grid w-full max-w-[1800px] grid-cols-1 gap-8 px-4 sm:px-6 md:grid-cols-[200px_minmax(0,1fr)]">

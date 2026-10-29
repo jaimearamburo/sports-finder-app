@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import type { BrowseCityGroup } from "@/lib/browse-cities";
+import { citySelectValue, MULTIPLE_CITIES_LABEL, MULTIPLE_CITIES_VALUE } from "@/lib/city-filter";
 
 export type SidebarFilterValues = {
   category: string;
@@ -96,12 +97,14 @@ export function BrowseSidebarPanel({
             // rendering concern.
             items={[
               { label: "All cities", value: "all" },
+              { label: MULTIPLE_CITIES_LABEL, value: MULTIPLE_CITIES_VALUE },
               ...cities.flatMap((group) => group.cities.map((c) => ({ label: c.label, value: c.name }))),
             ]}
-            value={optimistic.city === "" ? "all" : optimistic.city}
-            onValueChange={(value) =>
-              commitFilters({ ...optimistic, city: !value || value === "all" ? "" : value })
-            }
+            value={citySelectValue(optimistic.city)}
+            onValueChange={(value) => {
+              if (value === MULTIPLE_CITIES_VALUE) return;
+              commitFilters({ ...optimistic, city: !value || value === "all" ? "" : value });
+            }}
           >
             {/* aria-label: the visible "City" heading above isn't tied to
                 this control, so without it a screen reader announced an
@@ -111,6 +114,11 @@ export function BrowseSidebarPanel({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All cities</SelectItem>
+              {optimistic.city.includes(",") && (
+                <SelectItem value={MULTIPLE_CITIES_VALUE} disabled>
+                  {MULTIPLE_CITIES_LABEL}
+                </SelectItem>
+              )}
               <SelectSeparator />
               {cities.map((group) => (
                 <SelectGroup key={group.countryName}>

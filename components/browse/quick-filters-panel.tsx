@@ -102,7 +102,7 @@ export function QuickFiltersPanel({
   const isFreeActive = optimistic.priceMax === 0;
 
   return (
-    <div data-pending={isPending ? "" : undefined} className="mb-2 flex items-center gap-2.5 overflow-x-auto sm:mb-7">
+    <div data-pending={isPending ? "" : undefined} className="mb-2 flex items-center gap-2.5 overflow-x-auto sm:mb-5">
       <DateFilterPopover
         selectedDate={selectedDate}
         onCommit={(d) => commitFilters({ ...optimistic, date: d ? toDateParam(d) : "" })}

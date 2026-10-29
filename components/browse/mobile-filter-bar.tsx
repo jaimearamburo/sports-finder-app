@@ -19,6 +19,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { BrowseCityGroup } from "@/lib/browse-cities";
+import { citySelectValue, MULTIPLE_CITIES_LABEL, MULTIPLE_CITIES_VALUE } from "@/lib/city-filter";
 
 // rounded-md (not rounded-full), matching QuickFiltersPanel's own pills
 // exactly - the two rows sit one above the other, so a mismatched shape
@@ -80,12 +81,14 @@ export function MobileFilterBar({ cities }: { cities: BrowseCityGroup[] }) {
         <Select
           items={[
             { label: "All cities", value: "all" },
+            { label: MULTIPLE_CITIES_LABEL, value: MULTIPLE_CITIES_VALUE },
             ...cities.flatMap((group) => group.cities.map((c) => ({ label: c.label, value: c.name }))),
           ]}
-          value={optimistic.city === "" ? "all" : optimistic.city}
-          onValueChange={(value) =>
-            commitFilters({ ...optimistic, city: !value || value === "all" ? "" : value })
-          }
+          value={citySelectValue(optimistic.city)}
+          onValueChange={(value) => {
+            if (value === MULTIPLE_CITIES_VALUE) return;
+            commitFilters({ ...optimistic, city: !value || value === "all" ? "" : value });
+          }}
         >
           <SelectTrigger className={cn(PILL_CLASS, isCityActive && PILL_ACTIVE_CLASS)} aria-label="City">
             <SelectValue />
@@ -98,6 +101,11 @@ export function MobileFilterBar({ cities }: { cities: BrowseCityGroup[] }) {
               trigger. */}
           <SelectContent className="w-60">
             <SelectItem value="all">All cities</SelectItem>
+            {optimistic.city.includes(",") && (
+              <SelectItem value={MULTIPLE_CITIES_VALUE} disabled>
+                {MULTIPLE_CITIES_LABEL}
+              </SelectItem>
+            )}
             <SelectSeparator />
             {cities.map((group) => (
               <SelectGroup key={group.countryName}>

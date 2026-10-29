@@ -1,9 +1,10 @@
+import { Suspense } from "react";
 import Link from "next/link";
-import { Search, ShoppingCart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import { auth } from "@/auth";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/layout/logo";
+import { HeaderSearch, HeaderSearchFallback } from "@/components/layout/header-search";
 import { UserMenu } from "@/components/layout/user-menu";
 import { getAccountLinkInfo } from "@/lib/account-nav";
 
@@ -15,7 +16,8 @@ import { getAccountLinkInfo } from "@/lib/account-nav";
  * and logged-in states the way a client-side useSession() version would
  * have.
  *
- * The search box and cart button are visual only.
+ * The cart button is visual only; the search box runs natural-language
+ * search (see HeaderSearch and app/search/actions.ts).
  */
 export async function SiteHeader() {
   // Reads the current session from the request cookie.
@@ -29,17 +31,20 @@ export async function SiteHeader() {
     // common cause of a brief stutter right as scrolling starts, since
     // allocating the layer competes with the scroll's own first frames.
     <header className="sticky top-0 z-20 border-b border-gray-100 bg-card will-change-transform">
-      <div className="mx-auto grid h-17 max-w-[1800px] grid-cols-[auto_minmax(0,640px)_auto] items-center gap-4 px-4 sm:gap-5 sm:px-6 lg:px-8">
+      {/* From md up, the first column and gap match BrowsePageShell's
+          sidebar (200px column, gap-8) and the side padding matches too,
+          so the search box starts exactly where the browse page's tag
+          chips start. Keep the two in sync if either changes. Below md
+          the browse page has no sidebar, so the header keeps its compact
+          logo / search / actions layout. */}
+      <div className="mx-auto grid h-17 max-w-[1800px] grid-cols-[auto_minmax(0,640px)_auto] items-center gap-4 px-4 sm:gap-5 sm:px-6 md:grid-cols-[200px_minmax(0,1fr)_auto] md:gap-x-8">
         <Logo />
 
-        <div className="relative min-w-0">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Ask anything..."
-            className="h-11 rounded-xl bg-muted/40 pl-10"
-          />
-        </div>
+        {/* Suspense: HeaderSearch reads the URL (useSearchParams) to show the
+            current search, which needs a boundary in this Next version. */}
+        <Suspense fallback={<HeaderSearchFallback />}>
+          <HeaderSearch />
+        </Suspense>
 
         <div className="flex items-center justify-self-end gap-2">
           <Button variant="ghost" size="icon" aria-label="Cart" className="relative rounded-full">
