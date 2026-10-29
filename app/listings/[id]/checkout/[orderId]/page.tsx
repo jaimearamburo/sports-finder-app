@@ -1,9 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TriangleAlert } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { buttonVariants } from "@/components/ui/button";
+import { HoldExpiredNotice } from "@/components/listings/hold-expired-notice";
 import { getTotalPrice, getBreakdownLine } from "@/lib/booking-price";
 import { formatBookingTime } from "@/lib/dates";
 import { CheckoutForm } from "@/components/listings/checkout-form";
@@ -31,7 +29,10 @@ export default async function CheckoutPage({
   const stillActive = holds.length > 0 && holds.every((h) => h.expiresAt > new Date());
 
   if (!session || !stillActive) {
-    return <HoldExpired listingId={listingId} />;
+    // Covers a nonexistent or someone else's orderId as well as a genuinely
+    // expired one - a visitor can't tell them apart and doesn't need to;
+    // either way the only next step is picking a slot again.
+    return <HoldExpiredNotice listingId={listingId} />;
   }
 
   // Fetches just enough to show a summary and compute the total - the
@@ -43,7 +44,11 @@ export default async function CheckoutPage({
       name: true,
       pricePerUnit: true,
       venue: { select: { name: true, city: { select: { name: true, timezone: true } } } },
-      activity: { select: { name: true, bookingMechanic: true, isAccommodation: true } },
+      // tags: only for the category label's colour - the first tag, the same
+      // one app/listings/[id]/page.tsx takes its accent colour from.
+      activity: {
+        select: { name: true, bookingMechanic: true, isAccommodation: true, tags: { select: { tag: { select: { color: true } } } } },
+      },
     },
   });
   if (!listing) notFound();
@@ -71,6 +76,7 @@ export default async function CheckoutPage({
       listingId={listingId}
       listingName={listing.name}
       activityName={listing.activity.name}
+      accentColor={listing.activity.tags[0]?.tag.color}
       venueName={listing.venue.name}
       cityName={listing.venue.city.name}
       scheduleLines={scheduleLines}
@@ -83,22 +89,3 @@ export default async function CheckoutPage({
   );
 }
 
-// Covers both a nonexistent/foreign orderId and a genuinely expired one -
-// a visitor can't tell the difference from the outside, and shouldn't
-// need to; either way, the only real next step is going back to pick a
-// slot again.
-function HoldExpired({ listingId }: { listingId: string }) {
-  return (
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-3 px-4 py-24 text-center">
-      <TriangleAlert className="size-14 text-destructive" />
-      <h1 className="text-2xl font-bold text-destructive">Your hold has expired</h1>
-      <p className="text-muted-foreground">
-        This slot was only held for a limited time and is no longer reserved for you. Go back and pick a slot again
-        - it may still be available.
-      </p>
-      <Link href={`/listings/${listingId}`} className={buttonVariants({ variant: "default", className: "mt-3" })}>
-        Back to slot selection
-      </Link>
-    </div>
-  );
-}

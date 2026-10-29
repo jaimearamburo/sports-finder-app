@@ -1,4 +1,6 @@
-import { Info } from "lucide-react";
+import Link from "next/link";
+import { Info, SearchX } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { ListingGrid, getPrimaryTag, type ListingCardData } from "@/components/browse/listing-card";
 import { isCategoryId, MECHANIC_CATEGORIES, type CategoryId } from "@/lib/category-filters";
@@ -89,7 +91,7 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
   });
 
   if (listings.length === 0) {
-    return <p className="mt-10 text-sm text-muted-foreground">No results match these filters.</p>;
+    return <NoResults />;
   }
 
   // A date filter narrows results to listings actually bookable on at
@@ -156,7 +158,7 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
   }
 
   if (filteredListings.length === 0) {
-    return <p className="mt-10 text-sm text-muted-foreground">No results match these filters.</p>;
+    return <NoResults />;
   }
 
   // Top-level grouping is by booking mechanic rather than tag: it's the
@@ -245,6 +247,22 @@ function TagGroups({ listings }: { listings: ListingCardData[] }) {
           <ListingGrid listings={groups.get(name)!} />
         </section>
       ))}
+    </div>
+  );
+}
+
+// Shown when the filters leave nothing to list. "Clear filters" goes to the
+// bare browse URL - every filter lives in the query string, so dropping it
+// resets them all at once.
+function NoResults() {
+  return (
+    <div className="mt-16 flex flex-col items-center gap-3 text-center">
+      <SearchX className="size-10 text-muted-foreground" />
+      <p className="font-medium">No results match these filters</p>
+      <p className="text-sm text-muted-foreground">Try a different date or city, or widen the price range.</p>
+      <Link href="/" className={buttonVariants({ variant: "outline", className: "mt-2" })}>
+        Clear filters
+      </Link>
     </div>
   );
 }

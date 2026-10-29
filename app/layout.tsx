@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Oleo_Script } from "next/font/google";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { RefreshOnHistoryNavigation } from "@/components/layout/refresh-on-history-navigation";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -40,6 +41,7 @@ export default function RootLayout({
         >
           Skip to content
         </a>
+        <RefreshOnHistoryNavigation />
         <SiteHeader />
         {/* flex flex-col here, not just flex-1, so pages that rely on
             being a flex-column child themselves, such as login and

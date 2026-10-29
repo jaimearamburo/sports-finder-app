@@ -151,8 +151,16 @@ export function BookingsTable({ orders }: { orders: BookingOrder[] }) {
                     {openOrder.slots.length > 1 ? "Dates" : "Date"}
                   </p>
                   <ul className="flex flex-col gap-1">
+                    {/* "× n" when one booking covers several people/passes,
+                        so the total paid adds up visibly - without it, $70
+                        for "1 day" of a $35 pass read as an overcharge. */}
                     {openOrder.slots.map((slot) => (
-                      <li key={slot.id}>{formatBookingTime(slot.startsAt, slot.endsAt, openOrder.timeZone, openOrder)}</li>
+                      <li key={slot.id} className="flex justify-between gap-3">
+                        <span>{formatBookingTime(slot.startsAt, slot.endsAt, openOrder.timeZone, openOrder)}</span>
+                        {slot.quantity > 1 && (
+                          <span className="shrink-0 font-medium tabular-nums">× {slot.quantity}</span>
+                        )}
+                      </li>
                     ))}
                   </ul>
                 </div>
