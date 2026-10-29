@@ -21,6 +21,7 @@ Discover and book sports courts, fitness classes, day passes and campsites acros
 
 - AI-powered natural-language search using an LLM, tolerant of typos and synonyms
 - Reserve-then-confirm booking holds with expiring checkout timers
+- Stripe payments (test mode): the card is authorized at checkout and charged only once the booking is secured
 - Double-booking protection under concurrent requests (row-level locking)
 - One active hold per user, platform-wide
 - Three booking models: time slots, recurring classes, multi-day passes and stays
@@ -43,11 +44,15 @@ flowchart LR
   A[Pick a slot] --> B{Hold request<br/>capacity check under row lock}
   B -- full --> R[Rejected]
   B -- available --> C[Checkout<br/>5-minute hold]
-  C -- pay --> D[Confirmed booking]
+  C -- card authorized --> V{Hold still valid?<br/>checked under row lock}
+  V -- yes --> D[Payment captured<br/>booking confirmed]
+  V -- no --> N[Authorization released<br/>not charged]
   C -- timeout or cancel --> E[Hold released<br/>capacity freed]
 ```
 
 Requests flow through Server Components and Server Actions into an auth-guarded data layer, then Prisma and PostgreSQL. Capacity checks and the hold-to-booking conversion run inside transactions, so two people can never both secure the last spot.
+
+Payment happens on the checkout page itself (Stripe's Payment Element), inside the hold's time limit. The card is only authorized at first; the money is captured once the server has confirmed the hold is still valid. A payment that arrives too late is released instead, so nobody is charged for a slot they didn't get, and no refunds are needed. A Stripe webhook completes the booking even if the browser closes mid-payment.
 
 ## How search works
 
@@ -61,7 +66,7 @@ Search takes plain language, typos included: "tenis in sydny this weekend for fr
 
 ## Tech stack
 
-Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui (Base UI) · Prisma 7 · PostgreSQL (Supabase) · Auth.js v5 · Zod 4 · LLM (structured outputs) · Vercel
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui (Base UI) · Prisma 7 · PostgreSQL (Supabase) · Auth.js v5 · Zod 4 · Stripe · LLM (structured outputs) · Vercel
 
 ## Running locally
 
@@ -69,7 +74,8 @@ Requires Node 20.9+, pnpm and a PostgreSQL database.
 
 ```bash
 pnpm install
-# .env: POSTGRES_PRISMA_URL, POSTGRES_URL_NON_POOLING, AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, LLM_API_KEY
+# .env: POSTGRES_PRISMA_URL, POSTGRES_URL_NON_POOLING, AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, LLM_API_KEY,
+#       STRIPE_SECRET_KEY, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET
 pnpm exec prisma migrate deploy
 pnpm exec prisma db seed
 pnpm dev
@@ -77,4 +83,4 @@ pnpm dev
 
 ## Next up
 
-Stripe test-mode payments · embedding-based result ranking · booking cancellation and refunds · rate limiting and email verification · guest checkout · dark theme · venue owner dashboard
+Embedding-based result ranking · booking cancellation and refunds · rate limiting and email verification · guest checkout · dark theme · venue owner dashboard

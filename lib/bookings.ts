@@ -6,13 +6,18 @@ import { getTotalPrice } from "@/lib/booking-price";
 import { getBookingReference } from "@/lib/booking-reference";
 import { withAuth } from "@/lib/auth-guards";
 import type { z } from "zod";
-import { createHoldSchema, finalizeHoldSchema, releaseHoldSchema } from "@/lib/validation/booking";
+import type Stripe from "stripe";
+import { getStripe, PAYMENT_CURRENCY, toMinorUnits } from "@/lib/stripe";
+import {
+  confirmPaymentSchema,
+  createHoldSchema,
+  releaseHoldSchema,
+  startPaymentSchema,
+} from "@/lib/validation/booking";
 
 export type CreateBookingHoldResult =
   | { ok: true; orderId: string; expiresAt: Date }
   | { ok: false; error: string };
-
-export type FinalizeBookingHoldResult = { ok: true; orderId: string } | { ok: false; error: string };
 
 export type ReleaseBookingHoldResult = { ok: true } | { ok: false; error: string };
 
@@ -177,17 +182,181 @@ export const createBookingHold = withAuth(
   }
 );
 
-// Converts every hold in the order into a permanent, confirmed Booking.
-// Capacity-neutral by design - the holds already reserved this capacity,
-// so this never needs to re-run the capacity check itself, only confirm
-// the order is still genuinely valid at the moment it's consumed.
-export const finalizeBookingHold = withAuth(
-  async (session, rawInput: z.input<typeof finalizeHoldSchema>): Promise<FinalizeBookingHoldResult> => {
-    // Trims/lowercases the attendee fields as part of parsing. An attendee
-    // field failing here is a real (if client-bypassing) user mistake, so
-    // its own message is returned; a malformed orderId can only be a
-    // crafted request, and gets the same answer as an unknown one.
-    const parsed = finalizeHoldSchema.safeParse(rawInput);
+// Shown with every payment outcome that ends without a charge. Cards are
+// only authorized at checkout and captured once the booking is secured
+// (see completeOrderPayment), so a failed or late payment never costs the
+// customer anything - and they should be told so.
+const NOT_CHARGED = "You haven't been charged.";
+
+type PriceInfo = Parameters<typeof getTotalPrice>[0];
+type OrderHold = { startsAt: Date; endsAt: Date; quantity: number };
+
+// What one hold costs - the same calculation the checkout page shows as its
+// total, so the amount charged can never drift from the amount displayed.
+function getHoldAmount(priceInfo: PriceInfo, hold: OrderHold): number {
+  return getTotalPrice(priceInfo, [{ startsAt: hold.startsAt, endsAt: hold.endsAt }]) * hold.quantity;
+}
+
+// Accepts the transaction client as well as the plain client.
+async function loadPriceInfo(db: Pick<typeof prisma, "listing">, listingId: string): Promise<PriceInfo | null> {
+  const listing = await db.listing.findUnique({
+    where: { id: listingId },
+    select: { pricePerUnit: true, activity: { select: { bookingMechanic: true, isAccommodation: true } } },
+  });
+  if (!listing) return null;
+  return { bookingMechanic: listing.activity.bookingMechanic, pricePerUnit: Number(listing.pricePerUnit) };
+}
+
+type Attendee = { attendeeName: string; attendeeEmail: string; attendeePhone?: string };
+
+// How an attempt to turn an order's holds into bookings ended.
+// - created: holds converted into bookings in this call.
+// - existing: this same payment already converted them (a retry, or the
+//   webhook and the browser both completing the same payment).
+// - duplicate: a different payment already converted them.
+// - expired: the holds are gone or past their expiry.
+// - mismatch: the payment's amount isn't what the order costs.
+type ClaimOutcome = "created" | "existing" | "duplicate" | "expired" | "mismatch";
+
+// Converts every hold in an order into Booking rows, atomically, if and
+// only if the holds are still valid at this exact moment. Shared by paid
+// orders (bookings start "pending" until the card is captured) and free
+// ones (confirmed straight away, no payment). Capacity-neutral: the holds
+// already reserved this capacity, and "pending" bookings still count
+// against it, so no capacity check is repeated here.
+async function claimOrder({
+  orderId,
+  userId,
+  attendee,
+  payment,
+}: {
+  orderId: string;
+  userId: string;
+  attendee: Attendee;
+  // null for a free order.
+  payment: { id: string; amount: number; currency: string } | null;
+}): Promise<ClaimOutcome> {
+  return prisma.$transaction(async (tx) => {
+    // The listing to lock comes from the holds, or from the bookings if a
+    // previous call already converted them.
+    const anchor =
+      (await tx.bookingHold.findFirst({ where: { orderId, userId }, select: { listingId: true } })) ??
+      (await tx.booking.findFirst({ where: { orderId, userId }, select: { listingId: true } }));
+    if (!anchor) return "expired";
+
+    // The same listing-row lock createBookingHold takes. It serialises this
+    // against a hold expiring and being handed to someone else at the same
+    // instant, and against the browser and the payment webhook completing
+    // the same order at once - whichever arrives second waits here, then
+    // sees the bookings the first one created.
+    await tx.$queryRaw`SELECT id FROM listings WHERE id = ${anchor.listingId} FOR UPDATE`;
+
+    const existing = await tx.booking.findFirst({
+      where: { orderId, userId },
+      select: { stripePaymentIntentId: true },
+    });
+    if (existing) {
+      return payment && existing.stripePaymentIntentId === payment.id ? "existing" : "duplicate";
+    }
+
+    const holds = await tx.bookingHold.findMany({ where: { orderId, userId } });
+    const now = new Date();
+    if (holds.length === 0 || holds.some((h) => h.expiresAt <= now)) return "expired";
+
+    const priceInfo = await loadPriceInfo(tx, holds[0].listingId);
+    if (!priceInfo) return "expired";
+    const amounts = holds.map((hold) => getHoldAmount(priceInfo, hold));
+    const total = toMinorUnits(amounts.reduce((sum, a) => sum + a, 0));
+
+    // A payment must cover exactly what the order costs now. The amount
+    // was fixed when the PaymentIntent was created, so this only fails if
+    // the price changed mid-checkout or the payment was tampered with.
+    if (payment ? payment.amount !== total || payment.currency !== PAYMENT_CURRENCY : total !== 0) {
+      return "mismatch";
+    }
+
+    await tx.bookingHold.deleteMany({ where: { orderId, userId } });
+    await tx.booking.createMany({
+      data: holds.map((hold, i) => ({
+        orderId,
+        listingId: hold.listingId,
+        userId,
+        startsAt: hold.startsAt,
+        endsAt: hold.endsAt,
+        quantity: hold.quantity,
+        // "pending" until the card is captured - the asynchronous gap this
+        // status exists for. A free order has nothing to wait for.
+        status: payment ? ("pending" as const) : ("confirmed" as const),
+        stripePaymentIntentId: payment?.id ?? null,
+        amountPaid: amounts[i],
+        attendeeName: attendee.attendeeName,
+        attendeeEmail: attendee.attendeeEmail,
+        attendeePhone: attendee.attendeePhone ?? null,
+      })),
+    });
+    return "created";
+  });
+}
+
+// Releases an authorization that will never be captured, so the customer's
+// bank drops the pending amount. Best effort: if it fails, the bank drops
+// it anyway once the authorization expires (about 7 days for cards).
+async function releasePayment(paymentIntentId: string) {
+  try {
+    await getStripe().paymentIntents.cancel(paymentIntentId);
+  } catch (error) {
+    console.error("Couldn't cancel PaymentIntent", paymentIntentId, error instanceof Error ? error.message : error);
+  }
+}
+
+// Captures an authorized payment and reports where it ended up. "in_flight"
+// means Stripe hasn't settled it either way yet (e.g. another request is
+// capturing it right now) - the bookings stay "pending" and the webhook
+// finishes the job.
+async function capturePayment(paymentIntent: Stripe.PaymentIntent): Promise<"succeeded" | "failed" | "in_flight"> {
+  const stripe = getStripe();
+  let status = paymentIntent.status;
+  if (status === "requires_capture") {
+    try {
+      // The idempotency key makes a repeat capture (browser and webhook
+      // racing) return the first capture's result, not capture twice.
+      status = (await stripe.paymentIntents.capture(paymentIntent.id, {}, { idempotencyKey: `capture-${paymentIntent.id}` }))
+        .status;
+    } catch (error) {
+      console.error("Capture failed for", paymentIntent.id, error instanceof Error ? error.message : error);
+      status = (await stripe.paymentIntents.retrieve(paymentIntent.id)).status;
+    }
+  }
+  if (status === "succeeded") return "succeeded";
+  if (status === "canceled" || status === "requires_payment_method") return "failed";
+  return "in_flight";
+}
+
+export type StartHoldPaymentResult =
+  | { ok: true; clientSecret: string }
+  // A free order needs no payment and is confirmed straight away.
+  | { ok: true; free: true; orderId: string }
+  | { ok: false; error: string };
+
+export type CompletePaymentResult = { ok: true; orderId: string } | { ok: false; error: string };
+
+// Step one of paying: validates the attendee details and the hold, then
+// creates a Stripe PaymentIntent for exactly what the order costs. The card
+// is then authorized in the browser by the Payment Element, and
+// completeOrderPayment decides whether to capture it.
+//
+// capture_method "manual" is what keeps the 5-minute hold honest: the card
+// is only authorized here, and the money is taken only once the server has
+// confirmed - under the listing lock - that the hold is still valid. A
+// payment that arrives after the hold expired is released, never charged.
+// The attendee details travel in the PaymentIntent's metadata so the
+// webhook can finish the booking even if the browser never returns.
+export const startHoldPayment = withAuth(
+  async (session, rawInput: z.input<typeof startPaymentSchema>): Promise<StartHoldPaymentResult> => {
+    // Same error handling as attendee validation everywhere else: a field
+    // error is a real (if client-bypassing) user mistake and gets its own
+    // message; a malformed orderId can only be a crafted request.
+    const parsed = startPaymentSchema.safeParse(rawInput);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
       return {
@@ -195,79 +364,132 @@ export const finalizeBookingHold = withAuth(
         error: issue.path[0] === "orderId" ? "This booking hold could not be found." : issue.message,
       };
     }
-    const input = parsed.data;
-    const { attendeeName, attendeeEmail } = input;
+    const { orderId, ...attendee } = parsed.data;
 
-    try {
-      await prisma.$transaction(async (tx) => {
-        const holds = await tx.bookingHold.findMany({
-          where: { orderId: input.orderId, userId: session.user.id },
-        });
-        if (holds.length === 0) {
-          throw new Error("NOT_FOUND");
-        }
+    const holds = await prisma.bookingHold.findMany({
+      where: { orderId, userId: session.user.id },
+      include: { listing: { select: { name: true } } },
+    });
+    if (holds.length === 0) return { ok: false, error: "This booking hold could not be found." };
+    if (holds.some((h) => h.expiresAt <= new Date())) return { ok: false, error: "Your hold has expired." };
 
-        // Locks the same listing row createBookingHold locks. Without
-        // this, a hold that expires right at this moment could be
-        // converted here at the same instant a different transaction
-        // decides it no longer counts and hands that same capacity to
-        // someone else - this lock forces the two to serialize instead.
-        await tx.$queryRaw`SELECT id FROM listings WHERE id = ${holds[0].listingId} FOR UPDATE`;
+    const priceInfo = await loadPriceInfo(prisma, holds[0].listingId);
+    if (!priceInfo) return { ok: false, error: "This booking hold could not be found." };
+    const amount = toMinorUnits(holds.reduce((sum, hold) => sum + getHoldAmount(priceInfo, hold), 0));
 
-        const now = new Date();
-        if (holds.some((h) => h.expiresAt <= now)) {
-          throw new Error("EXPIRED");
-        }
-
-        // Status is set explicitly to "confirmed" rather than left at its
-        // "pending" default - "pending" is reserved for a real
-        // asynchronous gap between recording a booking and confirming
-        // payment (the eventual Stripe webhook flow), which doesn't
-        // exist yet with this stubbed billing step. There's no later
-        // step that would ever move a "pending" row forward today.
-        const listing = await tx.listing.findUnique({
-          where: { id: holds[0].listingId },
-          select: { pricePerUnit: true, activity: { select: { bookingMechanic: true, isAccommodation: true } } },
-        });
-        if (!listing) throw new Error("NOT_FOUND");
-        const priceInfo = {
-          bookingMechanic: listing.activity.bookingMechanic,
-          pricePerUnit: Number(listing.pricePerUnit),
-          isAccommodation: listing.activity.isAccommodation,
-        };
-
-        await tx.bookingHold.deleteMany({ where: { orderId: input.orderId, userId: session.user.id } });
-        await Promise.all(
-          holds.map((hold) =>
-            tx.booking.create({
-              data: {
-                orderId: input.orderId,
-                listingId: hold.listingId,
-                userId: session.user.id,
-                startsAt: hold.startsAt,
-                endsAt: hold.endsAt,
-                quantity: hold.quantity,
-                status: "confirmed",
-                amountPaid: getTotalPrice(priceInfo, [{ startsAt: hold.startsAt, endsAt: hold.endsAt }]) * hold.quantity,
-                attendeeName,
-                attendeeEmail,
-                attendeePhone: input.attendeePhone ?? null,
-              },
-            })
-          )
-        );
-      });
-
-      return { ok: true, orderId: input.orderId };
-    } catch (error) {
-      if (error instanceof Error && error.message === "NOT_FOUND") {
-        return { ok: false, error: "This booking hold could not be found." };
-      }
-      if (error instanceof Error && error.message === "EXPIRED") {
-        return { ok: false, error: "Your hold has expired." };
-      }
-      throw error;
+    // Free listings (e.g. a free group run) skip payment entirely - Stripe
+    // can't take a zero payment anyway.
+    if (amount === 0) {
+      const outcome = await claimOrder({ orderId, userId: session.user.id, attendee, payment: null });
+      if (outcome === "created" || outcome === "existing") return { ok: true, free: true, orderId };
+      return { ok: false, error: "Your hold has expired." };
     }
+
+    // Stripe's minimum charge is about 50 cents. No listing costs less than
+    // a dollar, so this only guards against a data mistake.
+    if (amount < 50) return { ok: false, error: "This booking can't be paid for online." };
+
+    const paymentIntent = await getStripe().paymentIntents.create({
+      amount,
+      currency: PAYMENT_CURRENCY,
+      capture_method: "manual",
+      // Cards only: no Link, wallets or redirect-based methods. A redirect
+      // would take the customer off the page mid-hold, and the checkout
+      // only ever needs a card in test mode.
+      allowed_payment_method_types: ["card"],
+      description: `${holds[0].listing.name} (booking ${getBookingReference(orderId)})`,
+      metadata: {
+        orderId,
+        userId: session.user.id,
+        attendeeName: attendee.attendeeName,
+        attendeeEmail: attendee.attendeeEmail,
+        attendeePhone: attendee.attendeePhone ?? "",
+      },
+    });
+    if (!paymentIntent.client_secret) return { ok: false, error: "Payment couldn't be started. Try again." };
+    return { ok: true, clientSecret: paymentIntent.client_secret };
+  }
+);
+
+// Step two of paying, shared by the browser (confirmHoldPayment, below) and
+// the Stripe webhook (app/api/stripe/webhook/route.ts) - whichever arrives
+// first does the work, and the other finds it done. Not wrapped in withAuth
+// because the webhook has no session: callers must establish that the
+// PaymentIntent is genuine first (the browser path checks it belongs to the
+// signed-in user; the webhook verifies Stripe's signature).
+//
+// Order of operations: claim the holds as "pending" bookings under the
+// listing lock, then capture the card outside the transaction (a network
+// call shouldn't hold a row lock), then mark the bookings confirmed. If the
+// claim fails, the authorization is released and nothing is charged.
+export async function completeOrderPayment(paymentIntent: Stripe.PaymentIntent): Promise<CompletePaymentResult> {
+  const { orderId, userId, attendeeName, attendeeEmail, attendeePhone } = paymentIntent.metadata;
+  if (!orderId || !userId || !attendeeName || !attendeeEmail) {
+    return { ok: false, error: "This payment could not be matched to a booking." };
+  }
+  if (paymentIntent.status !== "requires_capture" && paymentIntent.status !== "succeeded") {
+    return { ok: false, error: `Your payment wasn't completed. ${NOT_CHARGED}` };
+  }
+
+  const outcome = await claimOrder({
+    orderId,
+    userId,
+    attendee: { attendeeName, attendeeEmail, attendeePhone: attendeePhone || undefined },
+    payment: { id: paymentIntent.id, amount: paymentIntent.amount, currency: paymentIntent.currency },
+  });
+
+  if (outcome === "expired" || outcome === "duplicate" || outcome === "mismatch") {
+    await releasePayment(paymentIntent.id);
+    return {
+      ok: false,
+      error:
+        outcome === "expired"
+          ? `Your hold expired before the payment went through. ${NOT_CHARGED}`
+          : `This payment couldn't be applied to your booking. ${NOT_CHARGED}`,
+    };
+  }
+
+  const captured = await capturePayment(paymentIntent);
+  if (captured === "succeeded") {
+    await prisma.booking.updateMany({
+      where: { stripePaymentIntentId: paymentIntent.id, status: "pending" },
+      data: { status: "confirmed" },
+    });
+    return { ok: true, orderId };
+  }
+  if (captured === "failed") {
+    // Frees the capacity again - cancelled bookings don't count against it.
+    await prisma.booking.updateMany({
+      where: { stripePaymentIntentId: paymentIntent.id, status: "pending" },
+      data: { status: "cancelled" },
+    });
+    return { ok: false, error: `Your payment couldn't be completed. ${NOT_CHARGED}` };
+  }
+  // Still settling: the confirmation page shows it as processing, and the
+  // webhook confirms it once Stripe reports the capture.
+  return { ok: true, orderId };
+}
+
+// The browser's half of step two, called once the Payment Element has
+// authorized the card. The PaymentIntent id comes from the client, so it's
+// re-fetched from Stripe (never trusted as sent) and must belong to this
+// user and this order before anything is done with it.
+export const confirmHoldPayment = withAuth(
+  async (session, rawInput: z.input<typeof confirmPaymentSchema>): Promise<CompletePaymentResult> => {
+    const parsed = confirmPaymentSchema.safeParse(rawInput);
+    if (!parsed.success) return { ok: false, error: "This payment could not be matched to your booking." };
+    const { orderId, paymentIntentId } = parsed.data;
+
+    let paymentIntent: Stripe.PaymentIntent;
+    try {
+      paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId);
+    } catch {
+      return { ok: false, error: "This payment could not be matched to your booking." };
+    }
+    if (paymentIntent.metadata.userId !== session.user.id || paymentIntent.metadata.orderId !== orderId) {
+      return { ok: false, error: "This payment could not be matched to your booking." };
+    }
+    return completeOrderPayment(paymentIntent);
   }
 );
 
@@ -320,8 +542,12 @@ export type BookingOrder = {
 // whose last day hasn't is still something the user hasn't finished using,
 // so it stays "upcoming" until every slot in it has.
 export const getUserBookingOrders = withAuth(async (session): Promise<BookingOrder[]> => {
+  // Cancelled bookings are left out: today the only way a booking becomes
+  // cancelled is a payment that failed at capture, which the customer was
+  // never charged for and never really had. Revisit when customers can
+  // cancel their own bookings (that history should probably show).
   const bookings = await prisma.booking.findMany({
-    where: { userId: session.user.id },
+    where: { userId: session.user.id, status: { not: "cancelled" } },
     include: { listing: { include: { venue: { include: { city: true } }, activity: true } } },
     orderBy: { startsAt: "asc" },
   });

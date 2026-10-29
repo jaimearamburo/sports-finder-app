@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { loadStripe, type Appearance } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { tagTextColor } from "@/lib/label-styles";
@@ -9,6 +11,7 @@ import { HoldExpiredNotice } from "@/components/listings/hold-expired-notice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { finalizeBookingHoldAction } from "@/app/listings/[id]/actions";
+import { confirmHoldPaymentAction, startHoldPaymentAction } from "@/app/listings/[id]/actions";
 import type { z } from "zod";
 import { attendeeSchema } from "@/lib/validation/booking";
 import { getFieldErrors } from "@/lib/validation/field-errors";
@@ -31,40 +34,40 @@ function formatCountdown(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-// Fills the billing fields with plausible, obviously-fake test values -
-// a convenience for repeatedly exercising this flow during development,
-// since nothing here is ever actually validated or charged (see the
-// "stub billing" scope decision for this ticket). 4242 4242 4242 is
-// Stripe's own canonical test card prefix, kept here so the number still
-// reads as a test card even though no real Stripe integration exists yet.
-function randomCardDetails() {
-  const randomDigits = (n: number) =>
-    Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join("");
-  const month = String(Math.floor(Math.random() * 12) + 1).padStart(2, "0");
-  const year = String((new Date().getFullYear() % 100) + 1 + Math.floor(Math.random() * 4)).padStart(2, "0");
-  return {
-    cardNumber: `4242 4242 4242 ${randomDigits(4)}`,
-    cardExpiry: `${month}/${year}`,
-    cardCvc: randomDigits(3),
-  };
-}
+// Loaded once per page load, outside any component, so re-renders never
+// re-download Stripe.js. null when the publishable key isn't configured -
+// the form then says payments are unavailable rather than crashing.
+const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = PUBLISHABLE_KEY ? loadStripe(PUBLISHABLE_KEY) : null;
 
-export function CheckoutForm({
-  orderId,
-  expiresAt,
-  listingId,
-  listingName,
-  activityName,
-  accentColor,
-  venueName,
-  cityName,
-  scheduleLines,
-  quantity,
-  total,
-  breakdown,
-  defaultName,
-  defaultEmail,
-}: {
+// The Payment Element renders inside Stripe's own iframe, so the site's CSS
+// can't reach it - these variables restyle it to match the shared Input
+// component (globals.css tokens): same font, border, radius, focus ring and
+// error colour, so the card fields read as part of this form.
+const STRIPE_APPEARANCE: Appearance = {
+  theme: "stripe",
+  variables: {
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif",
+    fontSizeBase: "14px",
+    colorPrimary: "#1857c4",
+    colorText: "#0a0a0a",
+    colorTextSecondary: "#6a6a6a",
+    colorDanger: "#e7000b",
+    colorBackground: "#f5f7f4",
+    borderRadius: "6px",
+    spacingUnit: "4px",
+  },
+  rules: {
+    ".Input": { border: "1px solid #e5e5e5", boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)" },
+    ".Input:focus": { borderColor: "#1857c4", boxShadow: "0 0 0 3px rgba(24, 87, 196, 0.5)" },
+    ".Label": { fontWeight: "500", color: "#0a0a0a" },
+  },
+};
+
+// Same font as the rest of the site, loaded into Stripe's iframe.
+const STRIPE_FONTS = [{ cssSrc: "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" }];
+
+type CheckoutFormProps = {
   orderId: string;
   expiresAt: Date;
   listingId: string;
@@ -78,10 +81,60 @@ export function CheckoutForm({
   scheduleLines: string[];
   quantity: number;
   total: number;
+  // The total in cents and its currency, computed on the server exactly as
+  // the PaymentIntent's amount will be (see startHoldPayment), so the
+  // Payment Element is set up for the same charge.
+  amountMinor: number;
+  currency: string;
   breakdown: string | null;
   defaultName: string;
   defaultEmail: string;
-}) {
+};
+
+// The Payment Element needs a surrounding <Elements> provider. It's set up
+// in "deferred" mode (amount and currency only, no PaymentIntent yet): the
+// PaymentIntent is created at submit time, once the attendee details are
+// final, so a page view that never pays creates nothing on Stripe's side.
+// captureMethod and the card-only method list must match what
+// startHoldPayment creates, or Stripe rejects the confirmation. A free order
+// has nothing to pay, so it gets no Stripe instance at all.
+export function CheckoutForm(props: CheckoutFormProps) {
+  const free = props.amountMinor === 0;
+  return (
+    <Elements
+      stripe={free ? null : stripePromise}
+      options={{
+        mode: "payment",
+        amount: props.amountMinor,
+        currency: props.currency,
+        captureMethod: "manual",
+        allowedPaymentMethodTypes: ["card"],
+        appearance: STRIPE_APPEARANCE,
+        fonts: STRIPE_FONTS,
+      }}
+    >
+      <CheckoutFormContent {...props} />
+    </Elements>
+  );
+}
+
+function CheckoutFormContent({
+  orderId,
+  expiresAt,
+  listingId,
+  listingName,
+  activityName,
+  accentColor,
+  venueName,
+  cityName,
+  scheduleLines,
+  quantity,
+  total,
+  amountMinor,
+  breakdown,
+  defaultName,
+  defaultEmail,
+}: CheckoutFormProps) {
   const router = useRouter();
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -89,9 +142,16 @@ export function CheckoutForm({
   const [email, setEmail] = useState(defaultEmail);
   const [phone, setPhone] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
+  const stripe = useStripe();
+  const elements = useElements();
+  const free = amountMinor === 0;
+  // Whether the card fields are filled in validly (reported by the Payment
+  // Element itself) and whether the element has finished loading.
+  const [cardComplete, setCardComplete] = useState(false);
+  const [paymentReady, setPaymentReady] = useState(false);
+  // Set once a payment has been attempted, so an expired-hold screen can
+  // reassure the customer their card wasn't charged.
+  const [paymentAttempted, setPaymentAttempted] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof AttendeeInput, string>>>({});
@@ -106,8 +166,8 @@ export function CheckoutForm({
     return () => clearInterval(interval);
   }, [expiresAt]);
 
-  // Checked client-side purely for instant feedback - finalizeBookingHoldAction
-  // re-checks this server-side regardless, since a stalled background tab
+  // Checked client-side purely for instant feedback - the payment actions
+  // re-check this server-side regardless, since a stalled background tab
   // can't be trusted to notice its own countdown hit zero. Deliberately
   // never released by just navigating away, including "Back to listing"
   // below (plain navigation, no side effect) - the hold is meant to stay
@@ -131,13 +191,6 @@ export function CheckoutForm({
     nameInputRef.current?.focus();
   }
 
-  function fillRandomCard() {
-    const card = randomCardDetails();
-    setCardNumber(card.cardNumber);
-    setCardExpiry(card.cardExpiry);
-    setCardCvc(card.cardCvc);
-  }
-
   // router.back(), not router.push - pushing a fresh entry for a URL
   // already in history is what caused a real reported bug: going back to
   // the listing, then clicking "Back to browse" there, only popped this
@@ -149,26 +202,34 @@ export function CheckoutForm({
     router.back();
   }
 
-  // Billing fields are required but never actually validated or charged -
-  // see the "stub billing" scope decision for this ticket. They exist so
-  // the full checkout flow can be tried end to end; real Stripe test-mode
-  // processing is its own later ticket.
+  const paymentAvailable = free || stripePromise !== null;
+
   const canSubmit =
     !expired &&
     !isPending &&
     name.trim() !== "" &&
     email.trim() !== "" &&
     agreedToTerms &&
-    cardNumber.trim() !== "" &&
-    cardExpiry.trim() !== "" &&
-    cardCvc.trim() !== "";
+    paymentAvailable &&
+    (free || (stripe !== null && elements !== null && cardComplete));
 
+  // Paying is three steps, all inside one transition so the button stays
+  // disabled throughout:
+  // 1. startHoldPaymentAction re-checks the attendee details and the hold,
+  //    and creates a PaymentIntent for the exact amount (or, for a free
+  //    order, confirms it outright).
+  // 2. stripe.confirmPayment authorizes the card in Stripe's iframe,
+  //    including any bank verification (3-D Secure) in Stripe's own pop-up.
+  //    Card only, so it never redirects away from this page.
+  // 3. confirmHoldPaymentAction secures the booking and only then captures
+  //    the money. If the hold ran out meanwhile, the authorization is
+  //    released and nothing is charged.
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
     setError(null);
 
-    // Same attendee rules finalizeBookingHold re-checks server-side, run
+    // Same attendee rules startHoldPayment re-checks server-side, run
     // first so a typo'd email or junk phone number is flagged inline,
     // under the field, with no round trip.
     const attendee = attendeeSchema.safeParse({ attendeeName: name, attendeeEmail: email, attendeePhone: phone });
@@ -179,22 +240,66 @@ export function CheckoutForm({
     setFieldErrors({});
 
     startTransition(async () => {
-      const result = await finalizeBookingHoldAction({
-        orderId,
-        attendeeName: name,
-        attendeeEmail: email,
-        attendeePhone: phone || undefined,
-      });
-      if (!result.ok) {
-        setError(result.error);
-        return;
+      try {
+        // Validates the card fields and shows Stripe's own inline errors
+        // before anything is created server-side.
+        if (!free) {
+          const { error: submitError } = await elements!.submit();
+          if (submitError) {
+            setError(submitError.message ?? "Check your card details.");
+            return;
+          }
+        }
+
+        const started = await startHoldPaymentAction({
+          orderId,
+          attendeeName: name,
+          attendeeEmail: email,
+          attendeePhone: phone || undefined,
+        });
+        if (!started.ok) {
+          setError(started.error);
+          return;
+        }
+        if ("free" in started) {
+          router.push(`/bookings/confirmation/${started.orderId}`);
+          return;
+        }
+
+        setPaymentAttempted(true);
+        const { error: confirmError, paymentIntent } = await stripe!.confirmPayment({
+          elements: elements!,
+          clientSecret: started.clientSecret,
+          redirect: "if_required",
+          // Only used if a payment method ever needs a redirect, which a
+          // card-only checkout doesn't - the confirmation page can still
+          // show the result if it does.
+          confirmParams: { return_url: `${window.location.origin}/bookings/confirmation/${orderId}` },
+        });
+        if (confirmError) {
+          // Declined cards, failed verification and the like - Stripe's own
+          // message is written for customers.
+          setError(confirmError.message ?? "Your card couldn't be charged. Try another card.");
+          return;
+        }
+
+        const completed = await confirmHoldPaymentAction({ orderId, paymentIntentId: paymentIntent.id });
+        if (!completed.ok) {
+          setError(completed.error);
+          return;
+        }
+        router.push(`/bookings/confirmation/${completed.orderId}`);
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      router.push(`/bookings/confirmation/${result.orderId}`);
     });
   }
 
-  if (expired) {
-    return <HoldExpiredNotice listingId={listingId} />;
+  // Never swapped in while a payment is in flight: the server decides
+  // whether a payment that lands at the last second still counts, and
+  // its answer (including "you weren't charged") must reach the customer.
+  if (expired && !isPending) {
+    return <HoldExpiredNotice listingId={listingId} notCharged={paymentAttempted} />;
   }
 
   return (
@@ -339,48 +444,36 @@ export function CheckoutForm({
           </span>
         </div>
 
-        <div className="border-t pt-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Billing details</h2>
-            <Button type="button" variant="outline" size="sm" onClick={fillRandomCard}>
-              Generate random card details
-            </Button>
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="cardNumber">Card number</Label>
-              <Input
-                id="cardNumber"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(e.target.value)}
-                placeholder="4242 4242 4242 4242"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="cardExpiry">Expiry</Label>
-                <Input
-                  id="cardExpiry"
-                  value={cardExpiry}
-                  onChange={(e) => setCardExpiry(e.target.value)}
-                  placeholder="MM/YY"
-                  required
+        {!free && (
+          <div className="border-t pt-4">
+            <h2 className="mb-3 text-sm font-semibold">Payment</h2>
+            {stripePromise ? (
+              <>
+                {/* Test mode only - real cards are declined, so visitors
+                    trying the demo need to know which number to use. */}
+                <p className="mb-3 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+                  Test mode: use card <span className="font-mono text-foreground">4242 4242 4242 4242</span>, any
+                  future date and any CVC.
+                </p>
+                {/* Held open while Stripe's iframe loads, so the button
+                    below doesn't jump when the card fields appear. */}
+                {!paymentReady && (
+                  <div className="flex flex-col gap-3" aria-hidden>
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                )}
+                <PaymentElement
+                  onReady={() => setPaymentReady(true)}
+                  onChange={(event) => setCardComplete(event.complete)}
+                  options={{ layout: "tabs", wallets: { applePay: "never", googlePay: "never" } }}
                 />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="cardCvc">CVC</Label>
-                <Input
-                  id="cardCvc"
-                  value={cardCvc}
-                  onChange={(e) => setCardCvc(e.target.value)}
-                  placeholder="123"
-                  required
-                />
-              </div>
-            </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Online payment isn&apos;t available right now.</p>
+            )}
           </div>
-        </div>
+        )}
 
         {error && (
           <p role="alert" className="text-sm text-destructive">
@@ -389,7 +482,7 @@ export function CheckoutForm({
         )}
 
         <Button type="submit" size="lg" disabled={!canSubmit}>
-          {isPending ? "Confirming..." : `Pay $${total.toFixed(2)}`}
+          {isPending ? "Processing..." : free ? "Confirm booking" : `Pay $${total.toFixed(2)}`}
         </Button>
       </form>
     </div>
