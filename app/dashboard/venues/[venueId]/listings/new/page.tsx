@@ -27,7 +27,7 @@ export default async function NewListingPage({ params }: { params: Promise<{ ven
       <ListingForm
         venue={venue}
         activities={activities}
-        initialValues={{ activityId: "", name: "", description: "", price: Number.NaN, ...NEW_LISTING_DEFAULTS }}
+        initialValues={{ activityId: "", name: "", description: "", imageUrl: null, price: Number.NaN, ...NEW_LISTING_DEFAULTS }}
       />
     </div>
   );

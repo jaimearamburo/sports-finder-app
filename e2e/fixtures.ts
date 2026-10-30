@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { query, utc } from "./db";
+import { removeVenueImages } from "./blob";
 
 // The accounts and records the end-to-end tests run against. They're
 // created fresh before every run and deleted afterwards (global-setup.ts,
@@ -47,10 +48,13 @@ export function testPassword(): string {
 // Removes everything a previous run may have left behind, in the order the
 // database's foreign keys allow: bookings and holds before listings
 // (bookings.listing_id is ON DELETE RESTRICT), venues (which take their
-// listings with them) before their owners.
+// listings with them) before their owners. The test venues' listing photos
+// go first, while their folders can still be found from the venues.
 export async function removeTestData() {
   const testVenues = "select v.id from venues v join users u on u.id = v.owner_id where u.email like 'e2e-%'";
   const testListings = `select id from listings where venue_id in (${testVenues})`;
+  const venues = await query<{ id: string }>(testVenues);
+  await removeVenueImages(venues.map((venue) => venue.id));
   await query(`delete from bookings where listing_id in (${testListings})`);
   await query(`delete from booking_holds where listing_id in (${testListings})`);
   await query(`delete from venues where id in (${testVenues})`);

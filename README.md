@@ -17,7 +17,7 @@ Discover and book sports courts, fitness classes, day passes and campsites acros
   </tr>
   <tr>
     <td><img src="docs/screenshots/dashboard-venue.png" alt="Venue manager dashboard: a venue's listings" /></td>
-    <td><img src="docs/screenshots/dashboard-listing-editor.png" alt="Listing editor with a live preview" /></td>
+    <td><img src="docs/screenshots/dashboard-listing-editor.png" alt="Listing editor with a photo and a live preview" /></td>
   </tr>
 </table>
 
@@ -27,6 +27,7 @@ Discover and book sports courts, fitness classes, day passes and campsites acros
 - Reserve-then-confirm booking holds with expiring checkout timers
 - Stripe payments (test mode): the card is authorized at checkout and charged only once the booking is secured
 - Venue manager dashboard: venues, listings (a form per booking type, with a live preview) and bookings, each manager seeing only their own; admins see everything
+- Listing photos: uploaded straight from the browser to Vercel Blob with an ownership-checked, single-use permission, and served resized for each screen
 - Double-booking protection under concurrent requests (row-level locking)
 - One active hold per user, platform-wide
 - Three booking models: time slots, recurring classes, multi-day passes and stays
@@ -81,7 +82,8 @@ Requires Node 20.9+, pnpm and a PostgreSQL database.
 ```bash
 pnpm install
 # .env: POSTGRES_PRISMA_URL, POSTGRES_URL_NON_POOLING, AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, LLM_API_KEY,
-#       STRIPE_SECRET_KEY, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET
+#       STRIPE_SECRET_KEY, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET, BLOB_READ_WRITE_TOKEN
+# Listing photos need a public Vercel Blob store; put its hostname in LISTING_IMAGE_HOST (lib/listing-images.ts)
 pnpm exec prisma migrate deploy
 SEED_USER_PASSWORD=<choose one> pnpm exec prisma db seed   # sample owner and user accounts get this password
 pnpm dev
@@ -93,4 +95,4 @@ pnpm test:e2e   # creates its own test accounts and data, and removes them after
 
 ## Next up
 
-Embedding-based result ranking · booking cancellation and refunds · rate limiting and email verification · guest checkout · dark theme · listing images · availability overrides in the dashboard
+Embedding-based result ranking · booking cancellation and refunds · rate limiting and email verification · guest checkout · dark theme · availability overrides in the dashboard

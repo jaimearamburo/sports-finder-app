@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
@@ -25,6 +25,17 @@ export function ActiveHoldBanner({
 }) {
   const router = useRouter();
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // Bring the page to the top whenever the banner appears, so it's the
+  // first thing seen. The usual way here is "Back to listing" from checkout
+  // (browser history): the listing comes back at the scroll position it was
+  // left at - usually the bottom, where Book Now is - and the banner is
+  // added a moment later (RefreshOnHistoryNavigation re-fetches the page),
+  // out of sight above. The rest of the page is blurred and inert until
+  // the hold is resolved, so there's nothing down there to stay for.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, []);
 
   async function handleCancel() {
     setIsCancelling(true);
@@ -62,7 +73,7 @@ export function ActiveHoldBanner({
           Resume checkout
         </Link>
         <Button variant="destructive" size="sm" onClick={handleCancel} disabled={isCancelling}>
-          {isCancelling ? "Cancelling..." : "Cancel"}
+          {isCancelling ? "Cancelling..." : "Cancel booking"}
         </Button>
       </div>
     </div>

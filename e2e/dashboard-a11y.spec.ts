@@ -1,28 +1,18 @@
 import { test, expect, type Page } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
 import { authFile, fixtureIds } from "./fixtures";
+import { expectNoViolations } from "./helpers";
 
 // Automated accessibility checks of every dashboard page with axe-core, at
-// phone and desktop widths - the same bar as the rest of the site (WCAG 2.2
-// AA plus axe's best-practice rules; see the accessibility notes in
-// CLAUDE.md). Dialogs and the listing form's different kinds are checked
+// phone and desktop widths - the same bar as the rest of the site (see
+// e2e/helpers.ts). Dialogs and the listing form's different kinds are checked
 // open, since axe only sees what's on the page. Automated checks catch a
 // good share of problems, not all of them: a real screen reader pass is
 // still worth doing by hand.
 
-const RULE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"];
 const WIDTHS = [
   { name: "phone", width: 375, height: 812 },
   { name: "desktop", width: 1280, height: 900 },
 ];
-
-async function expectNoViolations(page: Page) {
-  // The Next.js dev overlay is development-only chrome, not part of the app.
-  const results = await new AxeBuilder({ page }).withTags(RULE_TAGS).exclude("nextjs-portal").analyze();
-  // A readable summary on failure: rule, impact and the offending elements.
-  const summary = results.violations.map((v) => ({ rule: v.id, impact: v.impact, help: v.help, targets: v.nodes.map((n) => n.target.join(" ")) }));
-  expect(summary).toEqual([]);
-}
 
 async function chooseActivity(page: Page, name: string) {
   await page.locator("#activityId").click();

@@ -48,6 +48,7 @@ const STRIPE_APPEARANCE: Appearance = {
   theme: "stripe",
   variables: {
     fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif",
+    // 16px on phones (see checkoutAppearance), 14px from md up.
     fontSizeBase: "14px",
     colorPrimary: "#1857c4",
     colorText: "#0a0a0a",
@@ -63,6 +64,17 @@ const STRIPE_APPEARANCE: Appearance = {
     ".Label": { fontWeight: "500", color: "#0a0a0a" },
   },
 };
+
+// iPhones zoom the page in when an input under 16px gets focus. The site's
+// own Input avoids that with text-base below md and text-sm from md up;
+// the card fields are in Stripe's iframe, out of reach of that CSS, so the
+// same rule is applied through the appearance settings. Read once, when the
+// form first renders in the browser (Stripe only reads it then too).
+const NARROW_SCREEN = "(max-width: 767px)";
+function checkoutAppearance(): Appearance {
+  const narrow = typeof window !== "undefined" && window.matchMedia(NARROW_SCREEN).matches;
+  return { ...STRIPE_APPEARANCE, variables: { ...STRIPE_APPEARANCE.variables, fontSizeBase: narrow ? "16px" : "14px" } };
+}
 
 // Same font as the rest of the site, loaded into Stripe's iframe.
 const STRIPE_FONTS = [{ cssSrc: "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" }];
@@ -100,6 +112,7 @@ type CheckoutFormProps = {
 // has nothing to pay, so it gets no Stripe instance at all.
 export function CheckoutForm(props: CheckoutFormProps) {
   const free = props.amountMinor === 0;
+  const [appearance] = useState(checkoutAppearance);
   return (
     <Elements
       stripe={free ? null : stripePromise}
@@ -109,7 +122,7 @@ export function CheckoutForm(props: CheckoutFormProps) {
         currency: props.currency,
         captureMethod: "manual",
         allowedPaymentMethodTypes: ["card"],
-        appearance: STRIPE_APPEARANCE,
+        appearance,
         fonts: STRIPE_FONTS,
       }}
     >
@@ -314,7 +327,13 @@ function CheckoutFormContent({
 
       <div className="mb-6 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         <span>Complete your booking before your hold expires.</span>
-        <span className="font-mono font-semibold text-red-600 tabular-nums">{formatCountdown(remainingMs)}</span>
+        {/* The server and the browser render this a moment apart, so the
+            seconds can differ by one; that's expected for a clock, and the
+            interval corrects it straight away. Without this, React treats
+            the difference as a hydration error and re-renders the form. */}
+        <span suppressHydrationWarning className="font-mono font-semibold text-red-600 tabular-nums">
+          {formatCountdown(remainingMs)}
+        </span>
       </div>
 
       <div className="mb-6 rounded-md border bg-card p-4">
