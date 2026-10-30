@@ -77,8 +77,9 @@ pnpm install
 # .env: POSTGRES_PRISMA_URL, POSTGRES_URL_NON_POOLING, AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, LLM_API_KEY,
 #       STRIPE_SECRET_KEY, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET
 pnpm exec prisma migrate deploy
-pnpm exec prisma db seed
+SEED_USER_PASSWORD=<choose one> pnpm exec prisma db seed   # sample owner and user accounts get this password
 pnpm dev
+pnpm test   # unit tests
 ```
 
 ## Next up

@@ -6,7 +6,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Logo } from "@/components/layout/logo";
 import { HeaderSearch, HeaderSearchFallback } from "@/components/layout/header-search";
 import { UserMenu } from "@/components/layout/user-menu";
-import { getAccountLinkInfo } from "@/lib/account-nav";
+import { getAccountLinks } from "@/lib/account-nav";
 
 /**
  * Global site header: brand link, search, and auth-aware actions. An
@@ -22,7 +22,7 @@ import { getAccountLinkInfo } from "@/lib/account-nav";
 export async function SiteHeader() {
   // Reads the current session from the request cookie.
   const session = await auth();
-  const accountLink = session ? getAccountLinkInfo(session.user.role) : null;
+  const accountLinks = session ? getAccountLinks(session.user.role) : [];
 
   return (
     // [will-change:transform] hints the browser to promote this sticky
@@ -61,11 +61,13 @@ export async function SiteHeader() {
             <UserMenu role={session?.user.role ?? null} />
           </div>
           <div className="hidden items-center gap-2 md:flex">
-            {session && accountLink ? (
+            {session ? (
               <>
-                <Link href={accountLink.href} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                  {accountLink.label}
-                </Link>
+                {accountLinks.map((link) => (
+                  <Link key={link.href} href={link.href} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                    {link.label}
+                  </Link>
+                ))}
                 {/* Links to the logout confirmation page rather than
                     signing out directly. */}
                 <Link href="/logout" className={buttonVariants({ variant: "outline", size: "sm" })}>

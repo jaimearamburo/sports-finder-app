@@ -1,7 +1,8 @@
 import "server-only";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
-import type { UserRole } from "../generated/prisma/enums";
+import { notFound, redirect } from "next/navigation";
+import { can, type Permission } from "@/lib/authz/permissions";
 
 export type AuthResult = { ok: false; error: string };
 
@@ -20,18 +21,37 @@ export function withAuth<Args extends unknown[], Result>(
   };
 }
 
-// Same guarantee as withAuth, plus a role check. This is the one wrapper
-// for every role combination - pass whichever roles are allowed
-// (withRole(["admin"], fn), withRole(["admin", "venue_owner"], fn), etc.)
-// rather than writing a separate wrapper per role.
-export function withRole<Args extends unknown[], Result>(
-  allowedRoles: UserRole[],
+// Same guarantee as withAuth, plus a permission check (see
+// lib/authz/permissions.ts for which roles hold which permissions). The
+// role-level check only - a function acting on one venue or listing must
+// still load it and ask the matching policy in lib/authz/policies.ts
+// (e.g. canManageVenue), since holding "venues:manage" doesn't mean owning
+// that particular venue.
+export function withPermission<Args extends unknown[], Result>(
+  permission: Permission,
   fn: (session: Session, ...args: Args) => Promise<Result>
 ) {
   return withAuth<Args, Result | AuthResult>(async (session, ...args) => {
-    if (!allowedRoles.includes(session.user.role)) {
+    if (!can(session.user, permission)) {
       return { ok: false, error: "You don't have permission to do this." };
     }
     return fn(session, ...args);
   });
+}
+
+// The page-level counterpart of withPermission: the first line of every
+// protected page, returning the session for the page to use. Pages check
+// for themselves rather than relying on a shared layout, because layouts
+// don't re-render on client-side navigation (Next.js's authentication
+// guide warns about exactly this).
+//
+// Not allowed renders the not-found page rather than a 403, so the area
+// doesn't confirm it exists to someone who can't use it. Signed-out
+// visitors are normally sent to /login by proxy.ts before reaching here;
+// the redirect below covers any route the proxy doesn't match.
+export async function requirePermission(permission: Permission): Promise<Session> {
+  const session = await auth();
+  if (!session) redirect("/login");
+  if (!can(session.user, permission)) notFound();
+  return session;
 }

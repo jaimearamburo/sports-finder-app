@@ -21,6 +21,7 @@
  */
 
 import "dotenv/config";
+import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 
 /**
@@ -268,24 +269,44 @@ async function seedCities(countries: Awaited<ReturnType<typeof seedCountries>>) 
  * in seedVenues() — this proves out the platform's "one account, many
  * venues" ownership model (Venue.ownerId) rather than just asserting it
  * works in theory.
+ *
+ * Passwords come from the SEED_USER_PASSWORD environment variable, never
+ * from this file: a password written here would be public in the
+ * repository, and anyone could sign in as a venue owner wherever this seed
+ * ran. When it's set, all three accounts get that password, so you can
+ * sign in as an owner (to use the venue dashboard) or as the regular user.
+ * When it isn't, the accounts are left without one, and existing
+ * passwords aren't touched. Set it for local development only, never when
+ * seeding a public deployment.
  */
 async function seedUsers() {
+  const password = process.env.SEED_USER_PASSWORD;
+  // Same cost factor as signup (app/signup/actions.ts).
+  const passwordHash = password ? await bcrypt.hash(password, 10) : undefined;
+  if (!password) {
+    console.log("SEED_USER_PASSWORD not set: seeded accounts have no password (sign in won't work for them).");
+  }
+
+  // `update` only sets the password when one was provided, so re-running
+  // the seed without it never wipes a password set earlier.
+  const passwordUpdate = passwordHash ? { passwordHash } : {};
+
   const alex = await prisma.user.upsert({
     where: { email: "alex.owner@example.com" },
-    update: {},
-    create: { name: "Alex Nguyen", email: "alex.owner@example.com", role: "venue_owner" },
+    update: passwordUpdate,
+    create: { name: "Alex Nguyen", email: "alex.owner@example.com", role: "venue_owner", passwordHash },
   });
 
   const priya = await prisma.user.upsert({
     where: { email: "priya.owner@example.com" },
-    update: {},
-    create: { name: "Priya Kapoor", email: "priya.owner@example.com", role: "venue_owner" },
+    update: passwordUpdate,
+    create: { name: "Priya Kapoor", email: "priya.owner@example.com", role: "venue_owner", passwordHash },
   });
 
   const jamie = await prisma.user.upsert({
     where: { email: "jamie.user@example.com" },
-    update: {},
-    create: { name: "Jamie Rogers", email: "jamie.user@example.com", role: "user" },
+    update: passwordUpdate,
+    create: { name: "Jamie Rogers", email: "jamie.user@example.com", role: "user", passwordHash },
   });
 
   return { alex, priya, jamie };

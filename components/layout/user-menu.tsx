@@ -6,7 +6,7 @@ import { CircleUserRound } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { getAccountLinkInfo } from "@/lib/account-nav";
+import { getAccountLinks } from "@/lib/account-nav";
 import type { UserRole } from "@/generated/prisma/enums";
 
 const MENU_LINK_CLASS = cn(buttonVariants({ variant: "ghost", size: "sm" }), "w-full justify-start");
@@ -28,7 +28,7 @@ export function UserMenu({ role }: { role: UserRole | null }) {
   // explicitly closing it on click, the popover would still be sitting
   // open over the page it just navigated to.
   const [open, setOpen] = useState(false);
-  const accountLink = role ? getAccountLinkInfo(role) : null;
+  const accountLinks = role ? getAccountLinks(role) : null;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -39,11 +39,13 @@ export function UserMenu({ role }: { role: UserRole | null }) {
         <CircleUserRound className="size-5" />
       </PopoverTrigger>
       <PopoverContent className="w-56 p-2" align="end">
-        {accountLink ? (
+        {accountLinks ? (
           <>
-            <Link href={accountLink.href} className={MENU_LINK_CLASS} onClick={() => setOpen(false)}>
-              {accountLink.label}
-            </Link>
+            {accountLinks.map((link) => (
+              <Link key={link.href} href={link.href} className={MENU_LINK_CLASS} onClick={() => setOpen(false)}>
+                {link.label}
+              </Link>
+            ))}
             {/* Links to the logout confirmation page rather than signing
                 out directly, same as the desktop header's own link. */}
             <Link href="/logout" className={MENU_LINK_CLASS} onClick={() => setOpen(false)}>
