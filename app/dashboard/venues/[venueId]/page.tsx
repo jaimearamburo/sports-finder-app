@@ -32,6 +32,13 @@ function ListingActions({ listing }: { listing: VenueListingRow }) {
       >
         Edit
       </Link>
+      <Link
+        href={`/dashboard/bookings?listing=${listing.id}`}
+        className={buttonVariants({ variant: "outline", size: "sm" })}
+        aria-label={`Bookings for ${listing.name}`}
+      >
+        Bookings
+      </Link>
       <ArchiveListingButton
         listingId={listing.id}
         listingName={listing.name}
@@ -76,9 +83,14 @@ export default async function VenuePage({
               {venue.address}, {venue.location}
             </p>
           </div>
-          <Link href={`${basePath}/edit`} className={buttonVariants({ variant: "outline" })}>
-            Edit venue
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/dashboard/bookings?venue=${venue.id}`} className={buttonVariants({ variant: "outline" })}>
+              Bookings
+            </Link>
+            <Link href={`${basePath}/edit`} className={buttonVariants({ variant: "outline" })}>
+              Edit venue
+            </Link>
+          </div>
         </div>
 
         <dl className="mt-4 grid gap-x-8 gap-y-2 rounded-md border bg-card p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">

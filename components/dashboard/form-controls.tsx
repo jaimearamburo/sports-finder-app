@@ -165,7 +165,10 @@ export function SegmentedControl<T extends string | number>({
       aria-labelledby={labelledBy}
       aria-describedby={describedBy}
       aria-invalid={invalid || undefined}
-      className="inline-flex w-fit max-w-full flex-wrap gap-1 rounded-lg border bg-muted/50 p-1"
+      // 36px tall overall (28px buttons + 3px padding + 1px border, each
+      // side) - the same height as inputs and dropdowns, so labels in a row
+      // of mixed controls line up.
+      className="inline-flex w-fit max-w-full flex-wrap gap-1 rounded-lg border bg-muted/50 p-0.75"
     >
       {options.map((option, index) => {
         const selected = index === selectedIndex && option.value === value;
@@ -183,7 +186,7 @@ export function SegmentedControl<T extends string | number>({
             onClick={() => onChange(option.value)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             className={cn(
-              "h-8 min-w-11 rounded-md px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              "h-7 min-w-11 rounded-md px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
               selected ? "bg-card text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground"
             )}
           >

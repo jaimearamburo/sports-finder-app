@@ -2,17 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
 import { requirePermission } from "@/lib/auth-guards";
 import { getDashboardOverview, type OverviewBooking } from "@/lib/dashboard/overview";
-
-// "$1,479.00": thousands separators, unlike the per-booking prices
-// elsewhere (toFixed), since these totals grow large. AUD to match
-// PAYMENT_CURRENCY in lib/stripe.ts.
-const MONEY = new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" });
-
-function formatMoney(amount: number): string {
-  return MONEY.format(amount);
-}
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (

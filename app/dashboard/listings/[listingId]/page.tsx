@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ListingForm } from "@/components/dashboard/listing-form";
+import { buttonVariants } from "@/components/ui/button";
 import { requirePermission } from "@/lib/auth-guards";
 import { getListingEditor } from "@/lib/dashboard/listings";
 
@@ -20,11 +21,16 @@ export default async function EditListingPage({ params }: { params: Promise<{ li
       >
         ← {venue.name}
       </Link>
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">{listing.values.name}</h1>
-        {listing.archived && (
-          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">Archived</span>
-        )}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold">{listing.values.name}</h1>
+          {listing.archived && (
+            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">Archived</span>
+          )}
+        </div>
+        <Link href={`/dashboard/bookings?listing=${listing.id}`} className={buttonVariants({ variant: "outline" })}>
+          Bookings
+        </Link>
       </div>
       <p className="mb-6 text-muted-foreground">
         At {venue.name}, {venue.cityName}
