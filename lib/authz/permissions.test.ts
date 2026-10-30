@@ -14,8 +14,9 @@ describe("can", () => {
     expect(can({ role: "venue_owner" }, "venues:manage")).toBe(true);
   });
 
-  it("doesn't let venue owners manage other owners' venues", () => {
+  it("doesn't let venue owners manage other owners' venues or choose owners", () => {
     expect(can({ role: "venue_owner" }, "venues:manage-all")).toBe(false);
+    expect(can({ role: "venue_owner" }, "venues:assign-owner")).toBe(false);
   });
 
   it("gives admins every permission", () => {

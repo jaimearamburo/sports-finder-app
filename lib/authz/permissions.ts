@@ -27,6 +27,9 @@ export const PERMISSIONS = [
   // Manage every venue regardless of owner. Lets admins pass the ownership
   // checks in policies.ts without those checks naming a role.
   "venues:manage-all",
+  // Choose which venue owner a venue belongs to, when adding it or later.
+  // Without this, whoever adds a venue owns it.
+  "venues:assign-owner",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -36,7 +39,7 @@ export type Permission = (typeof PERMISSIONS)[number];
 const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
   user: [],
   venue_owner: ["dashboard:access", "venues:create", "venues:manage"],
-  admin: ["dashboard:access", "venues:create", "venues:manage", "venues:manage-all"],
+  admin: ["dashboard:access", "venues:create", "venues:manage", "venues:manage-all", "venues:assign-owner"],
 };
 
 // The smallest shape these checks need, so callers can pass a session user,

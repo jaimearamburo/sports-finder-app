@@ -5,6 +5,7 @@ import { can } from "@/lib/authz/permissions";
 import { manageableVenuesWhere } from "@/lib/authz/policies";
 import { addDays, formatBookingTime, todayInTimezone } from "@/lib/dates";
 import { getBookingReference } from "@/lib/booking-reference";
+import { formatLocation } from "@/lib/dashboard/venues";
 
 type BookingMechanic = "time_range" | "date_range" | "fixed_session";
 
@@ -183,7 +184,7 @@ export const getDashboardOverview = withPermission(
       venues: venues.map((venue) => ({
         id: venue.id,
         name: venue.name,
-        location: [venue.city.name, venue.city.region, venue.city.country.name].filter(Boolean).join(", "),
+        location: formatLocation(venue.city),
         ownerName: showOwners ? (venue.owner.name ?? venue.owner.email) : null,
         activeListings: venue._count.listings,
         upcomingBookings: upcomingOrdersByVenue.get(venue.id)?.size ?? 0,
