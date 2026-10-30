@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Info, SearchX } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { canManageListing } from "@/lib/authz/policies";
 import { EAGER_CARD_COUNT, ListingGrid, getPrimaryTag, type ListingCardData } from "@/components/browse/listing-card";
 import { isCategoryId, MECHANIC_CATEGORIES, type CategoryId } from "@/lib/category-filters";
 import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
@@ -76,6 +78,10 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
   // Fetches every non-archived listing matching the category, tag, city,
   // and price filters, with the activity/tag and venue/city data each
   // card below needs to render.
+  // Read alongside the listings query rather than after it: only needed
+  // to decide which cards get the edit shortcut, so a failure here just
+  // means no shortcuts, never a broken page.
+  const sessionPromise = auth().catch(() => null);
   const listings = await prisma.listing.findMany({
     where: {
       // Retired listings (see Listing.archivedAt) are kept for their
@@ -180,6 +186,16 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
   // filter narrows to a single one) - a long single-mechanic result list
   // still needs a visible label once it's long enough to scroll past
   // whatever filter the user picked to get there.
+  // Which of these listings this visitor may edit: the same ownership
+  // policy the dashboard enforces (admins: all; a venue owner: their own
+  // venues' listings; everyone else: none), checked against the venue
+  // already loaded with each listing, so it costs no extra queries. Those
+  // cards get a gear linking to the edit page (ListingCard's EditShortcut).
+  const session = await sessionPromise;
+  const editableIds = new Set(
+    filteredListings.filter((listing) => canManageListing(session?.user, listing)).map((listing) => listing.id)
+  );
+
   const byMechanic = new Map<string, ListingCardData[]>();
   for (const listing of filteredListings) {
     const mechanic = listing.activity.bookingMechanic;
@@ -219,7 +235,11 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
             </Popover>
           </h2>
           {/* Only the very first grid on the page starts with eager photos. */}
-          <TagGroups listings={byMechanic.get(type.id)!} eager={type.id === mechanicGroups[0].id} />
+          <TagGroups
+            listings={byMechanic.get(type.id)!}
+            eager={type.id === mechanicGroups[0].id}
+            editableIds={editableIds}
+          />
         </section>
       ))}
     </div>
@@ -230,7 +250,15 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
 // Section order comes from each tag's own displayOrder column, fetched
 // alongside the listing's activity.tags.tag relation. Listings with no
 // tag sort last under "Other".
-function TagGroups({ listings, eager }: { listings: ListingCardData[]; eager: boolean }) {
+function TagGroups({
+  listings,
+  eager,
+  editableIds,
+}: {
+  listings: ListingCardData[];
+  eager: boolean;
+  editableIds: ReadonlySet<string>;
+}) {
   const groups = new Map<string, typeof listings>();
   const groupOrder = new Map<string, number>();
   for (const listing of listings) {
@@ -253,7 +281,11 @@ function TagGroups({ listings, eager }: { listings: ListingCardData[]; eager: bo
       {groupNames.map((name, index) => (
         <section key={name}>
           <h3 className="mb-3 text-sm font-semibold">{name}</h3>
-          <ListingGrid listings={groups.get(name)!} eagerCount={eager && index === 0 ? EAGER_CARD_COUNT : 0} />
+          <ListingGrid
+            listings={groups.get(name)!}
+            eagerCount={eager && index === 0 ? EAGER_CARD_COUNT : 0}
+            editableIds={editableIds}
+          />
         </section>
       ))}
     </div>

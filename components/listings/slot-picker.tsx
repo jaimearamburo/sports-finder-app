@@ -138,6 +138,8 @@ export function SlotPicker({
                 type="button"
                 variant="outline"
                 size="icon-xs"
+                // Bigger on phones, where a 24px target is hard to hit.
+                className="size-9 sm:size-6"
                 disabled={!slots || quantity <= 1}
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                 aria-label="Decrease quantity"
@@ -149,6 +151,7 @@ export function SlotPicker({
                 type="button"
                 variant="outline"
                 size="icon-xs"
+                className="size-9 sm:size-6"
                 disabled={!slots || quantity >= quantityMax}
                 onClick={() => setQuantity((q) => Math.min(quantityMax, q + 1))}
                 aria-label="Increase quantity"

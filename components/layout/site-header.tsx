@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ShoppingCart } from "lucide-react";
 import { auth } from "@/auth";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Logo } from "@/components/layout/logo";
 import { HeaderSearch, HeaderSearchFallback } from "@/components/layout/header-search";
 import { AccountMenu, type AccountMenuUser } from "@/components/layout/account-menu";
@@ -15,8 +14,9 @@ import { AccountMenu, type AccountMenuUser } from "@/components/layout/account-m
  * and logged-in states the way a client-side useSession() version would
  * have.
  *
- * The cart button is visual only; the search box runs natural-language
- * search (see HeaderSearch and app/search/actions.ts).
+ * The search box runs natural-language search (see HeaderSearch and
+ * app/search/actions.ts). There's no cart: a booking is checked out one at
+ * a time (one active hold per user), so a basket would have nothing to do.
  */
 export async function SiteHeader() {
   // Reads the current session from the request cookie.
@@ -48,10 +48,6 @@ export async function SiteHeader() {
         </Suspense>
 
         <div className="flex items-center justify-self-end gap-2">
-          <Button variant="ghost" size="icon" aria-label="Cart" className="relative rounded-full">
-            <ShoppingCart className="size-5" />
-          </Button>
-
           {/* Below md (the same mobile cutoff BrowsePageShell and
               MobileFilterBar use, so the "mobile" boundary stays one width
               across the app), there's only room for a round button next to
