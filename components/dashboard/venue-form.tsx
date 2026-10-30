@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Field, TEXTAREA_CLASS } from "@/components/dashboard/form-controls";
+import { Field, FormSection, TEXTAREA_CLASS } from "@/components/dashboard/form-controls";
 import {
   Select,
   SelectContent,
@@ -107,157 +107,165 @@ export function VenueForm({
   return (
     // noValidate: the schema above is the one client-side check, so the
     // browser's own popups don't fire first with different wording.
-    <form onSubmit={handleSubmit} noValidate className="flex max-w-xl flex-col gap-5">
-      {ownerOptions && (
+    // Fields grouped into white section cards, as in the listing editor:
+    // inputs are transparent, so straight on the grey page they read as
+    // grey boxes.
+    <form onSubmit={handleSubmit} noValidate className="flex max-w-xl flex-col gap-6">
+      <FormSection title="Details" description="How the venue appears to customers, and where it is.">
+        {ownerOptions && (
+          <Field
+            id="owner"
+            label="Owner"
+            hint="The venue owner who manages this venue. Only people with a venue owner account are listed."
+            error={fieldErrors.ownerId}
+          >
+            {(describedBy) => (
+              <Select
+                items={ownerOptions.map((owner) => ({ label: owner.label, value: owner.id }))}
+                value={values.ownerId || null}
+                onValueChange={(value) => set("ownerId", (value as string | null) ?? "")}
+              >
+                <SelectTrigger
+                  id="owner"
+                  className="w-full"
+                  aria-invalid={!!fieldErrors.ownerId}
+                  aria-describedby={describedBy}
+                >
+                  <SelectValue placeholder="Choose an owner" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ownerOptions.map((owner) => (
+                    <SelectItem key={owner.id} value={owner.id}>
+                      {owner.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </Field>
+        )}
+
+        <Field id="name" label="Name" error={fieldErrors.name}>
+          {(describedBy) => (
+            <Input
+              id="name"
+              value={values.name}
+              onChange={(e) => set("name", e.target.value)}
+              aria-invalid={!!fieldErrors.name}
+              aria-describedby={describedBy}
+            />
+          )}
+        </Field>
+
+        <Field id="description" label="Description (optional)" error={fieldErrors.description}>
+          {(describedBy) => (
+            <textarea
+              id="description"
+              value={values.description}
+              onChange={(e) => set("description", e.target.value)}
+              aria-invalid={!!fieldErrors.description}
+              aria-describedby={describedBy}
+              className={TEXTAREA_CLASS}
+            />
+          )}
+        </Field>
+
+        <Field id="address" label="Street address" error={fieldErrors.address}>
+          {(describedBy) => (
+            <Input
+              id="address"
+              value={values.address}
+              onChange={(e) => set("address", e.target.value)}
+              aria-invalid={!!fieldErrors.address}
+              aria-describedby={describedBy}
+            />
+          )}
+        </Field>
+
         <Field
-          id="owner"
-          label="Owner"
-          hint="The venue owner who manages this venue. Only people with a venue owner account are listed."
-          error={fieldErrors.ownerId}
+          id="city"
+          label="City"
+          error={fieldErrors.cityId}
+          // Each city carries its timezone, and every time at the venue is
+          // shown and validated in it - worth stating where it's chosen.
+          hint={selectedCity ? `Times at this venue use ${selectedCity.timezone} time.` : undefined}
         >
           {(describedBy) => (
             <Select
-              items={ownerOptions.map((owner) => ({ label: owner.label, value: owner.id }))}
-              value={values.ownerId || null}
-              onValueChange={(value) => set("ownerId", (value as string | null) ?? "")}
+              items={cities.map((city) => ({ label: city.label, value: city.id }))}
+              value={values.cityId || null}
+              onValueChange={(value) => set("cityId", (value as string | null) ?? "")}
             >
               <SelectTrigger
-                id="owner"
+                id="city"
                 className="w-full"
-                aria-invalid={!!fieldErrors.ownerId}
+                aria-invalid={!!fieldErrors.cityId}
                 aria-describedby={describedBy}
               >
-                <SelectValue placeholder="Choose an owner" />
+                <SelectValue placeholder="Choose a city" />
               </SelectTrigger>
               <SelectContent>
-                {ownerOptions.map((owner) => (
-                  <SelectItem key={owner.id} value={owner.id}>
-                    {owner.label}
-                  </SelectItem>
+                {cityGroups.map((group) => (
+                  <SelectGroup key={group.countryName}>
+                    <SelectLabel className="bg-muted">{group.countryName}</SelectLabel>
+                    {group.cities.map((city) => (
+                      <SelectItem key={city.id} value={city.id}>
+                        {city.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>
           )}
         </Field>
-      )}
 
-      <Field id="name" label="Name" error={fieldErrors.name}>
-        {(describedBy) => (
-          <Input
-            id="name"
-            value={values.name}
-            onChange={(e) => set("name", e.target.value)}
-            aria-invalid={!!fieldErrors.name}
-            aria-describedby={describedBy}
-          />
-        )}
-      </Field>
+      </FormSection>
 
-      <Field id="description" label="Description (optional)" error={fieldErrors.description}>
-        {(describedBy) => (
-          <textarea
-            id="description"
-            value={values.description}
-            onChange={(e) => set("description", e.target.value)}
-            aria-invalid={!!fieldErrors.description}
-            aria-describedby={describedBy}
-            className={TEXTAREA_CLASS}
-          />
-        )}
-      </Field>
-
-      <Field id="address" label="Street address" error={fieldErrors.address}>
-        {(describedBy) => (
-          <Input
-            id="address"
-            value={values.address}
-            onChange={(e) => set("address", e.target.value)}
-            aria-invalid={!!fieldErrors.address}
-            aria-describedby={describedBy}
-          />
-        )}
-      </Field>
-
-      <Field
-        id="city"
-        label="City"
-        error={fieldErrors.cityId}
-        // Each city carries its timezone, and every time at the venue is
-        // shown and validated in it - worth stating where it's chosen.
-        hint={selectedCity ? `Times at this venue use ${selectedCity.timezone} time.` : undefined}
-      >
-        {(describedBy) => (
-          <Select
-            items={cities.map((city) => ({ label: city.label, value: city.id }))}
-            value={values.cityId || null}
-            onValueChange={(value) => set("cityId", (value as string | null) ?? "")}
+      <FormSection title="Booking settings" description="How far ahead people can book, and how long checkout holds a slot.">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            id="bookingWindowDays"
+            label="Booking window (days)"
+            hint={`How far ahead people can book, ${BOOKING_WINDOW_DAYS.min} to ${BOOKING_WINDOW_DAYS.max} days.`}
+            error={fieldErrors.bookingWindowDays}
           >
-            <SelectTrigger
-              id="city"
-              className="w-full"
-              aria-invalid={!!fieldErrors.cityId}
-              aria-describedby={describedBy}
-            >
-              <SelectValue placeholder="Choose a city" />
-            </SelectTrigger>
-            <SelectContent>
-              {cityGroups.map((group) => (
-                <SelectGroup key={group.countryName}>
-                  <SelectLabel className="bg-muted">{group.countryName}</SelectLabel>
-                  {group.cities.map((city) => (
-                    <SelectItem key={city.id} value={city.id}>
-                      {city.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </Field>
-
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field
-          id="bookingWindowDays"
-          label="Booking window (days)"
-          hint={`How far ahead people can book, ${BOOKING_WINDOW_DAYS.min} to ${BOOKING_WINDOW_DAYS.max} days.`}
-          error={fieldErrors.bookingWindowDays}
-        >
-          {(describedBy) => (
-            <Input
-              id="bookingWindowDays"
-              type="number"
-              inputMode="numeric"
-              min={BOOKING_WINDOW_DAYS.min}
-              max={BOOKING_WINDOW_DAYS.max}
-              value={values.bookingWindowDays}
-              onChange={(e) => set("bookingWindowDays", e.target.value)}
-              aria-invalid={!!fieldErrors.bookingWindowDays}
-              aria-describedby={describedBy}
-            />
-          )}
-        </Field>
-        <Field
-          id="holdDurationMinutes"
-          label="Checkout hold (minutes)"
-          hint={`How long a slot is held while someone pays, ${HOLD_DURATION_MINUTES.min} to ${HOLD_DURATION_MINUTES.max} minutes.`}
-          error={fieldErrors.holdDurationMinutes}
-        >
-          {(describedBy) => (
-            <Input
-              id="holdDurationMinutes"
-              type="number"
-              inputMode="numeric"
-              min={HOLD_DURATION_MINUTES.min}
-              max={HOLD_DURATION_MINUTES.max}
-              value={values.holdDurationMinutes}
-              onChange={(e) => set("holdDurationMinutes", e.target.value)}
-              aria-invalid={!!fieldErrors.holdDurationMinutes}
-              aria-describedby={describedBy}
-            />
-          )}
-        </Field>
-      </div>
+            {(describedBy) => (
+              <Input
+                id="bookingWindowDays"
+                type="number"
+                inputMode="numeric"
+                min={BOOKING_WINDOW_DAYS.min}
+                max={BOOKING_WINDOW_DAYS.max}
+                value={values.bookingWindowDays}
+                onChange={(e) => set("bookingWindowDays", e.target.value)}
+                aria-invalid={!!fieldErrors.bookingWindowDays}
+                aria-describedby={describedBy}
+              />
+            )}
+          </Field>
+          <Field
+            id="holdDurationMinutes"
+            label="Checkout hold (minutes)"
+            hint={`How long a slot is held while someone pays, ${HOLD_DURATION_MINUTES.min} to ${HOLD_DURATION_MINUTES.max} minutes.`}
+            error={fieldErrors.holdDurationMinutes}
+          >
+            {(describedBy) => (
+              <Input
+                id="holdDurationMinutes"
+                type="number"
+                inputMode="numeric"
+                min={HOLD_DURATION_MINUTES.min}
+                max={HOLD_DURATION_MINUTES.max}
+                value={values.holdDurationMinutes}
+                onChange={(e) => set("holdDurationMinutes", e.target.value)}
+                aria-invalid={!!fieldErrors.holdDurationMinutes}
+                aria-describedby={describedBy}
+              />
+            )}
+          </Field>
+        </div>
+      </FormSection>
 
       {formError && (
         <p role="alert" className="text-sm text-destructive">

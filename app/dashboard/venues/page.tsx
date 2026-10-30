@@ -38,7 +38,7 @@ export default async function DashboardVenuesPage() {
               <div className="min-w-0">
                 <Link
                   href={`/dashboard/venues/${venue.id}`}
-                  className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline"
+                  className="font-medium text-foreground underline decoration-foreground/40 underline-offset-4 hover:text-primary hover:decoration-primary"
                 >
                   {venue.name}
                 </Link>
