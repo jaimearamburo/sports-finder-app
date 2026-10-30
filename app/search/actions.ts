@@ -15,11 +15,13 @@ const searchInputSchema = z.object({
   today: z.iso.date(),
 });
 
-export type SearchResult = { ok: true; url: string } | { ok: false };
+// `query` is the browse page's query string (no leading "?"): the header
+// search hands it to the shared browse navigation, which owns the push.
+export type SearchResult = { ok: true; query: string } | { ok: false };
 
 // Natural-language search: interpret the query into browse filters with
 // the LLM, falling back to keyword matching if that fails for any reason,
-// and return the browse URL. The search itself is done by the existing
+// and return the browse query string. The search itself is done by the existing
 // browse filters, so results always match what the sidebar would show for
 // the same filters.
 export async function searchAction(input: { query: string; today: string }): Promise<SearchResult> {
@@ -30,5 +32,5 @@ export async function searchAction(input: { query: string; today: string }): Pro
   const vocabulary = await getSearchVocabulary();
   const interpretation = (await interpretWithLlm(query, vocabulary, today)) ?? keywordInterpret(query, vocabulary);
 
-  return { ok: true, url: `/?${interpretationToParams(interpretation, query, today).toString()}` };
+  return { ok: true, query: interpretationToParams(interpretation, query, today).toString() };
 }

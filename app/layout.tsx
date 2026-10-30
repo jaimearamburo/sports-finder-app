@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Oleo_Script } from "next/font/google";
+import { BrowseNavigationProvider } from "@/contexts/browse-navigation";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { RefreshOnHistoryNavigation } from "@/components/layout/refresh-on-history-navigation";
@@ -42,14 +43,19 @@ export default function RootLayout({
           Skip to content
         </a>
         <RefreshOnHistoryNavigation />
-        <SiteHeader />
-        {/* flex flex-col here, not just flex-1, so pages that rely on
-            being a flex-column child themselves, such as login and
-            signup's centered card layout, keep working. tabIndex={-1} lets
-            the skip link above move focus here, not just scroll. */}
-        <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col outline-none">
-          {children}
-        </main>
+        {/* Around the header and the page, not just the browse page: the
+            header search takes part in browse navigation too (see
+            BrowseNavigationProvider). */}
+        <BrowseNavigationProvider>
+          <SiteHeader />
+          {/* flex flex-col here, not just flex-1, so pages that rely on
+              being a flex-column child themselves, such as login and
+              signup's centered card layout, keep working. tabIndex={-1}
+              lets the skip link above move focus here, not just scroll. */}
+          <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col outline-none">
+            {children}
+          </main>
+        </BrowseNavigationProvider>
         <SiteFooter />
       </body>
     </html>

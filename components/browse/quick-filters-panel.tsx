@@ -1,6 +1,5 @@
 "use client";
 
-import { startTransition, useOptimistic } from "react";
 import { cn } from "@/lib/utils";
 import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
 import { DateFilterPopover } from "@/components/browse/date-filter-popover";
@@ -68,49 +67,37 @@ function weekendDateParam(): string {
   return `${toDateParam(saturday)},${toDateParam(sunday)}`;
 }
 
-// Owns one shared optimistic value and one shared pending flag for every
-// pill here, rather than each pill tracking its own, the same role
-// BrowseSidebarPanel plays for the sidebar filters. There is only ever
-// one navigation in flight at a time, so a single isPending is both
-// simpler and more correct than one per pill. Sharing one optimistic
-// value also means "This weekend" and the specific-date popover can never
-// conflict: they read and write the same `date` key, so picking one
-// always overwrites the other.
+// Renders the pills with no knowledge of URLs. The values it receives
+// already include a change that's still loading (see useBrowseFilters), so
+// a click shows straight away. "This weekend" and the specific-date popover
+// can never conflict: they read and write the same `date` key, so picking
+// one always overwrites the other.
 export function QuickFiltersPanel({
   date,
   priceMin,
   priceMax,
   changeAction,
 }: QuickFilterValues & { changeAction: (next: QuickFilterValues) => void }) {
-  const [optimistic, setOptimistic] = useOptimistic<QuickFilterValues>({ date, priceMin, priceMax });
-  const [isPending, setIsPending] = useOptimistic(false);
-
-  function commitFilters(next: QuickFilterValues) {
-    startTransition(() => {
-      setOptimistic(next);
-      setIsPending(true);
-      changeAction(next);
-    });
-  }
+  const current: QuickFilterValues = { date, priceMin, priceMax };
 
   // A two-date value (the weekend pair) has no single day to highlight on
   // the specific-date popover's own calendar - it shows its resting "Any
   // date" state instead, and picking a day from it overwrites the pair,
   // same as picking a day always overwrites whatever was there before.
-  const selectedDate = optimistic.date && !optimistic.date.includes(",") ? parseDateParam(optimistic.date) : undefined;
-  const isWeekendActive = optimistic.date === weekendDateParam();
-  const isFreeActive = optimistic.priceMax === 0;
+  const selectedDate = current.date && !current.date.includes(",") ? parseDateParam(current.date) : undefined;
+  const isWeekendActive = current.date === weekendDateParam();
+  const isFreeActive = current.priceMax === 0;
 
   return (
-    <div data-pending={isPending ? "" : undefined} className="mb-2 flex items-center gap-2.5 overflow-x-auto sm:mb-5">
+    <div className="mb-2 flex items-center gap-2.5 overflow-x-auto sm:mb-5">
       <DateFilterPopover
         selectedDate={selectedDate}
-        onCommit={(d) => commitFilters({ ...optimistic, date: d ? toDateParam(d) : "" })}
+        onCommit={(d) => changeAction({ ...current, date: d ? toDateParam(d) : "" })}
       />
       <button
         type="button"
         aria-pressed={isWeekendActive}
-        onClick={() => commitFilters({ ...optimistic, date: isWeekendActive ? "" : weekendDateParam() })}
+        onClick={() => changeAction({ ...current, date: isWeekendActive ? "" : weekendDateParam() })}
         className={cn(PILL_CLASS, isWeekendActive && PILL_ACTIVE_CLASS)}
       >
         This weekend
@@ -119,8 +106,8 @@ export function QuickFiltersPanel({
         type="button"
         aria-pressed={isFreeActive}
         onClick={() =>
-          commitFilters({
-            ...optimistic,
+          changeAction({
+            ...current,
             priceMin: PRICE_MIN,
             priceMax: isFreeActive ? PRICE_MAX : 0,
           })

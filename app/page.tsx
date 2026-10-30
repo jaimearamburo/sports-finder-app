@@ -6,6 +6,7 @@ import { BackToTopButton } from "@/components/browse/back-to-top-button";
 import { TagFilters } from "@/components/browse/tag-filters";
 import { QuickFilters } from "@/components/browse/quick-filters";
 import { SearchInterpretation } from "@/components/browse/search-interpretation";
+import { PendingResults } from "@/components/browse/pending-results";
 import { ListingSection, type BrowseSearchParams } from "@/components/browse/listing-section";
 import {
   BrowseSidebarSkeleton,
@@ -51,7 +52,7 @@ export default function Home({
   searchParams: Promise<BrowseSearchParams>;
 }) {
   return (
-    <div className="group/browse">
+    <div>
       {/* Screen-reader-only page heading: the browse layout has no visible
           title (the filters and listings speak for themselves visually),
           but screen-reader users navigate by headings and need an h1 to
@@ -83,15 +84,15 @@ export default function Home({
         {/* No key on the Suspense below. A keyed boundary remounts on
             every change and always shows its fallback again; leaving it
             unkeyed lets a transition-wrapped filter change keep the
-            existing results visible, dimmed and blurred through
-            data-pending, while the new ones load. */}
-        <div className="group-has-data-pending/browse:blur-[1px] group-has-data-pending/browse:opacity-30 transition-[filter,opacity] duration-200">
+            existing results visible, dimmed by PendingResults, while the
+            new ones load. */}
+        <PendingResults>
           <Suspense fallback={<ListingGridSkeleton />}>
             {searchParams.then((params) => (
               <ListingSection searchParams={params} />
             ))}
           </Suspense>
-        </div>
+        </PendingResults>
       </BrowsePageShell>
       <BackToTopButton />
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useBrowseFilters } from "@/contexts/browse-navigation";
 import { X } from "lucide-react";
 import { CATEGORIES } from "@/lib/category-filters";
 import { PRICE_MAX } from "@/lib/price-range";
@@ -18,6 +18,11 @@ function removeFromList(params: URLSearchParams, key: string, value: string) {
   const rest = (params.get(key) ?? "").split(",").filter((v) => v && v !== value);
   if (rest.length > 0) params.set(key, rest.join(","));
   else params.delete(key);
+}
+
+// Empties every browse param - what "Clear search" leaves behind.
+export function clearAllParams(params: URLSearchParams) {
+  for (const key of [...params.keys()]) params.delete(key);
 }
 
 // One chip per filter currently in the URL. Derived from the URL rather
@@ -70,19 +75,23 @@ function chipsFor(params: URLSearchParams): Chip[] {
 // above the results while a search is active (`q` in the URL). Each chip
 // can be removed to undo one part of the interpretation, which is the
 // quick fix when the model reads a query differently than intended.
+// Goes through useBrowseFilters like every other filter control, so a
+// removed chip disappears straight away and the results dim while they load.
 export function SearchInterpretation() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const q = searchParams.get("q");
+  const { params, update } = useBrowseFilters();
+  const q = params.get("q");
   if (!q) return null;
 
-  const chips = chipsFor(new URLSearchParams(searchParams.toString()));
+  const chips = chipsFor(params);
 
   function remove(chip: Chip) {
-    const params = new URLSearchParams(searchParams.toString());
-    chip.remove(params);
-    router.push(`${pathname}?${params.toString()}`);
+    update(chip.remove);
+  }
+
+  // Same as the header search box's clear button: the search and every
+  // filter it set go, leaving plain browse.
+  function clearSearch() {
+    update(clearAllParams);
   }
 
   return (
@@ -112,7 +121,7 @@ export function SearchInterpretation() {
       ))}
       <button
         type="button"
-        onClick={() => router.push(pathname)}
+        onClick={clearSearch}
         className="inline-flex min-h-6 items-center px-1 text-muted-foreground underline underline-offset-4 hover:text-foreground"
       >
         Clear search
