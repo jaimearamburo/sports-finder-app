@@ -8,6 +8,7 @@ import { getScheduleLine } from "@/lib/listing-schedule";
 import { formatLocation } from "@/lib/dashboard/venues";
 import { isUpcomingBooking, upcomingQueryCutoff } from "@/lib/dashboard/booking-days";
 import { assessListingImpact, type ListingImpact } from "@/lib/dashboard/listing-impact";
+import { checkVenueImageUrl, deleteReplacedListingImage } from "@/lib/dashboard/listing-images";
 import {
   listingKindFor,
   NEW_LISTING_DEFAULTS,
@@ -223,6 +224,7 @@ function toFormValues(listing: Prisma.ListingGetPayload<{ include: { activity: t
     activityId: listing.activityId,
     name: listing.name,
     description: listing.description ?? "",
+    imageUrl: listing.imageUrl,
     price: Number(listing.pricePerUnit),
     capacity: listing.capacity,
     maxPerBooking: listing.maxBookingsPerTransaction ?? 1,
@@ -260,6 +262,7 @@ function toListingColumns(parsed: ParsedListing) {
   const shared = {
     name: parsed.name,
     description: parsed.description,
+    imageUrl: parsed.imageUrl,
     pricePerUnit: parsed.price,
     capacity: parsed.capacity,
     // Only meaningful when one booking can take several places; otherwise
@@ -298,6 +301,24 @@ function toListingColumns(parsed: ParsedListing) {
       };
   }
 }
+
+// The columns that decide which bookings fit a listing. Only a change to
+// one of these can leave an upcoming booking outside the rules, so they're
+// what the schedule-change warning compares.
+const BOOKING_RULE_SELECT = {
+  capacity: true,
+  operatingHoursStart: true,
+  operatingHoursEnd: true,
+  incrementMinutes: true,
+  minDurationMinutes: true,
+  maxDurationMinutes: true,
+  minDurationDays: true,
+  maxDurationDays: true,
+  recurrenceDayOfWeek: true,
+  recurrenceStartTime: true,
+  sessionDurationMinutes: true,
+} as const;
+const BOOKING_RULE_COLUMNS = Object.keys(BOOKING_RULE_SELECT) as (keyof typeof BOOKING_RULE_SELECT)[];
 
 function isId(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 64;
@@ -355,6 +376,10 @@ export const createListing = withPermission(
 
     const parsed = parseListing(listingKindFor(activity), input);
     if (!parsed.ok) return parsed;
+    if (parsed.data.imageUrl) {
+      const imageError = await checkVenueImageUrl(parsed.data.imageUrl, venue.id);
+      if (imageError) return { ok: false, fieldErrors: { imageUrl: imageError } };
+    }
     const listing = await prisma.listing.create({
       data: { ...toListingColumns(parsed.data), venueId: venue.id, activityId: activity.id },
       select: { id: true },
@@ -367,11 +392,19 @@ export const createListing = withPermission(
 // change (a court can't become a class - its bookings were made under the
 // court's rules), so the stored one is used whatever the form sends.
 //
-// When upcoming bookings would fall outside the new settings, or a time
-// slot would be booked beyond the new capacity, nothing is saved the first
-// time: the result carries `impact` so the form can say so, and saving
-// again with confirmImpact keeps the bookings and applies the change. Those
-// bookings are never cancelled here - they were valid when made.
+// A new or removed photo replaces the stored one; the old file is deleted
+// from the store once the listing is saved (never before, so a failed save
+// can't leave the listing pointing at a deleted file).
+//
+// When a change to the booking rules (hours, lengths, days, session,
+// capacity) would leave upcoming bookings outside them, or a time slot
+// booked beyond the new capacity, nothing is saved the first time: the
+// result carries `impact` so the form can say so, and saving again with
+// confirmImpact keeps the bookings and applies the change. Those bookings
+// are never cancelled here - they were valid when made. Edits that leave
+// the rules as they are (name, price, photo...) skip the check: a booking
+// already outside the rules was outside them before, and warning about it
+// on every save would make a photo change look like it affects bookings.
 export const updateListing = withPermission(
   "venues:manage",
   async (session, listingId: string, input: ListingFormInput, confirmImpact: boolean): Promise<SaveListingResult> => {
@@ -381,6 +414,8 @@ export const updateListing = withPermission(
       select: {
         id: true,
         activityId: true,
+        imageUrl: true,
+        ...BOOKING_RULE_SELECT,
         activity: { select: { bookingMechanic: true, isAccommodation: true } },
         venue: { select: { id: true, ownerId: true, city: { select: { timezone: true } } } },
       },
@@ -389,8 +424,18 @@ export const updateListing = withPermission(
 
     const parsed = parseListing(listingKindFor(listing.activity), { ...input, activityId: listing.activityId });
     if (!parsed.ok) return parsed;
+    // Only a changed photo needs checking; the stored one was checked when
+    // it was saved.
+    const newImage = parsed.data.imageUrl;
+    if (newImage && newImage !== listing.imageUrl) {
+      const imageError = await checkVenueImageUrl(newImage, listing.venue.id);
+      if (imageError) return { ok: false, fieldErrors: { imageUrl: imageError } };
+    }
 
-    if (confirmImpact !== true) {
+    const columns = toListingColumns(parsed.data);
+    const rulesChanged = BOOKING_RULE_COLUMNS.some((column) => columns[column] !== listing[column]);
+
+    if (rulesChanged && confirmImpact !== true) {
       const now = new Date();
       const bookings = await prisma.booking.findMany({
         where: { listingId: listing.id, status: { not: "cancelled" }, endsAt: { gt: upcomingQueryCutoff(now) } },
@@ -404,7 +449,8 @@ export const updateListing = withPermission(
       if (impact.ordersOutsideSchedule > 0 || impact.peakOverCapacity !== null) return { ok: false, impact };
     }
 
-    await prisma.listing.update({ where: { id: listing.id }, data: toListingColumns(parsed.data) });
+    await prisma.listing.update({ where: { id: listing.id }, data: columns });
+    if (listing.imageUrl && listing.imageUrl !== newImage) await deleteReplacedListingImage(listing.imageUrl);
     return { ok: true, listingId: listing.id, venueId: listing.venue.id };
   }
 );

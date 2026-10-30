@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { NAME_MAX_LENGTH } from "./common";
+import { LISTING_IMAGE_URL_MAX_LENGTH } from "@/lib/listing-images";
 
 // The listing form's rules, one set per kind of listing, shared by the form
 // (instant inline errors) and the server (the real check: createListing and
@@ -84,6 +85,10 @@ const baseFields = {
     .trim()
     .max(DESCRIPTION_MAX_LENGTH, { error: `Description must be ${DESCRIPTION_MAX_LENGTH} characters or fewer.` })
     .transform((value) => value || null),
+  // The uploaded photo's URL, or null for none. Shape only here: that it's
+  // a real photo in this venue's folder is checked by the server on save
+  // (checkVenueImageUrl), since that needs the venue and the store.
+  imageUrl: z.string().max(LISTING_IMAGE_URL_MAX_LENGTH).nullable(),
   price: z
     .number({ error: "Enter a price, or 0 for free." })
     .min(0, { error: "The price can't be negative." })
@@ -204,6 +209,7 @@ export type ListingFormInput = {
   activityId: string;
   name: string;
   description: string;
+  imageUrl: string | null;
   price: number;
   capacity: number | null;
   maxPerBooking: number;
@@ -249,7 +255,7 @@ export function parseListing(
 // common case for each kind, so a manager usually only adjusts a few
 // fields. Also fills in the fields a kind doesn't use, so the form always
 // has a complete set to switch between kinds without losing typed values.
-export const NEW_LISTING_DEFAULTS: Omit<ListingFormInput, "activityId" | "name" | "description" | "price"> = {
+export const NEW_LISTING_DEFAULTS: Omit<ListingFormInput, "activityId" | "name" | "description" | "imageUrl" | "price"> = {
   capacity: 1,
   maxPerBooking: 1,
   openingTime: "08:00",

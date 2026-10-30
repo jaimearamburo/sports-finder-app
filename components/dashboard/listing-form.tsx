@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { ListingCard, type CardFields } from "@/components/browse/listing-card";
 import { Field, FormSection, MoneyInput, SegmentedControl, TEXTAREA_CLASS } from "@/components/dashboard/form-controls";
+import { ListingImageField } from "@/components/dashboard/listing-image-field";
 import { createListingAction, updateListingAction } from "@/app/dashboard/listings/actions";
 import type { ActivityOption, ListingEditorVenue } from "@/lib/dashboard/listings";
 import type { ListingImpact } from "@/lib/dashboard/listing-impact";
@@ -229,6 +230,7 @@ const FIELD_ORDER: (keyof ListingFormInput)[] = [
   "activityId",
   "name",
   "description",
+  "imageUrl",
   "price",
   "capacity",
   "maxPerBooking",
@@ -269,6 +271,7 @@ export function ListingForm({
   const [errors, setErrors] = useState<ListingFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [impact, setImpact] = useState<ListingImpact | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const activity = activities.find((option) => option.id === state.activityId) ?? null;
@@ -440,6 +443,27 @@ export function ListingForm({
                     aria-invalid={!!errors.description}
                     aria-describedby={describedBy}
                     className={TEXTAREA_CLASS}
+                  />
+                )}
+              </Field>
+              <Field
+                id="imageUrl"
+                label="Photo (optional)"
+                labelFor={null}
+                hint="Shown on the listing's card and page, cropped to fit. Without one, the activity's icon is shown."
+                error={errors.imageUrl}
+              >
+                {(describedBy) => (
+                  <ListingImageField
+                    venueId={venue.id}
+                    value={state.imageUrl}
+                    onChange={(url) => {
+                      set("imageUrl", url);
+                      setErrors((current) => ({ ...current, imageUrl: undefined }));
+                    }}
+                    onUploadingChange={setUploadingImage}
+                    error={errors.imageUrl}
+                    describedBy={describedBy}
                   />
                 )}
               </Field>
@@ -714,7 +738,7 @@ export function ListingForm({
         <div className="flex flex-wrap items-center gap-3">
           {impact ? (
             <>
-              <Button type="button" onClick={() => submit(true)} disabled={isPending}>
+              <Button type="button" onClick={() => submit(true)} disabled={isPending || uploadingImage}>
                 {isPending ? "Saving..." : "Save anyway"}
               </Button>
               <Button type="button" variant="outline" onClick={() => setImpact(null)} disabled={isPending}>
@@ -723,8 +747,9 @@ export function ListingForm({
             </>
           ) : (
             <>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? "Saving..." : editing ? "Save changes" : "Add listing"}
+              {/* Not while a photo is uploading: the save would go without it. */}
+              <Button type="submit" disabled={isPending || uploadingImage}>
+                {isPending ? "Saving..." : uploadingImage ? "Uploading photo..." : editing ? "Save changes" : "Add listing"}
               </Button>
               <Link href={`/dashboard/venues/${venue.id}`} className={buttonVariants({ variant: "outline" })}>
                 Cancel

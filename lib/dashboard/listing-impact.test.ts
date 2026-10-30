@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { assessListingImpact, bookingFits, peakConcurrentQuantity, type ImpactBooking } from "@/lib/dashboard/listing-impact";
 import type { ParsedListing } from "@/lib/validation/listing";
 
-const shared = { activityId: "a", name: "x", description: null, price: 20, maxPerBooking: 1 };
+const shared = { activityId: "a", name: "x", description: null, imageUrl: null, price: 20, maxPerBooking: 1 };
 const court: ParsedListing = {
   kind: "court",
   ...shared,

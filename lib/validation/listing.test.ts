@@ -5,6 +5,7 @@ const base: ListingFormInput = {
   activityId: "activity-1",
   name: "Court 1",
   description: "",
+  imageUrl: null,
   price: 20,
   capacity: 1,
   maxPerBooking: 1,

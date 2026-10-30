@@ -1,6 +1,7 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import { authFile, fixtureIds } from "./fixtures";
 import { query } from "./db";
+import { tamperNextAction } from "./helpers";
 
 // Who can reach the venue dashboard, and what each person can see and change
 // there. These are the rules lib/authz enforces at three layers (proxy,
@@ -28,25 +29,6 @@ const dashboardPaths = () => {
     "/dashboard/bookings",
   ];
 };
-
-// Rewrites the body of the next Server Action request the page sends,
-// replacing `from` with `to` - how a crafted request naming someone else's
-// record would look. Waits for the action's response before returning.
-async function tamperNextAction(page: Page, from: string, to: string, act: () => Promise<void>) {
-  let done = false;
-  await page.route("**/*", (route) => {
-    const request = route.request();
-    if (!done && request.method() === "POST" && request.headers()["next-action"]) {
-      done = true;
-      return route.continue({ postData: (request.postData() ?? "").split(from).join(to) });
-    }
-    return route.continue();
-  });
-  const response = page.waitForResponse((r) => r.request().method() === "POST" && Boolean(r.request().headers()["next-action"]));
-  await act();
-  await response;
-  await page.unroute("**/*");
-}
 
 test.describe("signed out", () => {
   test("every dashboard page sends you to log in, then back", async ({ page }) => {
