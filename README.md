@@ -15,6 +15,10 @@ Discover and book sports courts, fitness classes, day passes and campsites acros
     <td><img src="docs/screenshots/my-bookings.png" alt="My Bookings" /></td>
     <td align="center"><img src="docs/screenshots/mobile.png" alt="Mobile browse" width="240" /></td>
   </tr>
+  <tr>
+    <td><img src="docs/screenshots/dashboard-venue.png" alt="Venue manager dashboard: a venue's listings" /></td>
+    <td><img src="docs/screenshots/dashboard-listing-editor.png" alt="Listing editor with a live preview" /></td>
+  </tr>
 </table>
 
 ## What's implemented
@@ -22,6 +26,7 @@ Discover and book sports courts, fitness classes, day passes and campsites acros
 - AI-powered natural-language search using an LLM, tolerant of typos and synonyms
 - Reserve-then-confirm booking holds with expiring checkout timers
 - Stripe payments (test mode): the card is authorized at checkout and charged only once the booking is secured
+- Venue manager dashboard: venues, listings (a form per booking type, with a live preview) and bookings, each manager seeing only their own; admins see everything
 - Double-booking protection under concurrent requests (row-level locking)
 - One active hold per user, platform-wide
 - Three booking models: time slots, recurring classes, multi-day passes and stays
@@ -31,10 +36,11 @@ Discover and book sports courts, fitness classes, day passes and campsites acros
 - Same-day booking cut-offs derived from opening hours
 - Venue and listing availability overrides
 - Shared client and server-side validation (Zod)
-- Role-based access with structurally enforced auth guards
+- Permission-based access control with ownership policies, enforced at the route, page and data layers
 - Email/password and Google sign-in
 - Security hardening: row-level security, server-enforced business rules, timing-safe login
 - WCAG 2.2 AA accessibility, verified with axe-core
+- Automated tests: unit tests (Vitest), plus end-to-end access-control and accessibility tests (Playwright, axe-core)
 - Responsive, mobile-first UI with streaming loading states
 
 ## How a booking works
@@ -80,8 +86,11 @@ pnpm exec prisma migrate deploy
 SEED_USER_PASSWORD=<choose one> pnpm exec prisma db seed   # sample owner and user accounts get this password
 pnpm dev
 pnpm test   # unit tests
+
+pnpm exec playwright install chromium   # once, for the end-to-end tests
+pnpm test:e2e   # creates its own test accounts and data, and removes them afterwards
 ```
 
 ## Next up
 
-Embedding-based result ranking · booking cancellation and refunds · rate limiting and email verification · guest checkout · dark theme · venue owner dashboard
+Embedding-based result ranking · booking cancellation and refunds · rate limiting and email verification · guest checkout · dark theme · listing images · availability overrides in the dashboard

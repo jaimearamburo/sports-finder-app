@@ -79,16 +79,19 @@ export function AccountMenu({ user, compact = false }: { user: AccountMenuUser |
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        // On phones only the initials are visible, so the accessible name
-        // spells out whose menu it is. On wider screens the visible name and
-        // role are the button's own text, which is what it should be named.
-        aria-label={compact ? `Account menu for ${displayName}` : undefined}
         className={cn(
           "flex items-center gap-2 rounded-full hover:bg-muted",
           compact ? "p-0.5" : "py-1 pr-2 pl-1"
         )}
       >
         <Initials text={initials} />
+        {/* On phones only the initials show, so screen readers get the
+            button's name from hidden text. Not an aria-label: a name that
+            leaves out what's visible fails WCAG's "label in name" rule
+            (voice-control users say what they see), and the initials are
+            purely visual (aria-hidden). On wider screens the visible name
+            and role are the button's own text. */}
+        {compact && <span className="sr-only">Account menu for {displayName}</span>}
         {!compact && (
           <>
             {/* Long names are cut short with "…" so the header never wraps;

@@ -167,7 +167,7 @@ export function BookingsView({
               className="w-40"
             />
           </div>
-          <form role="search" onSubmit={handleSearch} className="relative w-full min-w-56 flex-1 sm:max-w-md">
+          <form role="search" aria-label="Search bookings" onSubmit={handleSearch} className="relative w-full min-w-56 flex-1 sm:max-w-md">
             <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
