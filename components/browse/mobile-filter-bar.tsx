@@ -1,6 +1,5 @@
 "use client";
 
-import { startTransition, useOptimistic } from "react";
 import { cn } from "@/lib/utils";
 import { CATEGORIES } from "@/lib/category-filters";
 import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
@@ -50,20 +49,13 @@ function formatPriceLabel(min: number, max: number): string {
 // BrowsePageShell) and shown/hidden with plain CSS breakpoints, not
 // a JS viewport check, so there's no post-mount "wrong layout first" flash.
 export function MobileFilterBar({ cities }: { cities: BrowseCityGroup[] }) {
+  // Already includes a change that's still loading (see useBrowseFilters),
+  // so a tap shows straight away.
   const { category, city, priceMin, priceMax, changeAction } = useSidebarFilterRouting();
-  const [optimistic, setOptimistic] = useOptimistic<SidebarFilterValues>({ category, city, priceMin, priceMax });
-  const [isPending, setIsPending] = useOptimistic(false);
+  const current: SidebarFilterValues = { category, city, priceMin, priceMax };
 
-  function commitFilters(next: SidebarFilterValues) {
-    startTransition(() => {
-      setOptimistic(next);
-      setIsPending(true);
-      changeAction(next);
-    });
-  }
-
-  const isCityActive = optimistic.city !== "";
-  const isPriceActive = optimistic.priceMin > PRICE_MIN || optimistic.priceMax < PRICE_MAX;
+  const isCityActive = current.city !== "";
+  const isPriceActive = current.priceMin > PRICE_MIN || current.priceMax < PRICE_MAX;
 
   return (
     <ScrollArea
@@ -77,17 +69,17 @@ export function MobileFilterBar({ cities }: { cities: BrowseCityGroup[] }) {
       // scrollable without it, it just has no visible scrollbar chrome.
       viewportClassName="mask-[linear-gradient(to_right,black_calc(100%-56px),transparent_100%)]"
     >
-      <div className="flex gap-1.5 px-2 py-1" data-pending={isPending ? "" : undefined}>
+      <div className="flex gap-1.5 px-2 py-1">
         <Select
           items={[
             { label: "All cities", value: "all" },
             { label: MULTIPLE_CITIES_LABEL, value: MULTIPLE_CITIES_VALUE },
             ...cities.flatMap((group) => group.cities.map((c) => ({ label: c.label, value: c.name }))),
           ]}
-          value={citySelectValue(optimistic.city)}
+          value={citySelectValue(current.city)}
           onValueChange={(value) => {
             if (value === MULTIPLE_CITIES_VALUE) return;
-            commitFilters({ ...optimistic, city: !value || value === "all" ? "" : value });
+            changeAction({ ...current, city: !value || value === "all" ? "" : value });
           }}
         >
           <SelectTrigger className={cn(PILL_CLASS, isCityActive && PILL_ACTIVE_CLASS)} aria-label="City">
@@ -101,7 +93,7 @@ export function MobileFilterBar({ cities }: { cities: BrowseCityGroup[] }) {
               trigger. */}
           <SelectContent className="w-60">
             <SelectItem value="all">All cities</SelectItem>
-            {optimistic.city.includes(",") && (
+            {current.city.includes(",") && (
               <SelectItem value={MULTIPLE_CITIES_VALUE} disabled>
                 {MULTIPLE_CITIES_LABEL}
               </SelectItem>
@@ -124,9 +116,9 @@ export function MobileFilterBar({ cities }: { cities: BrowseCityGroup[] }) {
           <button
             key={cat.id}
             type="button"
-            onClick={() => commitFilters({ ...optimistic, category: cat.id })}
-            aria-pressed={optimistic.category === cat.id}
-            className={cn(PILL_CLASS, optimistic.category === cat.id && PILL_ACTIVE_CLASS)}
+            onClick={() => changeAction({ ...current, category: cat.id })}
+            aria-pressed={current.category === cat.id}
+            className={cn(PILL_CLASS, current.category === cat.id && PILL_ACTIVE_CLASS)}
           >
             {cat.label}
           </button>
@@ -134,16 +126,16 @@ export function MobileFilterBar({ cities }: { cities: BrowseCityGroup[] }) {
 
         <Popover>
           <PopoverTrigger aria-pressed={isPriceActive} className={cn(PILL_CLASS, isPriceActive && PILL_ACTIVE_CLASS)}>
-            {formatPriceLabel(optimistic.priceMin, optimistic.priceMax)}
+            {formatPriceLabel(current.priceMin, current.priceMax)}
           </PopoverTrigger>
           <PopoverContent className="w-64" align="start">
             <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               Price range
             </h2>
             <PriceRangeSlider
-              priceMin={optimistic.priceMin}
-              priceMax={optimistic.priceMax}
-              onCommit={(min, max) => commitFilters({ ...optimistic, priceMin: min, priceMax: max })}
+              priceMin={current.priceMin}
+              priceMax={current.priceMax}
+              onCommit={(min, max) => changeAction({ ...current, priceMin: min, priceMax: max })}
             />
           </PopoverContent>
         </Popover>

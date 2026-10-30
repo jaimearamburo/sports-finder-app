@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition, type FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
+import { Loader2, Sparkles, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { searchAction } from "@/app/search/actions";
+import { clearAllParams } from "@/components/browse/search-interpretation";
+import { useBrowseFilters, useBrowseNavigation } from "@/contexts/browse-navigation";
 
 // Example queries shown in rotation, to signal that the search box takes
 // plain language rather than exact names. Each uses an activity and city
@@ -33,8 +35,12 @@ const ICON_CLASS = "pointer-events-none absolute top-1/2 left-3 size-4.5 -transl
 // Typed text keeps the shared Input's 16px on phones - iPhone Safari zooms
 // the page in on focus for anything smaller - and only the placeholder is
 // 14px, so more of each example fits; text-ellipsis ends anything that
-// still doesn't fit in "…".
-const INPUT_CLASS = "h-11 rounded-xl bg-muted/40 pl-10 text-ellipsis placeholder:text-sm";
+// still doesn't fit in "…". pr-10 leaves room for the clear button. The
+// last class hides the browser's own clear "x" (Chrome and Safari add one
+// to type="search" inputs): it only emptied the box and left the search in
+// place, and Firefox has none, so ClearButton replaces it everywhere.
+const INPUT_CLASS =
+  "h-11 rounded-xl bg-muted/40 pr-10 pl-10 text-ellipsis placeholder:text-sm [&::-webkit-search-cancel-button]:appearance-none";
 
 const GRADIENT_ID = "ai-sparkles-gradient";
 
@@ -73,8 +79,10 @@ function AiSparkles({ loading = false }: { loading?: boolean }) {
 }
 
 export function HeaderSearch() {
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { markPending, pushBrowse } = useBrowseNavigation();
+  const { update } = useBrowseFilters();
   // The current search lives in the URL as `q` (see searchAction), so a
   // refresh, back button or shared link keeps showing it in the box.
   const q = searchParams.get("q") ?? "";
@@ -103,11 +111,33 @@ export function HeaderSearch() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const query = text.trim();
-    if (!query) return;
+    // One search at a time: Enter is ignored while a search is running.
+    // Without this, every press queued another AI call (Next runs Server
+    // Actions one after another), each costing money and time, followed by
+    // the same navigation again and again. A guard rather than a debounce,
+    // which would only delay the first search.
+    if (!query || isPending) return;
     startTransition(async () => {
+      // Dims the browse results for the whole search, including the second
+      // or so the AI takes to interpret the query, not just the navigation.
+      markPending();
       const result = await searchAction({ query, today: localToday() });
-      if (result.ok) router.push(result.url);
+      // Updates after an await aren't part of the transition any more, so
+      // the navigation is wrapped again (React's documented pattern). It
+      // joins this search's transition, which keeps the spinner up until
+      // the results arrive.
+      if (result.ok) startTransition(() => pushBrowse(result.query));
     });
+  }
+
+  // Empties the box and, if a search is showing, clears it too - the same
+  // as "Clear search" under the header, since a search you've wiped from
+  // the box shouldn't keep filtering the results. With no search showing
+  // (e.g. on a listing page), it only empties the box.
+  function handleClear() {
+    setText("");
+    inputRef.current?.focus();
+    if (q) update(clearAllParams);
   }
 
   return (
@@ -120,6 +150,7 @@ export function HeaderSearch() {
       {/* aria-label, not the placeholder, names the field: a placeholder
           isn't a reliable label, and this one changes every few seconds. */}
       <Input
+        ref={inputRef}
         type="search"
         name="q"
         aria-label="Search"
@@ -133,7 +164,26 @@ export function HeaderSearch() {
         onBlur={() => setFocused(false)}
         className={INPUT_CLASS}
       />
+      {/* Hidden while a search runs: clearing then would be undone a moment
+          later when the search's results arrive. */}
+      {text !== "" && !isPending && <ClearButton onClick={handleClear} />}
     </form>
+  );
+}
+
+// Inside the box's right edge, mirroring the icon on the left. type="button"
+// so it never submits the form. A 24px circle keeps the tap target at the
+// accessibility minimum without crowding the input.
+function ClearButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Clear search"
+      className="absolute top-1/2 right-2.5 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+    >
+      <X className="size-4" aria-hidden />
+    </button>
   );
 }
 

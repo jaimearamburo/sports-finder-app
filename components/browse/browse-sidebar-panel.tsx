@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useOptimistic, useState } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { CATEGORIES } from "@/lib/category-filters";
 import { PRICE_MIN, PRICE_MAX, PRICE_STEP } from "@/lib/price-range";
@@ -28,12 +28,9 @@ export type SidebarFilterValues = {
 
 // Renders every sidebar filter (category, city, price) with no knowledge of
 // URLs or routing. BrowseSidebar owns the URL logic and passes a plain
-// callback down; this component owns the optimistic display and pending
-// state for all of them and calls that callback inside its own transition.
-// Separating a component that reads useSearchParams() from one that manages
-// useOptimistic/startTransition state keeps rapid filter changes from
-// contending with each other during rerenders, the same pattern TagFilters
-// and TagFilterChips use. Category is the only control for the
+// callback down. The values it receives already include a change that's
+// still loading (see useBrowseFilters), so a click shows straight away
+// without any optimistic state here. Category is the only control for the
 // booking-mechanic axis (see lib/category-filters.ts); there is no
 // separate booking-type control.
 export function BrowseSidebarPanel({
@@ -47,36 +44,22 @@ export function BrowseSidebarPanel({
   cities: BrowseCityGroup[];
   changeAction: (next: SidebarFilterValues) => void;
 }) {
-  const [optimistic, setOptimistic] = useOptimistic<SidebarFilterValues>({
-    category,
-    city,
-    priceMin,
-    priceMax,
-  });
-  const [isPending, setIsPending] = useOptimistic(false);
-
-  function commitFilters(next: SidebarFilterValues) {
-    startTransition(() => {
-      setOptimistic(next);
-      setIsPending(true);
-      changeAction(next);
-    });
-  }
+  const current: SidebarFilterValues = { category, city, priceMin, priceMax };
 
   return (
-    <div data-pending={isPending ? "" : undefined}>
+    <div>
       <nav aria-label="Browse categories" className="flex flex-col">
         {CATEGORIES.map((cat) => (
           <button
             key={cat.id}
             type="button"
-            onClick={() => commitFilters({ ...optimistic, category: cat.id })}
-            aria-current={optimistic.category === cat.id ? "true" : undefined}
+            onClick={() => changeAction({ ...current, category: cat.id })}
+            aria-current={current.category === cat.id ? "true" : undefined}
             className={cn(
               "border-l-2 border-transparent px-2.5 py-2 text-left",
               CATEGORY_LABEL_TEXT_CLASS,
               "text-muted-foreground hover:bg-foreground/3 hover:text-foreground/80",
-              optimistic.category === cat.id &&
+              current.category === cat.id &&
                 "border-primary bg-foreground/3 text-foreground/80"
             )}
           >
@@ -100,10 +83,10 @@ export function BrowseSidebarPanel({
               { label: MULTIPLE_CITIES_LABEL, value: MULTIPLE_CITIES_VALUE },
               ...cities.flatMap((group) => group.cities.map((c) => ({ label: c.label, value: c.name }))),
             ]}
-            value={citySelectValue(optimistic.city)}
+            value={citySelectValue(current.city)}
             onValueChange={(value) => {
               if (value === MULTIPLE_CITIES_VALUE) return;
-              commitFilters({ ...optimistic, city: !value || value === "all" ? "" : value });
+              changeAction({ ...current, city: !value || value === "all" ? "" : value });
             }}
           >
             {/* aria-label: the visible "City" heading above isn't tied to
@@ -114,7 +97,7 @@ export function BrowseSidebarPanel({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All cities</SelectItem>
-              {optimistic.city.includes(",") && (
+              {current.city.includes(",") && (
                 <SelectItem value={MULTIPLE_CITIES_VALUE} disabled>
                   {MULTIPLE_CITIES_LABEL}
                 </SelectItem>
@@ -135,9 +118,9 @@ export function BrowseSidebarPanel({
         </div>
 
         <PriceRangeFilter
-          priceMin={optimistic.priceMin}
-          priceMax={optimistic.priceMax}
-          onCommit={(min, max) => commitFilters({ ...optimistic, priceMin: min, priceMax: max })}
+          priceMin={current.priceMin}
+          priceMax={current.priceMax}
+          onCommit={(min, max) => changeAction({ ...current, priceMin: min, priceMax: max })}
         />
       </div>
     </div>

@@ -1,6 +1,5 @@
 "use client";
 
-import { startTransition, useOptimistic } from "react";
 import { cn } from "@/lib/utils";
 import { TAG_LABEL_TEXT_CLASS } from "@/lib/label-styles";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -8,9 +7,10 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 type BrowseTag = { id: string; name: string; emoji: string; color: string };
 
 // Renders the actual chips with no knowledge of URLs or routing. TagFilters
-// owns the URL logic and passes a plain callback down; this component owns
-// the optimistic display and pending state and calls that callback inside
-// its own transition.
+// owns the URL logic and passes a plain callback down. `selected` already
+// includes a change that's still loading (see useBrowseFilters), so a
+// clicked chip highlights straight away, and a second quick click builds on
+// the first.
 export function TagFilterChips({
   tags,
   selected,
@@ -20,30 +20,16 @@ export function TagFilterChips({
   selected: Set<string>;
   changeAction: (next: Set<string>) => void;
 }) {
-  // One optimistic value for what is displayed as selected right now, one
-  // purely as a pending flag. Both apply on the current frame even inside
-  // a transition, which makes a clicked chip highlight instantly
-  // regardless of how long the resulting navigation takes.
-  const [optimisticSelected, setOptimisticSelected] = useOptimistic(selected);
-  const [isPending, setIsPending] = useOptimistic(false);
-
   function handleClick(name: string) {
     const slug = name.toLowerCase();
-    // Computed from this component's own optimistic state, not the
-    // selected prop, so a second click before the first navigation
-    // resolves still toggles correctly instead of reading a stale value.
-    const next = new Set(optimisticSelected);
+    const next = new Set(selected);
     if (next.has(slug)) {
       next.delete(slug);
     } else {
       next.add(slug);
     }
 
-    startTransition(() => {
-      setOptimisticSelected(next);
-      setIsPending(true);
-      changeAction(next);
-    });
+    changeAction(next);
   }
 
   return (
@@ -70,10 +56,9 @@ export function TagFilterChips({
       >
         <div
           className="flex gap-4 pt-1 pr-2 pb-0.5 pl-2 sm:pt-2 sm:pb-1"
-          data-pending={isPending ? "" : undefined}
         >
           {tags.map((tag) => {
-            const isSelected = optimisticSelected.has(tag.name.toLowerCase());
+            const isSelected = selected.has(tag.name.toLowerCase());
 
             return (
               <div key={tag.id} className="flex shrink-0 flex-col items-center gap-1 pb-1 sm:gap-2.5 sm:pb-2.5">
@@ -84,11 +69,10 @@ export function TagFilterChips({
                   aria-label={tag.name}
                   // Named group ("chip"). Tailwind's group-hover selector
                   // matches any ancestor with a group class of the same name,
-                  // not only the nearest one. app/page.tsx has its own group
-                  // ("browse") for a separate dimming effect, and this needs a
-                  // distinct name so the two do not trigger each other. Only
-                  // the icon lives inside the button, so hover/click apply to
-                  // it alone, not the label below.
+                  // not only the nearest one, so a distinct name keeps it
+                  // from reacting to some other group further up the page.
+                  // Only the icon lives inside the button, so hover/click
+                  // apply to it alone, not the label below.
                   //
                   // active:scale-95 gives tap feedback: a brief scale-down
                   // while the pointer or touch is down, independent of which
@@ -133,10 +117,10 @@ export function TagFilterChips({
         aria-hidden="true"
         className={cn(
           "absolute -top-1 -right-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[0.6875rem] font-semibold text-primary-foreground shadow-sm transition-all duration-150",
-          optimisticSelected.size > 0 ? "scale-100 opacity-100" : "scale-75 opacity-0"
+          selected.size > 0 ? "scale-100 opacity-100" : "scale-75 opacity-0"
         )}
       >
-        {optimisticSelected.size}
+        {selected.size}
       </span>
     </div>
   );
