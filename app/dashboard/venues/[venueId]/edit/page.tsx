@@ -27,8 +27,8 @@ export default async function EditVenuePage({ params }: { params: Promise<{ venu
   const initialValues = ownerListed ? values : { ...values, ownerId: "" };
   return (
     <div>
-      <Link href="/dashboard/venues" className="mb-4 inline-flex min-h-6 items-center text-sm text-muted-foreground hover:text-foreground">
-        ← Venues
+      <Link href={`/dashboard/venues/${id}`} className="mb-4 inline-flex min-h-6 items-center text-sm text-muted-foreground hover:text-foreground">
+        ← {venue.name}
       </Link>
       <h1 className="mb-6 text-2xl font-bold">Edit {venue.name}</h1>
       <VenueForm

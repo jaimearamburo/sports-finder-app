@@ -5,8 +5,7 @@ import { auth } from "@/auth";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Logo } from "@/components/layout/logo";
 import { HeaderSearch, HeaderSearchFallback } from "@/components/layout/header-search";
-import { UserMenu } from "@/components/layout/user-menu";
-import { getAccountLinks } from "@/lib/account-nav";
+import { AccountMenu, type AccountMenuUser } from "@/components/layout/account-menu";
 
 /**
  * Global site header: brand link, search, and auth-aware actions. An
@@ -22,7 +21,9 @@ import { getAccountLinks } from "@/lib/account-nav";
 export async function SiteHeader() {
   // Reads the current session from the request cookie.
   const session = await auth();
-  const accountLinks = session ? getAccountLinks(session.user.role) : [];
+  const user: AccountMenuUser | null = session
+    ? { name: session.user.name ?? null, email: session.user.email ?? null, role: session.user.role }
+    : null;
 
   return (
     // [will-change:transform] hints the browser to promote this sticky
@@ -52,28 +53,18 @@ export async function SiteHeader() {
           </Button>
 
           {/* Below md (the same mobile cutoff BrowsePageShell and
-              MobileFilterBar use, so the "mobile" boundary stays one
-              width across the app), the full Dashboard/Log out or
-              Log in/Sign up links don't fit next to a usable search box.
-              UserMenu collapses them into one round avatar button that
-              opens a small menu instead. */}
+              MobileFilterBar use, so the "mobile" boundary stays one width
+              across the app), there's only room for a round button next to
+              a usable search box: initials when signed in, an icon when not.
+              From md up, a signed-in user's button also shows their name
+              and role, and signed-out visitors get plain Log in / Sign up
+              links. Either way the account links live in AccountMenu. */}
           <div className="md:hidden">
-            <UserMenu role={session?.user.role ?? null} />
+            <AccountMenu user={user} compact />
           </div>
           <div className="hidden items-center gap-2 md:flex">
-            {session ? (
-              <>
-                {accountLinks.map((link) => (
-                  <Link key={link.href} href={link.href} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                    {link.label}
-                  </Link>
-                ))}
-                {/* Links to the logout confirmation page rather than
-                    signing out directly. */}
-                <Link href="/logout" className={buttonVariants({ variant: "outline", size: "sm" })}>
-                  Log out
-                </Link>
-              </>
+            {user ? (
+              <AccountMenu user={user} />
             ) : (
               <>
                 <Link href="/login" className={buttonVariants({ variant: "ghost", size: "sm" })}>

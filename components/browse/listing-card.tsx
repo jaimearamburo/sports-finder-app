@@ -62,7 +62,14 @@ export function getMetaLine(listing: ListingCardData): string {
   }
 }
 
-export function getPriceSuffix(listing: ListingCardData): string {
+// Just the fields the price helpers read, so the venue dashboard can format
+// prices the same way without loading a whole card's worth of data.
+export type PriceFields = {
+  pricePerUnit: { toString(): string };
+  activity: { bookingMechanic: "time_range" | "date_range" | "fixed_session"; isAccommodation: boolean };
+};
+
+export function getPriceSuffix(listing: PriceFields): string {
   switch (listing.activity.bookingMechanic) {
     case "time_range":
       return "/hr";
@@ -75,7 +82,7 @@ export function getPriceSuffix(listing: ListingCardData): string {
 
 // "Free" for a zero price rather than "$0" - shared by the card and the
 // detail page so this formatting rule only lives in one place.
-export function formatPrice(listing: ListingCardData): string {
+export function formatPrice(listing: PriceFields): string {
   return Number(listing.pricePerUnit) === 0
     ? "Free"
     : `$${listing.pricePerUnit.toString()}${getPriceSuffix(listing)}`;

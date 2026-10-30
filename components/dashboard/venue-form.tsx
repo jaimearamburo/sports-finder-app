@@ -136,7 +136,9 @@ export function VenueForm({
         setFormError(result.error ?? null);
         return;
       }
-      router.push("/dashboard/venues");
+      // To the venue's own page: its new settings, and (for a new venue)
+      // the obvious next step, adding listings.
+      router.push(`/dashboard/venues/${result.venueId}`);
     });
   }
 
@@ -305,7 +307,7 @@ export function VenueForm({
         <Button type="submit" disabled={isPending}>
           {isPending ? "Saving..." : venueId ? "Save changes" : "Add venue"}
         </Button>
-        <Link href="/dashboard/venues" className={buttonVariants({ variant: "outline" })}>
+        <Link href={venueId ? `/dashboard/venues/${venueId}` : "/dashboard/venues"} className={buttonVariants({ variant: "outline" })}>
           Cancel
         </Link>
       </div>

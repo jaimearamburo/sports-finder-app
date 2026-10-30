@@ -83,25 +83,21 @@ export default async function DashboardOverviewPage() {
             {venues.map((venue) => (
               <li key={venue.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="font-medium">{venue.name}</p>
+                  <Link
+                    href={`/dashboard/venues/${venue.id}`}
+                    className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline"
+                  >
+                    {venue.name}
+                  </Link>
                   <p className="text-sm text-muted-foreground">
                     {venue.location}
                     {venue.ownerName && <> · Owner: {venue.ownerName}</>}
                   </p>
                 </div>
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="text-muted-foreground tabular-nums">
-                    {venue.activeListings} {venue.activeListings === 1 ? "listing" : "listings"} ·{" "}
-                    {venue.upcomingBookings} upcoming {venue.upcomingBookings === 1 ? "booking" : "bookings"}
-                  </span>
-                  <Link
-                    href={`/dashboard/venues/${venue.id}`}
-                    className="font-medium text-primary underline underline-offset-4"
-                    aria-label={`Manage ${venue.name}`}
-                  >
-                    Manage
-                  </Link>
-                </div>
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  {venue.activeListings} {venue.activeListings === 1 ? "listing" : "listings"} ·{" "}
+                  {venue.upcomingBookings} upcoming {venue.upcomingBookings === 1 ? "booking" : "bookings"}
+                </span>
               </li>
             ))}
           </ul>

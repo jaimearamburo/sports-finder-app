@@ -3,11 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { withPermission } from "@/lib/auth-guards";
 import { can } from "@/lib/authz/permissions";
 import { manageableVenuesWhere } from "@/lib/authz/policies";
-import { addDays, formatBookingTime, todayInTimezone } from "@/lib/dates";
+import { addDays, formatBookingTime } from "@/lib/dates";
+import { bookingDays, isUpcomingBooking, upcomingQueryCutoff, venueWeek } from "@/lib/dashboard/booking-days";
 import { getBookingReference } from "@/lib/booking-reference";
 import { formatLocation } from "@/lib/dashboard/venues";
-
-type BookingMechanic = "time_range" | "date_range" | "fixed_session";
 
 export type OverviewVenue = {
   id: string;
@@ -44,27 +43,6 @@ export type DashboardOverview = {
 const COMING_UP_LIMIT = 8;
 const REVENUE_DAYS = 30;
 
-// A calendar day as "yyyy-mm-dd" on a given timezone's wall clock. Strings
-// in this format compare correctly with < and >, which keeps the day maths
-// below simple.
-function dayKey(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
-}
-
-// The first and last calendar day a booking covers, at its venue. Courts
-// and classes are real instants, read on the venue's clock. Passes and
-// stays are stored as plain calendar days (UTC midnight, end exclusive -
-// see formatBookingTime), so they're read in UTC. Either way the end is
-// exclusive, so the last day is the one just before it.
-function bookingDays(
-  booking: { startsAt: Date; endsAt: Date },
-  timeZone: string,
-  mechanic: BookingMechanic
-): { first: string; last: string } {
-  const zone = mechanic === "date_range" ? "UTC" : timeZone;
-  return { first: dayKey(booking.startsAt, zone), last: dayKey(new Date(booking.endsAt.getTime() - 1), zone) };
-}
-
 // Everything the overview page shows, for the venues this user may manage:
 // their own as a venue owner, every venue as an admin. Counts are of
 // booking orders, matching My Bookings, so a 3-day pass counts once.
@@ -91,16 +69,14 @@ export const getDashboardOverview = withPermission(
           _count: { select: { listings: { where: { archivedAt: null } } } },
         },
       }),
-      // Every booking that hasn't finished yet. A day of slack on the cut-off
-      // keeps today's passes and stays: they're stored as UTC-midnight days,
-      // so at venues ahead of UTC they "end" partway through the venue's
-      // own day. Which ones are really still upcoming is decided per venue
-      // below. Bounded by how far ahead anyone can book (the booking
-      // window), so this stays a modest set however much history builds up.
+      // Every booking that hasn't finished yet (isUpcomingBooking decides
+      // exactly, per venue). Bounded by how far ahead anyone can book (the
+      // booking window), so this stays a modest set however much history
+      // builds up.
       prisma.booking.findMany({
         where: {
           status: { not: "cancelled" },
-          endsAt: { gt: addDays(now, -1) },
+          endsAt: { gt: upcomingQueryCutoff(now) },
           listing: { venue: venueScope },
         },
         orderBy: { startsAt: "asc" },
@@ -142,19 +118,12 @@ export const getDashboardOverview = withPermission(
       const { listing } = booking;
       const timeZone = listing.venue.city.timezone;
       const mechanic = listing.activity.bookingMechanic;
-      // "Today" is the venue's today, not the server's or the viewer's.
-      const today = todayInTimezone(timeZone);
-      const todayKey = dayKey(today, "UTC");
-      const weekEndKey = dayKey(addDays(today, 6), "UTC");
+      if (!isUpcomingBooking(booking, timeZone, mechanic, now)) continue;
+
+      const { today, weekEnd } = venueWeek(timeZone);
       const days = bookingDays(booking, timeZone, mechanic);
-
-      // Courts and classes are over once their end time passes; passes and
-      // stays once their last day is behind the venue's today.
-      const upcoming = mechanic === "date_range" ? days.last >= todayKey : booking.endsAt > now;
-      if (!upcoming) continue;
-
-      if (days.first <= todayKey && days.last >= todayKey) todayOrders.add(booking.orderId);
-      if (days.first <= weekEndKey && days.last >= todayKey) next7DaysOrders.add(booking.orderId);
+      if (days.first <= today && days.last >= today) todayOrders.add(booking.orderId);
+      if (days.first <= weekEnd && days.last >= today) next7DaysOrders.add(booking.orderId);
 
       const venueOrders = upcomingOrdersByVenue.get(listing.venueId) ?? new Set<string>();
       venueOrders.add(booking.orderId);
