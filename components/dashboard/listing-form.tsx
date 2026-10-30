@@ -173,6 +173,7 @@ function previewCard(state: FormState, unlimited: boolean, activity: ActivityOpt
   const kind = activity.kind;
   return {
     name: state.name.trim() || "Listing name",
+    imageUrl: state.imageUrl,
     pricePerUnit: Number.isFinite(price) && price >= 0 ? String(Math.round(price * 100) / 100) : "0",
     capacity: unlimited ? null : Number(state.capacity) || null,
     minDurationMinutes: kind === "court" ? Number(state.minDurationMinutes) : null,

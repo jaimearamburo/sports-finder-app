@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { Skeleton as Bone } from "@/components/ui/skeleton";
 import { CATEGORY_LABEL_TEXT_CLASS, TAG_LABEL_TEXT_CLASS } from "@/lib/label-styles";
 import {
+  CARD_IMAGE_AREA_CLASS,
   CARD_EYEBROW_TEXT_CLASS,
   CARD_TITLE_TEXT_CLASS,
   CARD_VENUE_TEXT_CLASS,
@@ -109,7 +110,7 @@ export function TagFiltersSkeleton() {
 function ListingCardSkeleton() {
   return (
     <div className="overflow-hidden rounded-[5px] border border-t-[3px] border-t-transparent">
-      <Bone className="h-20 rounded-none sm:h-28 md:h-32" />
+      <Bone className={cn("rounded-none", CARD_IMAGE_AREA_CLASS)} />
       <div className="p-2.5 sm:p-3.5">
         <TextBone as="p" textClass={CARD_EYEBROW_TEXT_CLASS} className="mb-1 hidden w-16 sm:block" />
         <TextBone as="p" textClass={CARD_TITLE_TEXT_CLASS} className="mb-1.5 w-32" />

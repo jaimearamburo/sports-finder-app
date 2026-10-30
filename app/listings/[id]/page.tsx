@@ -1,9 +1,11 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { BackButton } from "@/components/listings/back-button";
 import { SlotPicker } from "@/components/listings/slot-picker";
 import { ActiveHoldBanner } from "@/components/listings/active-hold-banner";
+import { ScrollToTopOnOpen } from "@/components/listings/scroll-to-top-on-open";
 import type { PickerListing } from "@/components/listings/picker-types";
 import { getBookableDates, getSpotsRemaining, getOccupiedIntervals, getFullyBookedDates } from "@/lib/availability";
 import { SAME_DAY_CUTOFF_BUFFER_MINUTES } from "@/lib/time-of-day";
@@ -101,6 +103,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-7 sm:px-6">
+      <ScrollToTopOnOpen />
       {activeHold && (
         <ActiveHoldBanner
           orderId={activeHold.orderId}
@@ -119,12 +122,35 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
       </BackButton>
 
       <div className="mt-4 overflow-hidden rounded-md border bg-card shadow-sm">
-        <div
-          className="grid h-64 place-items-center border-t-[3px] bg-muted/60 text-6xl"
-          style={{ borderTopColor: accentColor }}
-        >
-          {tags[0]?.emoji}
-        </div>
+        {listing.imageUrl ? (
+          // The listing's photo, cropped to fill a fixed shape (object-cover,
+          // centred): 3:2 on phones, a wider 2:1 banner from sm up, so a
+          // portrait or very wide upload still fits the layout. The page's
+          // main image, so it's fetched first rather than lazily. `sizes`
+          // matches the card's width: the full screen on phones, at most
+          // 720px (max-w-3xl less its padding) from md up.
+          <div
+            className="relative aspect-[3/2] border-t-[3px] bg-muted/60 sm:aspect-[2/1]"
+            style={{ borderTopColor: accentColor }}
+          >
+            <Image
+              src={listing.imageUrl}
+              alt={`${listing.name} at ${listing.venue.name}`}
+              fill
+              sizes="(min-width: 768px) 720px, 100vw"
+              loading="eager"
+              fetchPriority="high"
+              className="object-cover"
+            />
+          </div>
+        ) : (
+          <div
+            className="grid h-64 place-items-center border-t-[3px] bg-muted/60 text-6xl"
+            style={{ borderTopColor: accentColor }}
+          >
+            {tags[0]?.emoji}
+          </div>
+        )}
 
         <div className="p-6">
           <div>

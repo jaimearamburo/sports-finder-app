@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { Activity, City, Country, Listing, Tag, Venue } from "../../generated/prisma/client";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,9 @@ export function getPrimaryTag<T>(listing: { activity: { tags: { tag: T }[] } }):
 // the real card, not a copy that could drift.
 export type CardFields = {
   name: string;
+  // The listing's photo (a Vercel Blob URL), or null/absent to show the
+  // tag emoji instead.
+  imageUrl?: string | null;
   pricePerUnit: { toString(): string };
   capacity: number | null;
   minDurationMinutes: number | null;
@@ -114,7 +118,14 @@ export function formatPrice(listing: PriceFields): string {
   return `$${shown}${getPriceSuffix(listing)}`;
 }
 
-export function ListingGrid({ listings }: { listings: ListingCardData[] }) {
+// How many cards at the top of the page load their photo straight away
+// rather than lazily: about one row on most screens (2 on phones, 4-5 on
+// desktop). Those are visible on arrival, and usually the page's largest
+// image, so waiting for them to scroll into view would only delay what
+// people see first. Every other photo loads as it nears the screen.
+export const EAGER_CARD_COUNT = 4;
+
+export function ListingGrid({ listings, eagerCount = 0 }: { listings: ListingCardData[]; eagerCount?: number }) {
   return (
     // Mobile gets exactly 2 equal, stretchy columns (grid-cols-2) rather
     // than fixed-width auto-fill columns - at a fixed 150px, 2 columns
@@ -126,8 +137,8 @@ export function ListingGrid({ listings }: { listings: ListingCardData[] }) {
     // keeps a card a fixed, consistent size across however many columns
     // actually fit the viewport.
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,180px)] sm:gap-4 md:grid-cols-[repeat(auto-fill,220px)]">
-      {listings.map((listing) => (
-        <ListingCard key={listing.id} listing={listing} href={`/listings/${listing.id}`} />
+      {listings.map((listing, index) => (
+        <ListingCard key={listing.id} listing={listing} href={`/listings/${listing.id}`} eager={index < eagerCount} />
       ))}
     </div>
   );
@@ -140,11 +151,26 @@ export const CARD_TITLE_TEXT_CLASS = "text-[1.05rem] leading-tight font-semibold
 export const CARD_VENUE_TEXT_CLASS = "text-sm";
 export const CARD_LOCATION_TEXT_CLASS = "text-xs";
 export const CARD_META_TEXT_CLASS = "text-sm";
+// The card's photo area, shared with the skeleton so loading and loaded
+// cards are the same size. A 3:2 frame on phones - the card's width there
+// is half the screen, so a fixed height would get flatter (and crop more
+// of a photo) the wider the phone; 3:2 keeps it about as tall as the
+// tablet card. From sm up the grid's columns have fixed widths, so fixed
+// heights give the same shape.
+export const CARD_IMAGE_AREA_CLASS = "aspect-[3/2] sm:aspect-auto sm:h-28 md:h-32";
+
+// The photo's display width at each breakpoint, matching ListingGrid's
+// columns: half the screen on phones (two columns), then the fixed 180px
+// and 220px tracks. The browser uses it to pick the smallest resized copy
+// that's still sharp on its screen (a phone at 3x density gets ~560px wide,
+// not the original upload), so it must change if the grid's widths do.
+const CARD_IMAGE_SIZES = "(min-width: 768px) 220px, (min-width: 640px) 180px, 50vw";
 
 // `href` set: the clickable card used in browse. Left out: the same card as
 // a plain, non-interactive block - the dashboard's live preview, where
-// there's no saved listing to link to yet.
-export function ListingCard({ listing, href }: { listing: CardFields; href?: string }) {
+// there's no saved listing to link to yet. `eager`: load the photo
+// straight away (see EAGER_CARD_COUNT).
+export function ListingCard({ listing, href, eager = false }: { listing: CardFields; href?: string; eager?: boolean }) {
   const tag = getPrimaryTag(listing);
   // Color comes from the database via inline style rather than a per-tag
   // CSS class, since tags are editable data with no fixed set of colors to
@@ -154,8 +180,22 @@ export function ListingCard({ listing, href }: { listing: CardFields; href?: str
   const frameStyle = { borderTopColor: tag?.color };
   const body = (
     <>
-      <div className="grid h-20 place-items-center bg-muted/60 text-2xl sm:h-28 sm:text-3xl md:h-32">
-        {tag?.emoji}
+      <div className={cn("relative grid place-items-center bg-muted/60 text-2xl sm:text-3xl", CARD_IMAGE_AREA_CLASS)}>
+        {listing.imageUrl ? (
+          // Cropped to fill the area (object-cover, centred), whatever the
+          // photo's own shape. Empty alt: the card's text already names the
+          // listing, so describing the photo would only repeat it.
+          <Image
+            src={listing.imageUrl}
+            alt=""
+            fill
+            sizes={CARD_IMAGE_SIZES}
+            loading={eager ? "eager" : "lazy"}
+            className="object-cover"
+          />
+        ) : (
+          tag?.emoji
+        )}
       </div>
       <div className="p-2.5 sm:p-3.5">
         {/* Dropped at the smallest size, not just shrunk - the category

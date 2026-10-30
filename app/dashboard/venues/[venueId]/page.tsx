@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
@@ -11,6 +12,21 @@ function ArchivedBadge() {
     <span className="inline-block rounded-full bg-muted px-2.5 py-1 text-xs font-medium whitespace-nowrap text-muted-foreground">
       Archived
     </span>
+  );
+}
+
+// A listing's photo as a small square, or its activity's emoji when it has
+// none - so managers can see at a glance which listings still need one.
+// Decorative (empty alt): the listing's name is right beside it.
+function ListingThumbnail({ listing }: { listing: VenueListingRow }) {
+  return (
+    <div className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-md bg-muted text-lg">
+      {listing.imageUrl ? (
+        <Image src={listing.imageUrl} alt="" fill sizes="40px" className="object-cover" />
+      ) : (
+        <span aria-hidden>{listing.emoji}</span>
+      )}
+    </div>
   );
 }
 
@@ -163,11 +179,16 @@ export default async function VenuePage({
                   {venue.listings.map((listing) => (
                     <tr key={listing.id} className={cn("border-b last:border-0", listing.archived && "bg-muted/30")}>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium">{listing.name}</span>
-                          {listing.archived && <ArchivedBadge />}
+                        <div className="flex items-center gap-3">
+                          <ListingThumbnail listing={listing} />
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{listing.name}</span>
+                              {listing.archived && <ArchivedBadge />}
+                            </div>
+                            <p className="text-muted-foreground">{listing.activityName}</p>
+                          </div>
                         </div>
-                        <p className="text-muted-foreground">{listing.activityName}</p>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">{listing.price}</td>
                       <td className="px-4 py-3 text-muted-foreground">{listing.schedule ?? "Not set"}</td>
@@ -185,13 +206,18 @@ export default async function VenuePage({
             <ul className="flex flex-col gap-3 md:hidden">
               {venue.listings.map((listing) => (
                 <li key={listing.id} className={cn("rounded-md border bg-card p-4 text-sm", listing.archived && "bg-muted/30")}>
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="font-medium">{listing.name}</p>
-                    {listing.archived && <ArchivedBadge />}
+                  <div className="flex items-start gap-3">
+                    <ListingThumbnail listing={listing} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-medium">{listing.name}</p>
+                        {listing.archived && <ArchivedBadge />}
+                      </div>
+                      <p className="text-muted-foreground">
+                        {listing.activityName} · {listing.price}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-muted-foreground">
-                    {listing.activityName} · {listing.price}
-                  </p>
                   {listing.schedule && <p className="mt-1">{listing.schedule}</p>}
                   <p className="mt-1 text-muted-foreground">
                     <UpcomingCount count={listing.upcomingBookings} />

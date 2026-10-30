@@ -1,14 +1,15 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { authFile, fixtureIds } from "./fixtures";
 import { query } from "./db";
-import { blobExists } from "./blob";
+import { blobExists, putTestImage } from "./blob";
 import { expectNoViolations, tamperNextAction } from "./helpers";
 import { LISTING_IMAGE_HOST } from "../lib/listing-images";
 
-// Listing photos (GitHub #91): who may get an upload permission, that a
-// save only accepts a photo from the listing's own venue, and the real
-// flow - upload, replace, remove - including that replaced and removed
-// files are deleted from the store. The upload tests write to the
+// Listing photos: who may get an upload permission, that a save only
+// accepts a photo from the listing's own venue, and the real flow - upload,
+// replace, remove - including that replaced and removed files are deleted
+// from the store (GitHub #91); and that a photo shows wherever the listing
+// does, with the emoji kept for listings without one (#92). The upload tests write to the
 // project's Blob store, under the test venue's own folder; teardown
 // removes whatever is left there (e2e/blob.ts).
 
@@ -156,5 +157,43 @@ test.describe("listing photo", () => {
     });
     expect(await storedImage(listingA)).toBeNull();
     expect(await blobExists(second!)).toBe(false);
+  });
+});
+
+test.describe("photos across the app", () => {
+  test.use({ storageState: authFile("ownerA") });
+
+  test("a listing's photo shows on browse, its page and the dashboard; one without keeps its emoji", async ({ page }) => {
+    const { listingA, listingB, venueA } = ids();
+    const image = await putTestImage(venueA, PNG);
+    await query("update listings set image_url = $1 where id = $2", [image, listingA]);
+    const encodedFolder = encodeURIComponent(`/listings/${venueA}/`);
+
+    try {
+      await test.step("browse card", async () => {
+        await page.goto("/");
+        const cardA = page.locator(`a[href="/listings/${listingA}"]`);
+        await cardA.scrollIntoViewIfNeeded();
+        // Decorative on the card (empty alt): the card's text names it.
+        await expect(cardA.locator("img")).toHaveAttribute("src", new RegExp(`/_next/image\\?url=.*${encodedFolder}`));
+        await expect(cardA.locator("img")).toHaveAttribute("alt", "");
+        await expect(page.locator(`a[href="/listings/${listingB}"] img`)).toHaveCount(0);
+      });
+
+      await test.step("listing page", async () => {
+        const hero = page.waitForResponse((response) => response.url().includes("/_next/image") && response.url().includes(encodedFolder));
+        await page.goto(`/listings/${listingA}`);
+        await expect(page.getByRole("img", { name: "E2E Court A at E2E Venue A" })).toBeVisible();
+        expect((await hero).status()).toBe(200);
+      });
+
+      await test.step("dashboard thumbnail", async () => {
+        await page.goto(`/dashboard/venues/${venueA}`);
+        await expect(page.locator("table img").first()).toHaveAttribute("src", new RegExp(encodedFolder));
+      });
+    } finally {
+      // The file itself goes with the test venue's folder at teardown.
+      await query("update listings set image_url = null where id = $1", [listingA]);
+    }
   });
 });

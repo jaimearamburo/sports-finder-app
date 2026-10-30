@@ -24,6 +24,9 @@ export type VenueListingRow = {
   id: string;
   name: string;
   activityName: string;
+  // The listing's photo, or null; the row then shows the activity's emoji.
+  imageUrl: string | null;
+  emoji: string | null;
   // Already formatted the way browse shows it: "$20/hr", "$45/night", "Free".
   price: string;
   // "Open 6:00 AM – 10:00 PM daily", "Every Monday, 6:00 PM", or null.
@@ -77,7 +80,17 @@ export const getVenuePage = withPermission(
         where: { venueId: venue.id, ...(includeArchived ? {} : { archivedAt: null }) },
         // Active listings first, then alphabetical within each group.
         orderBy: [{ archivedAt: { sort: "asc", nulls: "first" } }, { name: "asc" }],
-        include: { activity: { select: { name: true, bookingMechanic: true, isAccommodation: true } } },
+        include: {
+          activity: {
+            select: {
+              name: true,
+              bookingMechanic: true,
+              isAccommodation: true,
+              // The primary tag, as the browse card picks it.
+              tags: { select: { tag: { select: { emoji: true } } }, take: 1 },
+            },
+          },
+        },
       }),
       prisma.listing.count({ where: { venueId: venue.id, archivedAt: { not: null } } }),
       // Bookings that may still be upcoming, for the per-listing counts
@@ -118,6 +131,8 @@ export const getVenuePage = withPermission(
         id: listing.id,
         name: listing.name,
         activityName: listing.activity.name,
+        imageUrl: listing.imageUrl,
+        emoji: listing.activity.tags[0]?.tag.emoji ?? null,
         price: formatPrice(listing),
         schedule: getScheduleLine(listing),
         upcomingBookings: upcomingByListing.get(listing.id)?.size ?? 0,

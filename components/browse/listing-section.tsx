@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Info, SearchX } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
-import { ListingGrid, getPrimaryTag, type ListingCardData } from "@/components/browse/listing-card";
+import { EAGER_CARD_COUNT, ListingGrid, getPrimaryTag, type ListingCardData } from "@/components/browse/listing-card";
 import { isCategoryId, MECHANIC_CATEGORIES, type CategoryId } from "@/lib/category-filters";
 import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
 import { getBookableDates, getSpotsRemaining, hasAvailableSlotOnDate } from "@/lib/availability";
@@ -218,7 +218,8 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
               </PopoverContent>
             </Popover>
           </h2>
-          <TagGroups listings={byMechanic.get(type.id)!} />
+          {/* Only the very first grid on the page starts with eager photos. */}
+          <TagGroups listings={byMechanic.get(type.id)!} eager={type.id === mechanicGroups[0].id} />
         </section>
       ))}
     </div>
@@ -229,7 +230,7 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
 // Section order comes from each tag's own displayOrder column, fetched
 // alongside the listing's activity.tags.tag relation. Listings with no
 // tag sort last under "Other".
-function TagGroups({ listings }: { listings: ListingCardData[] }) {
+function TagGroups({ listings, eager }: { listings: ListingCardData[]; eager: boolean }) {
   const groups = new Map<string, typeof listings>();
   const groupOrder = new Map<string, number>();
   for (const listing of listings) {
@@ -249,10 +250,10 @@ function TagGroups({ listings }: { listings: ListingCardData[] }) {
 
   return (
     <div className="flex flex-col gap-8">
-      {groupNames.map((name) => (
+      {groupNames.map((name, index) => (
         <section key={name}>
           <h3 className="mb-3 text-sm font-semibold">{name}</h3>
-          <ListingGrid listings={groups.get(name)!} />
+          <ListingGrid listings={groups.get(name)!} eagerCount={eager && index === 0 ? EAGER_CARD_COUNT : 0} />
         </section>
       ))}
     </div>

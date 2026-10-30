@@ -25,6 +25,13 @@ const nextConfig: NextConfig = {
         search: "",
       },
     ],
+    // How long a resized copy is kept before the optimizer makes it again.
+    // A listing photo's URL never changes its content (each upload gets a
+    // new random name, and overwriting is off), so the copies can be kept
+    // for a month: browsing reuses them instead of re-resizing, which is
+    // faster and uses less of the image optimization quota. A replaced
+    // photo has a new URL, so it shows straight away regardless.
+    minimumCacheTTL: 60 * 60 * 24 * 31,
   },
 };
 

@@ -1,4 +1,4 @@
-import { del, head, list } from "@vercel/blob";
+import { del, head, list, put } from "@vercel/blob";
 
 // Vercel Blob access for the end-to-end tests: checking whether a listing
 // photo exists, and removing the ones a run uploaded. Uses the same
@@ -13,6 +13,14 @@ export async function blobExists(url: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// Stores a photo in a test venue's folder, the way an upload would, and
+// returns its URL - for tests about showing photos rather than uploading.
+export async function putTestImage(venueId: string, image: Buffer): Promise<string> {
+  if (!venueId.startsWith("e2e-")) throw new Error(`Refusing to store an image for a non-test venue: ${venueId}`);
+  const blob = await put(`listings/${venueId}/photo.png`, image, { access: "public", contentType: "image/png", addRandomSuffix: true });
+  return blob.url;
 }
 
 // Deletes every photo in the given test venues' folders. Each venue id is
