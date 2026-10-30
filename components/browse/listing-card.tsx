@@ -22,9 +22,32 @@ export type ListingCardData = Listing & {
 // section grouping) uses the first, so both agree on the same tag. Returns
 // the full Tag record rather than just its name; callers that only need
 // the name for grouping read `.name` off the result.
-export function getPrimaryTag(listing: ListingCardData): Tag | undefined {
+export function getPrimaryTag<T>(listing: { activity: { tags: { tag: T }[] } }): T | undefined {
   return listing.activity.tags[0]?.tag;
 }
+
+// Just the fields the card itself shows. ListingCardData (a full database
+// record) satisfies it, and so does the venue dashboard's live preview,
+// which builds one from the listing form as it's typed - so the preview is
+// the real card, not a copy that could drift.
+export type CardFields = {
+  name: string;
+  pricePerUnit: { toString(): string };
+  capacity: number | null;
+  minDurationMinutes: number | null;
+  maxDurationMinutes: number | null;
+  minDurationDays: number | null;
+  maxDurationDays: number | null;
+  sessionDurationMinutes: number | null;
+  activity: {
+    name: string;
+    bookingMechanic: "time_range" | "date_range" | "fixed_session";
+    isAccommodation: boolean;
+    tags: { tag: { emoji: string; color: string } }[];
+  };
+  venue: { name: string; city: { name: string; country: { name: string } } };
+  dateFilterSpots?: { spotsLeft: number | null };
+};
 
 // Booking-mechanic-specific line: duration bounds, day range, or session
 // length plus spots. Exported so the listing detail page can reuse the
@@ -35,7 +58,7 @@ export function getPrimaryTag(listing: ListingCardData): Tag | undefined {
 // "capacity" wording, while the browse grid's date-filtered state (the
 // only time dateFilterSpots is set - see ListingSection) gets the live
 // count instead.
-export function getMetaLine(listing: ListingCardData): string {
+export function getMetaLine(listing: CardFields): string {
   switch (listing.activity.bookingMechanic) {
     case "time_range":
       return `${listing.minDurationMinutes}–${listing.maxDurationMinutes} min`;
@@ -62,7 +85,14 @@ export function getMetaLine(listing: ListingCardData): string {
   }
 }
 
-export function getPriceSuffix(listing: ListingCardData): string {
+// Just the fields the price helpers read, so the venue dashboard can format
+// prices the same way without loading a whole card's worth of data.
+export type PriceFields = {
+  pricePerUnit: { toString(): string };
+  activity: { bookingMechanic: "time_range" | "date_range" | "fixed_session"; isAccommodation: boolean };
+};
+
+export function getPriceSuffix(listing: PriceFields): string {
   switch (listing.activity.bookingMechanic) {
     case "time_range":
       return "/hr";
@@ -75,10 +105,13 @@ export function getPriceSuffix(listing: ListingCardData): string {
 
 // "Free" for a zero price rather than "$0" - shared by the card and the
 // detail page so this formatting rule only lives in one place.
-export function formatPrice(listing: ListingCardData): string {
-  return Number(listing.pricePerUnit) === 0
-    ? "Free"
-    : `$${listing.pricePerUnit.toString()}${getPriceSuffix(listing)}`;
+export function formatPrice(listing: PriceFields): string {
+  const amount = Number(listing.pricePerUnit.toString());
+  if (amount === 0) return "Free";
+  // Whole amounts stay short ("$28"); anything with cents always shows two
+  // places ("$26.50", never "$26.5").
+  const shown = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
+  return `$${shown}${getPriceSuffix(listing)}`;
 }
 
 export function ListingGrid({ listings }: { listings: ListingCardData[] }) {
@@ -94,7 +127,7 @@ export function ListingGrid({ listings }: { listings: ListingCardData[] }) {
     // actually fit the viewport.
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,180px)] sm:gap-4 md:grid-cols-[repeat(auto-fill,220px)]">
       {listings.map((listing) => (
-        <ListingCard key={listing.id} listing={listing} />
+        <ListingCard key={listing.id} listing={listing} href={`/listings/${listing.id}`} />
       ))}
     </div>
   );
@@ -108,23 +141,19 @@ export const CARD_VENUE_TEXT_CLASS = "text-sm";
 export const CARD_LOCATION_TEXT_CLASS = "text-xs";
 export const CARD_META_TEXT_CLASS = "text-sm";
 
-export function ListingCard({ listing }: { listing: ListingCardData }) {
+// `href` set: the clickable card used in browse. Left out: the same card as
+// a plain, non-interactive block - the dashboard's live preview, where
+// there's no saved listing to link to yet.
+export function ListingCard({ listing, href }: { listing: CardFields; href?: string }) {
   const tag = getPrimaryTag(listing);
-
-  return (
-    <Link
-      href={`/listings/${listing.id}`}
-      // Color comes from the database via inline style rather than a
-      // per-tag CSS class, since tags are editable data with no fixed set
-      // of colors to pre-write classes for. Only the top edge picks up
-      // the tag color; the other three sides stay the default neutral
-      // border.
-      // h-full has no visible effect here: ListingCard is already a direct
-      // grid item, and CSS Grid's default align-items: stretch already
-      // matches it to its row's height.
-      className="block h-full overflow-hidden rounded-[5px] border border-t-[3px] bg-card text-card-foreground transition-shadow hover:shadow-md"
-      style={{ borderTopColor: tag?.color }}
-    >
+  // Color comes from the database via inline style rather than a per-tag
+  // CSS class, since tags are editable data with no fixed set of colors to
+  // pre-write classes for. Only the top edge picks up the tag color; the
+  // other three sides stay the default neutral border.
+  const frameClass = "block h-full overflow-hidden rounded-[5px] border border-t-[3px] bg-card text-card-foreground";
+  const frameStyle = { borderTopColor: tag?.color };
+  const body = (
+    <>
       <div className="grid h-20 place-items-center bg-muted/60 text-2xl sm:h-28 sm:text-3xl md:h-32">
         {tag?.emoji}
       </div>
@@ -150,6 +179,19 @@ export function ListingCard({ listing }: { listing: ListingCardData }) {
           <span className="font-mono font-semibold text-foreground">{formatPrice(listing)}</span>
         </div>
       </div>
+    </>
+  );
+
+  // h-full has no visible effect in the browse grid: ListingCard is already
+  // a direct grid item, and CSS Grid's default align-items: stretch already
+  // matches it to its row's height.
+  return href ? (
+    <Link href={href} className={cn(frameClass, "transition-shadow hover:shadow-md")} style={frameStyle}>
+      {body}
     </Link>
+  ) : (
+    <div className={frameClass} style={frameStyle}>
+      {body}
+    </div>
   );
 }

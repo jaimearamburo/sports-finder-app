@@ -6,40 +6,11 @@ import { SlotPicker } from "@/components/listings/slot-picker";
 import { ActiveHoldBanner } from "@/components/listings/active-hold-banner";
 import type { PickerListing } from "@/components/listings/picker-types";
 import { getBookableDates, getSpotsRemaining, getOccupiedIntervals, getFullyBookedDates } from "@/lib/availability";
-import { formatTimeOfDay, SAME_DAY_CUTOFF_BUFFER_MINUTES } from "@/lib/time-of-day";
+import { SAME_DAY_CUTOFF_BUFFER_MINUTES } from "@/lib/time-of-day";
+import { getScheduleLine } from "@/lib/listing-schedule";
 import { tagTextColor } from "@/lib/label-styles";
 import { VenueLocalTime } from "@/components/listings/venue-local-time";
-import {
-  getMetaLine,
-  formatPrice,
-  type ListingCardData,
-} from "@/components/browse/listing-card";
-
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-// The schedule-specific fact getMetaLine's compact card wording doesn't
-// already cover: operating hours for time_range and for a date_range pass,
-// the check-in deadline for a stay (operatingHoursEnd doubles as that -
-// see isSameDayBookingClosed), and which day/time a fixed_session recurs
-// on.
-function getScheduleLine(listing: ListingCardData): string | null {
-  switch (listing.activity.bookingMechanic) {
-    case "time_range":
-      return listing.operatingHoursStart && listing.operatingHoursEnd
-        ? `Open ${formatTimeOfDay(listing.operatingHoursStart)} – ${formatTimeOfDay(listing.operatingHoursEnd)} daily`
-        : null;
-    case "date_range":
-      if (!listing.operatingHoursEnd) return null;
-      if (listing.activity.isAccommodation) return `Check-in until ${formatTimeOfDay(listing.operatingHoursEnd)}`;
-      return listing.operatingHoursStart
-        ? `Open ${formatTimeOfDay(listing.operatingHoursStart)} – ${formatTimeOfDay(listing.operatingHoursEnd)} daily`
-        : null;
-    case "fixed_session":
-      return listing.recurrenceDayOfWeek !== null && listing.recurrenceStartTime
-        ? `Every ${DAY_NAMES[listing.recurrenceDayOfWeek]}, ${formatTimeOfDay(listing.recurrenceStartTime)}`
-        : null;
-  }
-}
+import { getMetaLine, formatPrice } from "@/components/browse/listing-card";
 
 export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -143,7 +143,7 @@ export function HeaderSearch() {
   return (
     // max-w-160 (640px): from md up the header gives the search a flexible
     // column, so the cap moves here to keep the box its usual width.
-    <form role="search" onSubmit={handleSubmit} className={WRAPPER_CLASS}>
+    <form role="search" aria-label="Search activities" onSubmit={handleSubmit} className={WRAPPER_CLASS}>
       {/* The icon becomes a spinner while a search runs; aria-busy on the input
           carries the same state for screen readers. */}
       <AiSparkles loading={isPending} />
