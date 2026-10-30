@@ -34,7 +34,7 @@ export function getRoleBadge(role: UserRole): string | null {
   return ROLE_BADGES[role];
 }
 
-// Up to two initials for the avatar: "Priya Kapoor" -> "PK", "Jamie" ->
+// Up to two initials for the avatar: "Emma Collins" -> "EC", "Jamie" ->
 // "J". Falls back to the email's first letter for accounts with no name.
 export function getInitials(name: string | null | undefined, email: string | null | undefined): string {
   const words = (name ?? "").trim().split(/\s+/).filter(Boolean);

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, Sparkles, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { searchAction } from "@/app/search/actions";
 import { clearAllParams } from "@/components/browse/search-interpretation";
@@ -44,20 +44,39 @@ const INPUT_CLASS =
 
 const GRADIENT_ID = "ai-sparkles-gradient";
 
-// The sparkles icon (the common "AI" signal) drawn with an indigo-purple-pink
-// gradient instead of one flat colour. Lucide icons are single-colour line
-// drawings, so the gradient is a separate SVG definition the icon's stroke
-// points at. userSpaceOnUse (the icon's own 24x24 grid), not the default
-// per-shape bounding box: the icon's small "+" is made of straight lines,
-// whose zero-width bounding box would make a per-shape gradient vanish.
+// The sparkles (the common "AI" signal) in an indigo-purple-pink gradient
+// instead of one flat colour: a separate SVG gradient definition that the
+// sparkles' fill (and the spinner's stroke) points at. userSpaceOnUse (the
+// icons' shared 24x24 grid), not the default per-shape bounding box, so the
+// gradient runs across both stars as one, rather than restarting in each,
+// and still works on the spinner's thin arc.
 // While a search runs, the sparkles swap for a spinner in the same gradient:
 // a pulse was too subtle to notice in a ~1s search, while a spinner shows
 // motion immediately. It keeps spinning, more slowly, for reduced-motion
 // users: it's the only sign the search is working, not decoration, and with
 // "reduce motion" on (e.g. Windows' "Animation effects" off) a still icon
 // gave no feedback at all.
+// Two four-point stars with sharp, needle-like tips: each side is a curve
+// bowing in towards the centre, meeting the next at a point. Drawn here
+// rather than taken from lucide, whose sparkles are a stroked outline with
+// rounded joins (soft tips). Filled only, no stroke, so nothing rounds the
+// points off. 24x24 grid, like the icon set, so the gradient lines up.
+function SharpSparkles({ className }: { className: string }) {
+  const star = (cx: number, cy: number, r: number, bow: number) =>
+    `M${cx} ${cy - r}` +
+    `Q${cx + bow} ${cy - bow} ${cx + r} ${cy}` +
+    `Q${cx + bow} ${cy + bow} ${cx} ${cy + r}` +
+    `Q${cx - bow} ${cy + bow} ${cx - r} ${cy}` +
+    `Q${cx - bow} ${cy - bow} ${cx} ${cy - r}Z`;
+  return (
+    <svg viewBox="0 0 24 24" fill={`url(#${GRADIENT_ID})`} className={className} aria-hidden>
+      <path d={star(10, 13, 10, 1.6)} />
+      <path d={star(19.5, 4.5, 4, 0.7)} />
+    </svg>
+  );
+}
+
 function AiSparkles({ loading = false }: { loading?: boolean }) {
-  const Icon = loading ? Loader2 : Sparkles;
   return (
     <>
       <svg width="0" height="0" className="absolute" aria-hidden>
@@ -69,11 +88,15 @@ function AiSparkles({ loading = false }: { loading?: boolean }) {
           </linearGradient>
         </defs>
       </svg>
-      <Icon
-        stroke={`url(#${GRADIENT_ID})`}
-        className={`${ICON_CLASS} ${loading ? "animate-spin motion-reduce:[animation-duration:2s]" : ""}`}
-        aria-hidden
-      />
+      {loading ? (
+        <Loader2
+          stroke={`url(#${GRADIENT_ID})`}
+          className={`${ICON_CLASS} animate-spin motion-reduce:[animation-duration:2s]`}
+          aria-hidden
+        />
+      ) : (
+        <SharpSparkles className={ICON_CLASS} />
+      )}
     </>
   );
 }
