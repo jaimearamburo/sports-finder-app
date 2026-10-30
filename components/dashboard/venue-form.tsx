@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field, TEXTAREA_CLASS } from "@/components/dashboard/form-controls";
 import {
   Select,
   SelectContent,
@@ -34,44 +34,6 @@ type FormState = Omit<VenueFormValues, "bookingWindowDays" | "holdDurationMinute
   bookingWindowDays: string;
   holdDurationMinutes: string;
 };
-
-const TEXTAREA_CLASS =
-  "min-h-24 w-full rounded-md border border-input bg-transparent px-2.5 py-2 text-base shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm";
-
-// One labelled field with its error and optional hint, wired up for screen
-// readers the way the rest of the app's forms are: the error and hint are
-// tied to the input with aria-describedby.
-function Field({
-  id,
-  label,
-  hint,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  hint?: ReactNode;
-  error?: string;
-  children: (describedBy: string | undefined) => ReactNode;
-}) {
-  const describedBy = [error && `${id}-error`, hint && `${id}-hint`].filter(Boolean).join(" ") || undefined;
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      {children(describedBy)}
-      {hint && (
-        <p id={`${id}-hint`} className="text-sm text-muted-foreground">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p id={`${id}-error`} className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
 
 // The venue form, for both adding a venue and editing one. Validates with
 // the same schema as the server for instant inline errors; the server
