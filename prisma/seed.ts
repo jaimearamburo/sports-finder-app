@@ -297,10 +297,10 @@ async function seedUsers() {
     create: { name: "Alex Nguyen", email: "alex.owner@example.com", role: "venue_owner", passwordHash },
   });
 
-  const priya = await prisma.user.upsert({
-    where: { email: "priya.owner@example.com" },
+  const emma = await prisma.user.upsert({
+    where: { email: "emma.owner@example.com" },
     update: passwordUpdate,
-    create: { name: "Priya Kapoor", email: "priya.owner@example.com", role: "venue_owner", passwordHash },
+    create: { name: "Emma Collins", email: "emma.owner@example.com", role: "venue_owner", passwordHash },
   });
 
   const jamie = await prisma.user.upsert({
@@ -309,13 +309,13 @@ async function seedUsers() {
     create: { name: "Jamie Rogers", email: "jamie.user@example.com", role: "user", passwordHash },
   });
 
-  return { alex, priya, jamie };
+  return { alex, emma, jamie };
 }
 
 /**
  * Seeds nine venues across seven cities, split between the two owners
  * created in seedUsers(). Alex owns four (Riverside, Bondi Padel, Coogee
- * Run Club, Adelaide Recreation Centre); Priya owns five (Green Valley,
+ * Run Club, Adelaide Recreation Centre); Emma owns five (Green Valley,
  * FitZone, Bayside Recreation, Perth Sports Hub, Canberra Court Club) —
  * entirely separate from Alex's. Perth/Adelaide/Canberra exist mainly to
  * spread the extra court-type listings below across more than one venue
@@ -323,7 +323,7 @@ async function seedUsers() {
  */
 async function seedVenues(
   alexId: string,
-  priyaId: string,
+  emmaId: string,
   cities: Awaited<ReturnType<typeof seedCities>>
 ) {
   const riverside = await prisma.venue.create({
@@ -336,7 +336,7 @@ async function seedVenues(
 
   const greenValley = await prisma.venue.create({
     data: {
-      ownerId: priyaId,
+      ownerId: emmaId,
       name: "Green Valley Campground",
       address: "4 Forest Trail",
       cityId: cities["Blue Mountains"].id,
@@ -344,12 +344,12 @@ async function seedVenues(
   });
 
   const fitZone = await prisma.venue.create({
-    data: { ownerId: priyaId, name: "FitZone Gym", address: "200 Collins St", cityId: cities["Melbourne"].id },
+    data: { ownerId: emmaId, name: "FitZone Gym", address: "200 Collins St", cityId: cities["Melbourne"].id },
   });
 
   const bayside = await prisma.venue.create({
     data: {
-      ownerId: priyaId,
+      ownerId: emmaId,
       name: "Bayside Recreation Centre",
       address: "10 Bayside Drive",
       cityId: cities["Brisbane"].id,
@@ -366,7 +366,7 @@ async function seedVenues(
   });
 
   const perthSportsHub = await prisma.venue.create({
-    data: { ownerId: priyaId, name: "Perth Sports Hub", address: "22 Riverside Blvd", cityId: cities["Perth"].id },
+    data: { ownerId: emmaId, name: "Perth Sports Hub", address: "22 Riverside Blvd", cityId: cities["Perth"].id },
   });
 
   const adelaideRecreation = await prisma.venue.create({
@@ -380,7 +380,7 @@ async function seedVenues(
 
   const canberraCourtClub = await prisma.venue.create({
     data: {
-      ownerId: priyaId,
+      ownerId: emmaId,
       name: "Canberra Court Club",
       address: "9 Commonwealth Ave",
       cityId: cities["Canberra"].id,
@@ -400,7 +400,7 @@ async function seedVenues(
 
   const manhattanFitness = await prisma.venue.create({
     data: {
-      ownerId: priyaId,
+      ownerId: emmaId,
       name: "Midtown Fitness Club",
       address: "350 5th Ave",
       cityId: cities["Manhattan"].id,
@@ -1558,8 +1558,8 @@ async function main() {
   // this would correctly fail loudly rather than silently orphan them.
   await prisma.venue.deleteMany();
 
-  const { alex, priya } = await seedUsers();
-  const venues = await seedVenues(alex.id, priya.id, cities);
+  const { alex, emma } = await seedUsers();
+  const venues = await seedVenues(alex.id, emma.id, cities);
   const listings = await seedListings(activities, venues);
   await seedAvailabilityOverrides(listings);
 

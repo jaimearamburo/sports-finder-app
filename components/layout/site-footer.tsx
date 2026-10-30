@@ -38,53 +38,60 @@ const FOOTER_LINKS = [
   { href: "#", label: "Contact" },
 ];
 
+const SOCIAL_LINKS = [
+  { href: "#", label: "Instagram", icon: <InstagramIcon /> },
+  { href: "#", label: "X", icon: <XIcon /> },
+  { href: "#", label: "Facebook", icon: <FacebookIcon /> },
+];
+
+// Compact on purpose: only what's useful, in two short bands. Top band:
+// the logo and the social icons share a row on phones (logo left, icons
+// right) with the links on the row below; from md up all three sit on one
+// row - logo left, links centre, icons right. Bottom bar: the copyright and
+// the credit, split left and right (stacking only on the narrowest
+// phones). Tap targets are 40px on phones.
 export function SiteFooter() {
   return (
     <footer className="border-t bg-card">
       {/* Same max-w as site-header.tsx, kept in sync so the header/footer
           bars and the page content between them all line up at the same
           edges regardless of viewport width. */}
-      <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-5 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto grid max-w-[1800px] grid-cols-[1fr_auto] items-center gap-x-6 gap-y-2 px-4 py-4 sm:px-6 md:grid-cols-[1fr_auto_1fr] md:py-5 lg:px-8">
         <Logo size="sm" />
 
-        <nav aria-label="Footer" className="flex gap-5 text-sm text-muted-foreground">
+        <div className="flex gap-2 justify-self-end md:order-3">
+          {SOCIAL_LINKS.map((social) => (
+            <a
+              key={social.label}
+              href={social.href}
+              aria-label={social.label}
+              className="grid size-10 place-items-center rounded-full border border-input text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground md:size-9"
+            >
+              {social.icon}
+            </a>
+          ))}
+        </div>
+
+        <nav
+          aria-label="Footer"
+          className="col-span-2 -ml-1 flex flex-wrap gap-x-5 text-sm text-muted-foreground md:order-2 md:col-span-1 md:ml-0"
+        >
           {FOOTER_LINKS.map((link) => (
-            <Link key={link.label} href={link.href} className="hover:text-foreground hover:underline">
+            <Link
+              key={link.label}
+              href={link.href}
+              className="inline-flex min-h-10 items-center px-1 hover:text-foreground hover:underline md:min-h-6 md:px-0"
+            >
               {link.label}
             </Link>
           ))}
         </nav>
-
-        <div className="flex gap-3">
-          <a
-            href="#"
-            aria-label="Instagram"
-            className="grid size-8 place-items-center rounded-full border border-input text-muted-foreground hover:text-foreground"
-          >
-            <InstagramIcon />
-          </a>
-          <a
-            href="#"
-            aria-label="X"
-            className="grid size-8 place-items-center rounded-full border border-input text-muted-foreground hover:text-foreground"
-          >
-            <XIcon />
-          </a>
-          <a
-            href="#"
-            aria-label="Facebook"
-            className="grid size-8 place-items-center rounded-full border border-input text-muted-foreground hover:text-foreground"
-          >
-            <FacebookIcon />
-          </a>
-        </div>
       </div>
 
       <div className="border-t">
-        <div className="mx-auto flex max-w-[1800px] justify-end px-4 py-3 sm:px-6 lg:px-8">
-          <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} PlayBook, Jaime Aramburo
-          </p>
+        <div className="mx-auto flex max-w-[1800px] flex-wrap justify-between gap-x-4 gap-y-1 px-4 py-3 text-xs text-muted-foreground sm:px-6 lg:px-8">
+          <p>&copy; {new Date().getFullYear()} PlayBook</p>
+          <p>Designed and built by Jaime Aramburo</p>
         </div>
       </div>
     </footer>

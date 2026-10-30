@@ -84,6 +84,7 @@ pnpm install
 # .env: POSTGRES_PRISMA_URL, POSTGRES_URL_NON_POOLING, AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, LLM_API_KEY,
 #       STRIPE_SECRET_KEY, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET, BLOB_READ_WRITE_TOKEN
 # Listing photos need a public Vercel Blob store; put its hostname in LISTING_IMAGE_HOST (lib/listing-images.ts)
+# Optional one-click demo logins: DEMO_LOGIN_ENABLED=true, DEMO_OWNER_EMAIL, DEMO_USER_EMAIL (never an admin)
 pnpm exec prisma migrate deploy
 SEED_USER_PASSWORD=<choose one> pnpm exec prisma db seed   # sample owner and user accounts get this password
 pnpm dev

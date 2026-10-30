@@ -11,7 +11,7 @@ describe("getRoleBadge", () => {
 
 describe("getInitials", () => {
   it("uses the first letters of up to two names", () => {
-    expect(getInitials("Priya Kapoor", "p@example.com")).toBe("PK");
+    expect(getInitials("Emma Collins", "e@example.com")).toBe("EC");
     expect(getInitials("mary ann van der berg", null)).toBe("MA");
     expect(getInitials("  Jamie  ", null)).toBe("J");
   });

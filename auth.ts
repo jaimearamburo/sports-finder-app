@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validation/auth";
+import { demoAccountEmail, demoAccountSchema } from "@/lib/demo-login";
 
 // A real bcrypt hash of a throwaway string, at the same cost factor (10)
 // as every stored password (see app/signup/actions.ts), so comparing
@@ -82,6 +83,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        return { id: user.id, name: user.name, email: user.email, role: user.role };
+      },
+    }),
+    // One-click demo logins (lib/demo-login.ts): the only input is which
+    // demo account ("owner" or "user"), never an email or password; the
+    // account itself comes from server-side env vars. Like the provider
+    // above, Auth.js's own endpoint (/api/auth/callback/demo) reaches this
+    // directly, so the input is parsed here, and everything is refused
+    // unless DEMO_LOGIN_ENABLED is on.
+    Credentials({
+      id: "demo",
+      name: "Demo",
+      credentials: { account: { label: "Account", type: "text" } },
+      async authorize(credentials) {
+        const parsed = demoAccountSchema.safeParse(credentials?.account);
+        if (!parsed.success) return null;
+        const email = demoAccountEmail(parsed.data);
+        if (!email) return null;
+
+        const user = await prisma.user.findUnique({ where: { email } });
+        // Never an admin, whatever the env says: a demo login is open to
+        // anyone, and admin rights must not be one click away.
+        if (!user || user.role === "admin") return null;
         return { id: user.id, name: user.name, email: user.email, role: user.role };
       },
     }),

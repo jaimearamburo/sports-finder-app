@@ -10,7 +10,7 @@ for (const role of ROLES) {
     await page.goto("/login");
     await page.locator("#email").fill(ACCOUNTS[role].email);
     await page.locator("#password").fill(testPassword());
-    await page.getByRole("button", { name: "Log in" }).click();
+    await page.getByRole("button", { name: "Log in", exact: true }).click();
     await expect(page).not.toHaveURL(/\/login/);
     await page.context().storageState({ path: authFile(role) });
   });

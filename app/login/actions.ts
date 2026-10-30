@@ -4,6 +4,7 @@ import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
 import { sanitizeCallbackUrl, LOGIN_INVALID_INPUT_MESSAGE } from "./utils";
 import { loginSchema } from "@/lib/validation/auth";
+import { demoAccountSchema } from "@/lib/demo-login";
 
 // A single whole-form message rather than per-field errors - unlike
 // signup, this deliberately never says which of email/password was wrong,
@@ -39,6 +40,22 @@ export async function login(
     if (error instanceof AuthError) {
       return { message: "Invalid email or password." };
     }
+    throw error;
+  }
+}
+
+// The demo buttons (see lib/demo-login.ts). Sends only which demo account
+// to use; the "demo" provider in auth.ts decides the rest, and refuses when
+// demo logins are off. A refusal lands back on the login page with a
+// message rather than an error page.
+export async function demoLogin(account: unknown, rawCallbackUrl: unknown) {
+  const callbackUrl = sanitizeCallbackUrl(typeof rawCallbackUrl === "string" ? rawCallbackUrl : undefined);
+  const parsed = demoAccountSchema.safeParse(account);
+  if (!parsed.success) return { message: "That demo account isn't available." };
+  try {
+    await signIn("demo", { account: parsed.data, redirectTo: callbackUrl });
+  } catch (error) {
+    if (error instanceof AuthError) return { message: "The demo isn't available right now." };
     throw error;
   }
 }

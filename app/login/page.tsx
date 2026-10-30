@@ -9,6 +9,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { LoginForm } from "./login-form";
+import { DemoLoginButtons } from "./demo-login-buttons";
+import { isDemoLoginEnabled } from "@/lib/demo-login";
 import { sanitizeCallbackUrl } from "./utils";
 
 export default async function LoginPage({
@@ -59,6 +61,10 @@ export default async function LoginPage({
               Sign up
             </Link>
           </p>
+
+          {/* Only when demo logins are switched on (DEMO_LOGIN_ENABLED) -
+              see lib/demo-login.ts. */}
+          {isDemoLoginEnabled() && <DemoLoginButtons callbackUrl={redirectTarget} />}
         </CardContent>
       </Card>
     </div>
