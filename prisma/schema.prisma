@@ -317,6 +317,11 @@ model Listing {
   activityId                String  @map("activity_id")
   name                      String
   description               String?
+  // Public URL of the listing's photo in Vercel Blob, or null for none (the
+  // browse card then falls back to its tag emoji). Only the URL is stored:
+  // the file itself lives in Blob, uploaded straight from the manager's
+  // browser, so images never pass through a Server Action or the database.
+  imageUrl                  String? @map("image_url")
   // Max number of simultaneous/overlapping bookings this listing allows.
   // 1 for an exclusive-use court or campsite; >1 for a class with multiple
   // open spots; null for no limit at all (a free group run or hike).

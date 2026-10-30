@@ -132,7 +132,7 @@ Reviews/ratings, real-time notifications, venue-owner/multi-role staff accounts,
 - **5.3 (the "Book Now" action), 5.4 (concurrency hardening), 5.5 (error surfacing), 5.7 (confirmation step)** — all shipped together as one hold-then-confirm flow; see "Booking hold + confirm flow" above for the full design.
 - **5.6 (optimistic UI on booking submission) — closed, deliberately not built.** The hold/finalize steps show a plain pending state (disabled button + "Reserving..."/"Processing..." text), not an optimistic one — each step is a real reservation, not a value that's safe to assume succeeded before the server confirms it.
 
-**Phase 6 (Payments) - built, end-to-end test pending.** Stripe test-mode payments via the Payment Element with authorize-then-capture and a webhook; see "Payments" above. #42 (success/cancel redirect pages) became: success = the existing confirmation page (plus "Finishing your payment" and "Payment didn't go through" states); no cancel page, since nothing redirects away - cancelling is the active-hold banner. #44 (test with a Stripe test card) still to do.
+**Phase 6 (Payments) - done.** Stripe test-mode payments via the Payment Element with authorize-then-capture and a webhook; see "Payments" above. #42 (success/cancel redirect pages) became: success = the existing confirmation page (plus "Finishing your payment" and "Payment didn't go through" states); no cancel page, since nothing redirects away - cancelling is the active-hold banner. #44 (test with a Stripe test card) done.
 
 **Phase 7 (User Dashboard) — done for MVP.** See "My Bookings" under Auth model above.
 - **7.1 (My Bookings page)** — done.
@@ -148,6 +148,9 @@ Reviews/ratings, real-time notifications, venue-owner/multi-role staff accounts,
 
 
 **Phase 10 (Venue manager dashboard, GitHub #81) - done** (#82-#88): permission-based access control (`lib/authz/`), overview, venues, venue page with listings, listing editor, bookings view, end-to-end security and accessibility tests. See "Venue manager dashboard" and "Testing" below. Phase 11 (listing images, #89-#92) is next.
+
+**Phase 11 (Listing images, GitHub #89) - in progress.**
+- **#90 (storage setup) - done.** A **public** Vercel Blob store connected to the project (`BLOB_READ_WRITE_TOKEN` in Vercel and local `.env`; server-only, never `NEXT_PUBLIC_`). Public, not private, on purpose: listing photos are public content, and a private store would need every image proxied through our own server. A store's access mode can't be changed after creation (the first store was private and was replaced). Migration `listing_image_url` adds the optional `Listing.imageUrl` (Blob URL; null = no image, emoji fallback). `next.config.ts` allows `next/image` only for this store's hostname and its `listings/` folder (a wildcard would let anyone use our optimizer on any Blob store); a new store means updating that hostname. Package: `@vercel/blob` 2.8.2. Verified: a Blob file under `listings/` renders through the optimizer; other paths and hosts get 400.
 ## Venue manager dashboard (GitHub #81, Phase 10)
 
 Under `/dashboard`, for anyone with `dashboard:access` (venue owners, admins). Access follows the three-layer pattern under "Auth model": proxy redirect, `requirePermission` first in every page, `withPermission` on every data function. Lists are scoped with `manageableVenuesWhere` (an owner's own venues; every venue for an admin), and single records go through `canManageVenue`/`canManageListing`.
