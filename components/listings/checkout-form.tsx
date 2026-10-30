@@ -434,6 +434,10 @@ function CheckoutFormContent({
             onCheckedChange={setAgreedToTerms}
             required
             className="mt-0.5"
+            // The full sentence, Terms included: the <label> below can only
+            // hold the first half (see its comment), which left the
+            // checkbox named just "I agree to <venue>'s".
+            aria-label={`I agree to ${venueName}'s Terms and Conditions`}
           />
           {/* Only "I agree to {venueName}'s" sits inside the actual
               <label> - the Terms trigger is a sibling outside it on

@@ -85,6 +85,14 @@ export function DateRangePicker({
     const min = listing.minDurationDays ?? 1;
     const max = listing.maxDurationDays ?? min;
     const selectedCount = selectedDates?.length ?? 0;
+    // Once the maximum is picked, every other day is disabled until one is
+    // unpicked. Left to itself, react-day-picker's multiple mode answers a
+    // click past `max` by replacing the whole selection with that one day,
+    // silently dropping everything already chosen. A one-day pass keeps
+    // that swap: with a single day there's nothing to lose.
+    const atMax = max > 1 && selectedCount >= max;
+    const isDisabledForPass = (date: Date) =>
+      isDisabled(date) || (atMax && !selectedDates?.some((d) => d.getTime() === date.getTime()));
     const complete = selectedCount >= min;
     const rangeLabel = min === max ? `${min} day${min === 1 ? "" : "s"}` : `${min}-${max} days`;
 
@@ -94,6 +102,7 @@ export function DateRangePicker({
           {complete ? (
             <>
               <Check className="size-4" /> {selectedCount} day{selectedCount === 1 ? "" : "s"} selected
+              {atMax && ", the most allowed. Unpick one to change."}
             </>
           ) : (
             `Select ${rangeLabel} (${selectedCount}/${min})`
@@ -103,7 +112,7 @@ export function DateRangePicker({
           mode="multiple"
           selected={selectedDates}
           onSelect={handleMultiSelect}
-          disabled={isDisabled}
+          disabled={isDisabledForPass}
           min={listing.minDurationDays ?? undefined}
           max={listing.maxDurationDays ?? undefined}
           className="rounded-md border"

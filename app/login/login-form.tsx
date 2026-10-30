@@ -13,6 +13,11 @@ const initialState: LoginFormState = undefined;
 export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const [state, formAction, pending] = useActionState(login, initialState);
   const [clientMessage, setClientMessage] = useState<string | null>(null);
+  // Controlled, so the email survives a failed login: React resets an
+  // uncontrolled form after its action runs. The password is left
+  // uncontrolled on purpose - clearing it after a wrong attempt is the
+  // usual behaviour.
+  const [email, setEmail] = useState("");
 
   // Same schema the login action re-checks server-side, run first so a
   // blank field or non-email is caught with no round trip. `noValidate` on
@@ -39,7 +44,15 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" placeholder="jane@example.com" autoFocus />
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="jane@example.com"
+          autoFocus
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
       </div>
 
       <div className="flex flex-col gap-1.5">

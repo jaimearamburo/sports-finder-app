@@ -4,7 +4,10 @@ import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { can, type Permission } from "@/lib/authz/permissions";
 
-export type AuthResult = { ok: false; error: string };
+// `signedOut` lets a caller tell "log in first" apart from every other
+// refusal without matching on the message - e.g. Book Now, which offers a
+// log-in link back to the listing instead of a bare error.
+export type AuthResult = { ok: false; error: string; signedOut?: true };
 
 // Wraps a Data Access Layer function so it can only ever run with a real
 // session. There is no path to a `session` argument except through this
@@ -16,7 +19,7 @@ export function withAuth<Args extends unknown[], Result>(
   return async (...args: Args) => {
     // Reads the current session from the request cookie.
     const session = await auth();
-    if (!session) return { ok: false, error: "You must be logged in." };
+    if (!session) return { ok: false, error: "You must be logged in.", signedOut: true };
     return fn(session, ...args);
   };
 }

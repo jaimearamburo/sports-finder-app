@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type FormEvent } from "react";
+import { useActionState, useState, type ChangeEvent, type FormEvent } from "react";
 import { signup, type SignupErrors, type SignupFormState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,14 @@ export function SignupForm() {
   // submit automatically.
   const [state, formAction, pending] = useActionState(signup, initialState);
   const [clientErrors, setClientErrors] = useState<SignupErrors | null>(null);
+  // Controlled, so the fields survive a server-side error: React resets an
+  // uncontrolled form after its action runs, which wiped everything typed
+  // when the server said e.g. "an account with this email already exists".
+  const [values, setValues] = useState({ name: "", email: "", password: "" });
+  const field = (key: keyof typeof values) => ({
+    value: values[key],
+    onChange: (e: ChangeEvent<HTMLInputElement>) => setValues((v) => ({ ...v, [key]: e.target.value })),
+  });
 
   // Runs the exact schema the server action uses, before anything is sent,
   // so obvious mistakes get the same messages instantly with no round
@@ -50,6 +58,7 @@ export function SignupForm() {
         <Input
           id="name"
           name="name"
+          {...field("name")}
           placeholder="Jane Smith"
           autoFocus
           aria-invalid={!!errors?.name}
@@ -67,6 +76,7 @@ export function SignupForm() {
         <Input
           id="email"
           name="email"
+          {...field("email")}
           type="email"
           placeholder="jane@example.com"
           aria-invalid={!!errors?.email}
@@ -84,6 +94,7 @@ export function SignupForm() {
         <Input
           id="password"
           name="password"
+          {...field("password")}
           type="password"
           aria-invalid={!!errors?.password}
           aria-describedby={errors?.password ? "password-error" : undefined}

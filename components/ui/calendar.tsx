@@ -38,6 +38,19 @@ function Calendar({
       )}
       captionLayout={captionLayout}
       locale={locale}
+      // Day buttons are named "Monday 12 October 2026" rather than the
+      // library's "Monday, October 12th, 2026": the button shows "12", and
+      // a name must contain the visible text as a word ("12th" doesn't
+      // count) for voice-control users - axe's label-content-name-mismatch.
+      labels={{
+        labelDayButton: (date, modifiers, options, dateLib) => {
+          let label = dateLib ? dateLib.format(date, "EEEE d MMMM yyyy") : date.toDateString()
+          if (modifiers.today) label = `Today, ${label}`
+          if (modifiers.selected) label = `${label}, selected`
+          return label
+        },
+        ...props.labels,
+      }}
       formatters={{
         formatMonthDropdown: (date) =>
           date.toLocaleString(locale?.code, { month: "short" }),
