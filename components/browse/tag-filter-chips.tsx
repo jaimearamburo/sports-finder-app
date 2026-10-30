@@ -79,15 +79,14 @@ export function TagFilterChips({
                   // way the click toggles selection, with no JS state needed.
                   className="group/chip transition-transform duration-150 active:scale-95"
                 >
-                  {/* Color comes from the database via inline style rather
-                      than a per-tag CSS class, since tags are editable data with
-                      no fixed set of colors to pre-write classes for. */}
+                  {/* Selected tiles are near-black, the same as a selected
+                      quick-filter pill, rather than each tag's own colour
+                      (Tag.color still drives the listing cards' top accent). */}
                   <span
                     className={cn(
                       "relative flex size-20 items-center justify-center overflow-hidden rounded-[20%] shadow-sm",
-                      !isSelected && "bg-gray-50"
+                      isSelected ? "bg-foreground" : "bg-gray-50"
                     )}
-                    style={isSelected ? { backgroundColor: tag.color } : undefined}
                   >
                     <span className="relative inline-block text-3xl leading-none transition-transform duration-150 group-hover/chip:scale-[1.4]">
                       {tag.emoji}

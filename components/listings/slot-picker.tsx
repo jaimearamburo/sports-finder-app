@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Minus, Plus } from "lucide-react";
@@ -40,6 +41,7 @@ export function SlotPicker({
   const [slots, setSlots] = useState<SelectedSlots | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   // Resets quantity back to 1 whenever the slot selection itself changes,
@@ -88,10 +90,12 @@ export function SlotPicker({
   function handleBookNow() {
     if (!slots) return;
     setError(null);
+    setNeedsLogin(false);
     startTransition(async () => {
       const result = await createBookingHoldAction({ listingId, slots, quantity });
       if (!result.ok) {
-        setError(result.error);
+        if ("signedOut" in result && result.signedOut) setNeedsLogin(true);
+        else setError(result.error);
         return;
       }
       router.push(`/listings/${listingId}/checkout/${result.orderId}`);
@@ -165,6 +169,18 @@ export function SlotPicker({
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {/* Signed out: a link to log in that comes straight back to this
+          listing (the login page honours callbackUrl). The picked slot
+          isn't kept - nothing is held until Book Now succeeds. */}
+      {needsLogin && (
+        <p className="text-sm text-destructive">
+          You must{" "}
+          <Link href={`/login?callbackUrl=${encodeURIComponent(`/listings/${listingId}`)}`} className="font-medium underline underline-offset-2">
+            log in
+          </Link>{" "}
+          to make a booking.
+        </p>
+      )}
 
       <Button disabled={!slots || isPending} onClick={handleBookNow} className="w-full" size="lg">
         Book Now
