@@ -1,10 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-/**
- * The "PlayBook" logo, shared between SiteHeader (larger) and
- * SiteFooter (smaller).
- */
+/** The "PlayBook" logo, shared by SiteHeader (md) and SiteFooter (sm). */
 export function Logo({ size = "md", className }: { size?: "sm" | "md"; className?: string }) {
   return (
     <Link
@@ -15,12 +12,9 @@ export function Logo({ size = "md", className }: { size?: "sm" | "md"; className
         className
       )}
     >
-      {/* Oleo Script only has weights 400/700, so "Play" reads lighter
-          through color rather than a lighter weight the typeface doesn't
-          have. The compact "PB" form only applies at size="md" (the
-          header): it frees up space for the search input on a narrow
-          phone. SiteFooter's size="sm" always shows the full wordmark,
-          since it isn't competing with a search bar for width. */}
+      {/* Oleo Script only has weights 400/700, so "Play" is lighter by colour.
+          The compact "PB" form is header-only (size="md") on narrow phones, to
+          make room for the search box. */}
       {size === "md" ? (
         <>
           <span className="md:hidden">

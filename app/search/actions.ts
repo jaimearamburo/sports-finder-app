@@ -6,24 +6,20 @@ import { keywordInterpret } from "@/lib/search/keyword";
 import { interpretationToParams } from "@/lib/search/interpretation";
 import { getSearchVocabulary } from "@/lib/search/vocabulary";
 
-// A Server Action is a public endpoint, so its input is parsed like any
-// other untrusted request. `today` is the viewer's own calendar date
-// (browse resolves dates in the viewer's local time - see the "This
-// weekend" pill), used to turn "this weekend" into real dates.
+// Parsed like any untrusted request. `today` is the viewer's calendar date
+// (browse resolves dates locally), used to resolve "this weekend".
 const searchInputSchema = z.object({
   query: z.string().trim().min(1).max(200),
   today: z.iso.date(),
 });
 
-// `query` is the browse page's query string (no leading "?"): the header
-// search hands it to the shared browse navigation, which owns the push.
+// `query` is the browse query string (no "?"); the header search hands it to
+// the shared browse navigation.
 export type SearchResult = { ok: true; query: string } | { ok: false };
 
-// Natural-language search: interpret the query into browse filters with
-// the LLM, falling back to keyword matching if that fails for any reason,
-// and return the browse query string. The search itself is done by the existing
-// browse filters, so results always match what the sidebar would show for
-// the same filters.
+// Natural-language search: the LLM interprets the query into browse filters,
+// with keyword matching as a fallback, and returns the browse query string.
+// Results come from the browse filters, so they match the sidebar.
 export async function searchAction(input: { query: string; today: string }): Promise<SearchResult> {
   const parsed = searchInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false };

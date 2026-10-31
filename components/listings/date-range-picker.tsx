@@ -8,12 +8,9 @@ import { cn } from "@/lib/utils";
 import { addDays, localDateToUTCDay } from "@/lib/dates";
 import type { PickerListing, SelectedSlots } from "./picker-types";
 
-// react-day-picker's range `min`/`max` count differenceInCalendarDays(to,
-// from) - the exclusive-end gap between the two dates, not an inclusive
-// day count - which is exactly the same arithmetic
-// isRequestedSlotValid's date_range branch already uses for durationDays.
-// That's what lets minDurationDays/maxDurationDays be passed straight
-// through with no adjustment, in both branches below.
+// react-day-picker's range min/max count the exclusive gap between dates, the
+// same arithmetic isRequestedSlotValid uses, so minDurationDays/maxDurationDays
+// pass straight through.
 export function DateRangePicker({
   listing,
   bookableDates,
@@ -22,16 +19,13 @@ export function DateRangePicker({
 }: {
   listing: PickerListing;
   bookableDates: Date[];
-  // Dates already fully claimed by existing Bookings/BookingHolds - see
-  // getFullyBookedDates in lib/availability.ts. Undefined means "nothing
-  // fetched" and is treated as "nothing booked," never as "unknown."
+  // Dates fully claimed by bookings and holds (getFullyBookedDates). Undefined
+  // is treated as none.
   fullyBookedDates?: Date[];
   onSelect: (slots: SelectedSlots | null) => void;
 }) {
-  // Both branches' state is declared unconditionally here, even though
-  // only one is ever actually used for a given listing - isAccommodation
-  // never changes for an already-mounted instance, but conditionally
-  // calling useState itself would still break React's rules of hooks.
+  // Both modes' state is declared unconditionally (rules of hooks); only one is
+  // used per listing.
   const [range, setRange] = useState<DateRange | undefined>(undefined);
   const [selectedDates, setSelectedDates] = useState<Date[] | undefined>(undefined);
 
@@ -40,31 +34,20 @@ export function DateRangePicker({
     () => new Set((fullyBookedDates ?? []).map((d) => d.getTime())),
     [fullyBookedDates]
   );
-  // localDateToUTCDay, not startOfUTCDay: the Calendar hands back a Date
-  // built from the browser's LOCAL midnight for the clicked day, which
-  // startOfUTCDay would reinterpret through UTC's clock instead of
-  // preserving (see that function's own comment in lib/dates.ts) -
-  // silently shifting the day back by one for anyone east of UTC. A
-  // fully-booked date is excluded the same way a bookable-window miss or
-  // an AvailabilityOverride block already is - this is just a third source
-  // of "not actually choosable," sourced from real reservations instead.
+  // localDateToUTCDay: the calendar returns local midnight, and startOfUTCDay
+  // would shift it back a day east of UTC.
   const isDisabled = (date: Date) => {
     const utcDay = localDateToUTCDay(date).getTime();
     return !bookableSet.has(utcDay) || fullyBookedSet.has(utcDay);
   };
 
-  // A pass/ticket (not accommodation): the days it covers don't need to be
-  // consecutive - a "3-day pass" might mean the 19th, 23rd, and 30th, not
-  // one contiguous block, so this is "multiple" mode, not "range." Each
-  // picked day becomes its own one-day span rather than one span covering
-  // the whole stretch, which would wrongly claim the gap days too.
+  // A pass: picked days needn't be consecutive, so "multiple" mode, with each
+  // day its own one-day slot (one span would also claim the days in between).
   if (!listing.isAccommodation) {
     function handleMultiSelect(dates: Date[] | undefined) {
       setSelectedDates(dates);
       if (dates && dates.length > 0) {
-        // localDateToUTCDay before use, not the raw calendar Date - see
-        // isDisabled's comment above. Without it, a selected day could get
-        // booked as the wrong UTC calendar day for anyone east of UTC.
+        // Convert local-midnight calendar Dates to UTC days (see isDisabled).
         onSelect(
           dates.map((d) => {
             const utcDay = localDateToUTCDay(d);
@@ -76,20 +59,14 @@ export function DateRangePicker({
       }
     }
 
-    // "Required" means the minimum needed to be bookable, not the
-    // maximum - a 1-5 day pass is already a complete, valid purchase at
-    // exactly 1 day. The hint text below is built off minDurationDays
-    // rather than maxDurationDays for that reason, even though the
-    // Calendar's own min/max props, and the onSelect/pricing flow above,
-    // already accept anywhere in that range.
+    // The hint counts towards the minimum: a 1-5 day pass is complete at one
+    // day.
     const min = listing.minDurationDays ?? 1;
     const max = listing.maxDurationDays ?? min;
     const selectedCount = selectedDates?.length ?? 0;
-    // Once the maximum is picked, every other day is disabled until one is
-    // unpicked. Left to itself, react-day-picker's multiple mode answers a
-    // click past `max` by replacing the whole selection with that one day,
-    // silently dropping everything already chosen. A one-day pass keeps
-    // that swap: with a single day there's nothing to lose.
+    // At the maximum, unpicked days are disabled until one is unpicked;
+    // otherwise react-day-picker replaces the whole selection with the new day.
+    // A one-day pass keeps that swap.
     const atMax = max > 1 && selectedCount >= max;
     const isDisabledForPass = (date: Date) =>
       isDisabled(date) || (atMax && !selectedDates?.some((d) => d.getTime() === date.getTime()));
@@ -121,15 +98,11 @@ export function DateRangePicker({
     );
   }
 
-  // Accommodation: always a contiguous check-in/check-out range, even for
-  // a 1-night stay - the length being fixed doesn't make the arrival/
-  // departure distinction go away the way it does for a same-day pass.
+  // A stay: always a contiguous check-in/check-out range.
   function handleRangeSelect(next: DateRange | undefined) {
     setRange(next);
     if (next?.from && next?.to) {
-      // Same localDateToUTCDay conversion as isDisabled/handleMultiSelect
-      // above - next.from/next.to are local-midnight Dates straight from
-      // the calendar.
+      // Same local-to-UTC-day conversion as above.
       onSelect([{ startsAt: localDateToUTCDay(next.from), endsAt: localDateToUTCDay(next.to) }]);
     } else {
       onSelect(null);

@@ -1,11 +1,8 @@
 import { EMPTY_INTERPRETATION, type Interpretation, type SearchVocabulary, type When } from "./interpretation";
 
-// The fallback interpreter, used whenever the LLM call fails, times out or
-// refuses, so search never breaks. Deliberately simple: whole-word matches
-// against the real tag, activity and city names, plus a few fixed phrases
-// for dates and price. It doesn't handle typos or synonyms - that's the
-// LLM's job - but it keeps exact queries like "tennis sydney today"
-// working.
+// The fallback interpreter when the LLM fails, times out or refuses. Whole-word
+// matches on real tag, activity and city names, plus fixed phrases for dates
+// and price. No typo or synonym handling.
 
 function containsPhrase(text: string, phrase: string): boolean {
   const escaped = phrase.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -33,10 +30,9 @@ export function keywordInterpret(query: string, vocabulary: SearchVocabulary): I
 
   const directTags = vocabulary.tags.filter((tag) => containsPhrase(text, tag));
   const tags = new Set(directTags);
-  // An activity name ("Lap Swim", "Spin Class") brings its tags along -
-  // but only when none of them was named directly. Several tags mean "any
-  // of these", so "yoga class" adding Yoga Class's Fitness tag on top of
-  // Yoga would widen results to every fitness listing.
+  // An activity name adds its tags only when none was named directly: several
+  // tags mean "any of", so "yoga class" would otherwise widen to every fitness
+  // listing.
   for (const activity of vocabulary.activities) {
     if (!containsPhrase(text, activity.name)) continue;
     if (activity.tags.some((tag) => directTags.includes(tag))) continue;

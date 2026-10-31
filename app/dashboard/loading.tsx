@@ -1,8 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Shown while a dashboard page loads its data. Like the account area's, a
-// segment's loading.tsx doesn't wrap its own layout, so the dashboard nav
-// stays on screen and only the content becomes a heading box and a block.
+// Shown while a dashboard page loads. The dashboard nav stays (loading.tsx
+// doesn't wrap its own layout); only the content becomes placeholders.
 export default function DashboardLoading() {
   return (
     <div>

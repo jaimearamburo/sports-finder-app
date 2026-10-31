@@ -10,13 +10,10 @@ import {
 } from "@/components/ui/card";
 
 export default async function LogoutPage() {
-  // Reads the current session to decide which state to show below.
   const session = await auth();
 
-  // Reachable directly (typed URL, bookmark, etc.) even with no session.
-  // Shows something useful instead of a "log out" button that would just
-  // fail, since signOut() on an already-empty session is a harmless no-op
-  // but a confusing thing to present as an action.
+  // Reachable with no session (typed URL, bookmark): show something useful
+  // instead of a pointless Log out button.
   if (!session) {
     return (
       <div className="flex flex-1 items-center justify-center p-4">
@@ -49,11 +46,8 @@ export default async function LogoutPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* signOut() clears the session cookie, so it has to run inside
-              a Server Action rather than directly in this component's
-              render: writing or clearing cookies is only allowed there or
-              in a Route Handler, not during a plain Server Component
-              render. */}
+          {/* signOut() clears a cookie, which is only allowed in a Server
+              Action or Route Handler, not during render. */}
           <form
             action={async () => {
               "use server";

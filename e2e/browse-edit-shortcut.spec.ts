@@ -2,12 +2,10 @@ import { test, expect, type Page } from "@playwright/test";
 import { authFile, fixtureIds } from "./fixtures";
 import { expectNoViolations } from "./helpers";
 
-// The edit shortcut on browse cards (GitHub #94): a gear on each card the
-// visitor may edit - every card for an admin, their own venues' listings
-// for a venue owner, none for anyone else - opening the listing's edit
-// page in a new tab. Who may edit is the dashboard's ownership policy;
-// these tests check it from the outside, with the e2e venues' courts
-// (venue A owned by owner A, venue B by owner B).
+// The edit gear on browse cards (GitHub #94): every card for an admin, their
+// own venues' listings for an owner, none for anyone else; opens the edit page
+// in a new tab. Uses the e2e courts (venue A owned by owner A, venue B by owner
+// B).
 
 const ids = () => fixtureIds();
 

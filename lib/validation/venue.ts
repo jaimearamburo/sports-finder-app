@@ -1,23 +1,18 @@
 import { z } from "zod";
 import { NAME_MAX_LENGTH } from "./common";
 
-// The venue form's rules, shared by the form (instant inline errors) and
-// the server (the real check - a Server Action is a public endpoint, so
-// createVenue/updateVenue parse their input regardless of what the browser
-// did). Shape only: whether the chosen city exists and whether the user may
-// edit this venue are checked in lib/dashboard/venues.ts, against the
-// database.
+// The venue form's rules, shared by the form and the server
+// (createVenue/updateVenue always parse). Shape only: the city's existence and
+// the user's rights are checked in lib/dashboard/venues.ts.
 
-// How far ahead people can book. A rolling window of up to six months; the
-// availability code can extend single dates past it with overrides.
+// Rolling booking window, up to six months; overrides can open single dates
+// beyond it.
 export const BOOKING_WINDOW_DAYS = { min: 1, max: 180 } as const;
-// How long a slot is held while someone checks out. Long enough to type
-// card details, short enough that an abandoned checkout frees the slot
-// soon. The checkout page and payment flow are built around a few minutes.
+// How long checkout holds a slot: long enough to enter card details, short
+// enough to free abandoned slots soon.
 export const HOLD_DURATION_MINUTES = { min: 2, max: 30 } as const;
 
-// What a new venue's form starts with. Matches the column defaults in
-// prisma/schema.prisma (Venue.bookingWindowDays, Venue.holdDurationMinutes).
+// A new venue's starting values; matches the column defaults in schema.prisma.
 export const NEW_VENUE_DEFAULTS = { bookingWindowDays: 30, holdDurationMinutes: 5 } as const;
 
 const DESCRIPTION_MAX_LENGTH = 1000;
@@ -41,7 +36,7 @@ export const venueSchema = z.object({
     .trim()
     .min(1, { error: "Enter the venue's name." })
     .max(NAME_MAX_LENGTH, { error: `Name must be ${NAME_MAX_LENGTH} characters or fewer.` }),
-  // Optional. An empty box is stored as no description (null), not "".
+  // Empty is stored as null, not "".
   description: z
     .string()
     .trim()
@@ -55,10 +50,8 @@ export const venueSchema = z.object({
   cityId: z.string().min(1, { error: "Choose a city." }).max(64),
   bookingWindowDays: wholeNumber("the booking window", BOOKING_WINDOW_DAYS),
   holdDurationMinutes: wholeNumber("the hold time", HOLD_DURATION_MINUTES),
-  // Who owns the venue. Shape only, and optional here: whether it's used at
-  // all, required, or ignored depends on who's saving (only users who may
-  // assign owners can set it - see resolveOwnerId in
-  // lib/dashboard/venues.ts), which a schema can't know.
+  // Shape only: whether it's used depends on who's saving (resolveOwnerId in
+  // lib/dashboard/venues.ts).
   ownerId: z.string().max(64).optional(),
 });
 

@@ -1,10 +1,8 @@
 import { test as setup, expect } from "@playwright/test";
 import { ACCOUNTS, ROLES, authFile, testPassword } from "./fixtures";
 
-// Signs each test account in once and saves the session (cookies) to a
-// file, so tests start already signed in as whichever account they need
-// (`test.use({ storageState: authFile("ownerA") })`) instead of logging in
-// every time. Playwright's recommended pattern.
+// Signs each test account in once and saves its session, so tests start signed
+// in via `test.use({ storageState: authFile(role) })`.
 for (const role of ROLES) {
   setup(`sign in as ${role}`, async ({ page }) => {
     await page.goto("/login");

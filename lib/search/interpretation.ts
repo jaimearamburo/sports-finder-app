@@ -1,13 +1,11 @@
 import { z } from "zod";
 import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
 
-// What natural-language search turns a query into: the same filters the
-// browse page already understands. Both interpreters - the LLM
-// (lib/llm.ts) and the keyword fallback (lib/search/keyword.ts) - produce
-// this shape, and interpretationToParams turns it into a browse URL, so
-// the actual searching is always done by the existing browse filters.
-// A plain module (no server-only, no Next imports) so the evaluation
-// script (scripts/search-eval.ts) can run it outside Next.
+// What natural-language search produces: the browse filters. The LLM
+// (lib/llm.ts) and the keyword fallback (lib/search/keyword.ts) both output
+// this shape, and interpretationToParams turns it into a browse URL, so results
+// always come from the browse filters. No Next imports, so
+// scripts/search-eval.ts can run it.
 
 export type SearchVocabulary = {
   // Tag names as stored (what the browse `tags` param filters on).
@@ -15,15 +13,13 @@ export type SearchVocabulary = {
   // City names as stored, plus a label with region/country - the label
   // gives the model geographic context for queries like "somewhere warm".
   cities: { name: string; label: string }[];
-  // Which tags each activity carries, e.g. "Yoga Class -> Fitness,
-  // Classes", so "yoga" maps to the right tags even though no tag is
-  // called "Yoga".
+  // Each activity's tags (e.g. "Yoga Class -> Fitness, Classes"), so "yoga"
+  // maps to the right tags.
   activities: { name: string; tags: string[] }[];
 };
 
-// Relative date expressions the model may return. The model only
-// classifies the phrase; resolveWhenToDateParam does the calendar math in
-// code, because models are unreliable at date arithmetic.
+// Relative dates the model may return. It only classifies the phrase;
+// resolveWhenToDateParam does the date maths.
 export const WHEN_VALUES = [
   "none",
   "today",
@@ -41,13 +37,12 @@ export const WHEN_VALUES = [
 ] as const;
 export type When = (typeof WHEN_VALUES)[number];
 
-// The booking-mechanic axis (see lib/category-filters.ts). Single-valued
-// on purpose: the browse filter selects one type or all, never several.
+// The booking-mechanic axis (lib/category-filters.ts); single-valued because
+// browse filters one type or all.
 export const BOOKING_TYPES = ["time_range", "fixed_session", "date_range"] as const;
 
-// Built per request from the (cached) vocabulary, so tags and cities can
-// only ever be values that exist in the database - the model can't invent
-// a city. Cheap to build; the vocabulary is what's cached.
+// Built per request from the cached vocabulary, so tags and cities can only be
+// real database values.
 export function buildInterpretationSchema(vocabulary: SearchVocabulary) {
   const tagEnum = vocabulary.tags.length > 0 ? z.enum(vocabulary.tags as [string, ...string[]]) : z.never();
   const cityEnum =
@@ -59,9 +54,8 @@ export function buildInterpretationSchema(vocabulary: SearchVocabulary) {
     cities: z.array(cityEnum),
     bookingType: z.enum(BOOKING_TYPES).nullable(),
     when: z.enum(WHEN_VALUES),
-    // Only used when `when` is "specific_date". Checked again in
-    // resolveWhenToDateParam, since a schema string can't guarantee a real
-    // calendar date.
+    // Only used when `when` is "specific_date"; validated again in
+    // resolveWhenToDateParam.
     specificDate: z.string().nullable(),
     priceMin: z.number().nullable(),
     priceMax: z.number().nullable(),
@@ -96,11 +90,10 @@ function isRealDate(param: string): boolean {
   return DATE_PARAM.test(param) && formatDay(parseDay(param)) === param;
 }
 
-// Turns a `when` into the browse `date` param ("yyyy-mm-dd" or a
-// Saturday,Sunday pair), relative to the viewer's own today. "this
-// weekend" uses exactly the rule the "This weekend" pill uses (nearest
-// Saturday and Sunday on or after today), so a search lights that pill up.
-// Weekday names mean the next one on or after today.
+// A `when` as the browse `date` param ("yyyy-mm-dd" or a Saturday,Sunday pair),
+// relative to the viewer's today. "this weekend" uses the "This weekend" pill's
+// rule, so the pill lights up. Weekday names mean the next one on or after
+// today.
 export function resolveWhenToDateParam(when: When, specificDate: string | null, today: string): string | undefined {
   const base = parseDay(today);
   const plus = (days: number) => formatDay(new Date(base.getTime() + days * DAY_MS));
@@ -127,14 +120,12 @@ export function resolveWhenToDateParam(when: When, specificDate: string | null, 
   }
 }
 
-// The browse URL query for an interpretation. `q` keeps the original text
-// so the search box can show it and the browse page knows to show the
-// "Showing: ..." chips. Prices are clamped to the browse slider's range.
+// The browse query for an interpretation. `q` keeps the original text for the
+// search box and the interpretation chips. Prices are clamped to the slider's
+// range.
 export function interpretationToParams(interpretation: Interpretation, query: string, today: string): URLSearchParams {
   const params = new URLSearchParams({ q: query });
-  // Lowercase, matching how the tag tiles write and compare the `tags`
-  // param (see TagFilterChips) - otherwise the right listings show but the
-  // tiles don't highlight. The listings query itself is case-insensitive.
+  // Lowercase, as the tag tiles write and compare them, so the tiles highlight.
   if (interpretation.tags.length > 0) {
     params.set("tags", [...new Set(interpretation.tags.map((t) => t.toLowerCase()))].join(","));
   }

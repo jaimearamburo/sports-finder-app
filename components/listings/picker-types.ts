@@ -1,8 +1,5 @@
-// A plain, client-safe subset of Listing's fields - never the raw Prisma
-// row. pricePerUnit in particular has to be a plain number here: Prisma's
-// Decimal is a class instance, and React Server Components can only pass
-// plain serializable data (objects, arrays, primitives, Date) as props
-// into a Client Component.
+// A client-safe subset of Listing. pricePerUnit is a plain number because
+// Prisma's Decimal can't be passed to a Client Component.
 export type PickerListing = {
   bookingMechanic: "time_range" | "date_range" | "fixed_session";
   pricePerUnit: number;
@@ -15,32 +12,20 @@ export type PickerListing = {
   maxDurationDays: number | null;
   recurrenceStartTime: string | null;
   sessionDurationMinutes: number | null;
-  // Only meaningful for date_range (see the field's own comment in
-  // schema.prisma) - decides both the calendar's interaction mode and the
-  // day/night wording in DateRangePicker.
+  // date_range only: decides the calendar mode and day/night wording.
   isAccommodation: boolean;
-  // null = unlimited open spots (see the field's own comment in
-  // schema.prisma) - SlotPicker uses this to decide whether a quantity
-  // stepper makes sense at all (never, for a capacity-1 exclusive-use
-  // court) and to cap how high it can go.
+  // null = unlimited. Decides whether SlotPicker shows a quantity stepper and
+  // caps it.
   capacity: number | null;
-  // Per-purchase cap on top of capacity itself - see the field's own
-  // comment in schema.prisma. Null means no cap beyond capacity.
+  // Per-booking cap on quantity; null means no cap beyond capacity.
   maxBookingsPerTransaction: number | null;
-  // IANA timezone (from the listing's Venue -> City) that every
-  // date/time computation in the pickers is anchored to - operating
-  // hours, recurrence times, and "today" are all wall-clock-at-the-venue,
-  // not wall-clock-for-whoever's-booking.
+  // The venue's IANA timezone; opening hours, recurrence times and "today" are
+  // all venue wall-clock values.
   venueTimezone: string;
 };
 
-// One atomic bookable span. Every mechanic produces one of these per
-// selection, except a non-accommodation date_range listing (a pass),
-// which produces one per individually-picked day - a "3-day pass"
-// selecting the 19th/23rd/30th is three separate one-day spans, not one
-// span covering the whole range (that would wrongly claim the gap days
-// too). SelectedSlots is always the array, even when every other mechanic
-// only ever puts one entry in it - that keeps SlotPicker's price/total
-// logic the same regardless of how many spans a given mechanic produces.
+// One bookable span. A pass produces one per picked day; every other mechanic
+// produces one per selection. Always an array, so pricing logic is the same for
+// all.
 export type SelectedSlot = { startsAt: Date; endsAt: Date };
 export type SelectedSlots = SelectedSlot[];

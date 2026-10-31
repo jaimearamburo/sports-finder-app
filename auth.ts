@@ -7,44 +7,29 @@ import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validation/auth";
 import { demoAccountEmail, demoAccountSchema } from "@/lib/demo-login";
 
-// A real bcrypt hash of a throwaway string, at the same cost factor (10)
-// as every stored password (see app/signup/actions.ts), so comparing
-// against it takes the same time as a genuine check. Matches nothing
-// anyone could log in with; it exists only for the timing equaliser in
-// authorize() below.
+// A bcrypt hash at the same cost as stored passwords, compared against when no
+// user exists so login timing doesn't reveal registered emails. Matches no
+// usable password.
 const DUMMY_PASSWORD_HASH = "$2b$10$3Rb76sUdawRn1K5iws32YuGeud/q.ixcZEcA6Q.Dlt01aSkQH/.rW";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // The adapter persists OAuth accounts/sessions to our User/Account/Session
-  // tables. It is NOT used to persist Credentials-provider sessions (see
-  // `session.strategy` below) — Auth.js only ever calls it to look up/create
-  // the User row itself and to link Google accounts to that row.
+  // Stores users and linked Google accounts. Sessions are JWTs, not adapter
+  // rows.
   adapter: PrismaAdapter(prisma),
 
-  // The Credentials provider's user isn't authenticated through the
-  // adapter, so it requires JWT sessions rather than database sessions
-  // (Auth.js can't persist a "session" row for a login method it didn't
-  // authenticate via OAuth/adapter). Since Credentials is one of our
-  // providers, the whole app uses JWT sessions — including for Google
-  // sign-ins — for one consistent session mechanism.
+  // Credentials sign-in requires JWT sessions, so the whole app uses them,
+  // Google included.
   session: { strategy: "jwt" },
 
   providers: [
-    // `prompt: "select_account"` forces Google's account chooser to show
-    // every time, even when the browser already has an active Google
-    // session or has consented to this app before. Without it, Google
-    // silently skips straight to sign-in once both of those are already
-    // true — fine for a real returning user, but confusing during testing
-    // when you don't realize which Google account you're about to sign in as.
+    // select_account always shows Google's account chooser, so it's clear which
+    // account is signing in.
     //
-    // allowDangerousEmailAccountLinking lets a Google sign-in attach to an
-    // existing password account with the same email instead of failing
-    // with OAuthAccountNotLinked. Normally risky, but safe in this
-    // direction: Google only issues verified emails, so whoever completes
-    // this sign-in really owns the address. It's how the real owner
-    // reclaims an account someone else registered under their email first
-    // (signup has no email verification) - see events.linkAccount below,
-    // which removes that squatter's password on link.
+    // allowDangerousEmailAccountLinking attaches a Google sign-in to an
+    // existing password account with the same email. Safe in this direction:
+    // Google emails are verified, so this lets the real owner reclaim an
+    // address someone registered first (signup doesn't verify emails).
+    // events.linkAccount then removes that account's password.
     Google({
       authorization: { params: { prompt: "select_account" } },
       allowDangerousEmailAccountLinking: true,
@@ -55,10 +40,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // Auth.js's own sign-in endpoint (/api/auth/callback/credentials)
-        // reaches this directly, not only via the login Server Action, so
-        // the input is re-parsed here with the same schema rather than
-        // trusted. Normalises email the same way signup stored it.
+        // Auth.js's endpoint (/api/auth/callback/credentials) reaches this
+        // directly, so input is parsed here too, normalising the email as
+        // signup does.
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) {
           return null;
@@ -66,13 +50,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const { email, password } = parsed.data;
 
         const user = await prisma.user.findUnique({ where: { email } });
-        // No account, or the account was created via Google (no password
-        // ever set) — reject rather than throwing, so the UI just shows a
-        // generic "invalid credentials" message either way. Still runs a
-        // full bcrypt comparison against a dummy hash first: skipping it
-        // made "no such account" answer measurably faster than "wrong
-        // password," which let anyone tell registered emails apart by
-        // timing alone, defeating the generic message.
+        // No account, or a Google-only account: return null so the UI shows one
+        // generic message. The dummy bcrypt comparison keeps timing the same as
+        // a wrong password.
         if (!user || !user.passwordHash) {
           await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
           return null;
@@ -86,12 +66,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return { id: user.id, name: user.name, email: user.email, role: user.role };
       },
     }),
-    // One-click demo logins (lib/demo-login.ts): the only input is which
-    // demo account ("owner" or "user"), never an email or password; the
-    // account itself comes from server-side env vars. Like the provider
-    // above, Auth.js's own endpoint (/api/auth/callback/demo) reaches this
-    // directly, so the input is parsed here, and everything is refused
-    // unless DEMO_LOGIN_ENABLED is on.
+    // Demo logins (lib/demo-login.ts): the only input is "owner" or "user"; the
+    // account comes from server env vars. Auth.js's endpoint reaches this
+    // directly, so input is parsed here, and everything is refused unless
+    // DEMO_LOGIN_ENABLED is on.
     Credentials({
       id: "demo",
       name: "Demo",
@@ -103,8 +81,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!email) return null;
 
         const user = await prisma.user.findUnique({ where: { email } });
-        // Never an admin, whatever the env says: a demo login is open to
-        // anyone, and admin rights must not be one click away.
+        // Never an admin, whatever the env says.
         if (!user || user.role === "admin") return null;
         return { id: user.id, name: user.name, email: user.email, role: user.role };
       },
@@ -112,10 +89,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
 
   callbacks: {
-    // Runs whenever a JWT is created/updated. `user` is only defined right
-    // after sign-in (from `authorize`, or from the adapter for Google) — we
-    // copy the fields we need onto the token here so later requests, which
-    // only have the token (no `user`), can still read them.
+    // `user` is only set at sign-in; copy id and role onto the token for later
+    // requests.
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
@@ -123,8 +98,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return token;
     },
-    // Runs whenever a session is read. Exposes the fields we stashed on the
-    // token to `useSession()` / `auth()` callers as `session.user.id/.role`.
+    // Exposes the token's id and role as session.user.id/.role.
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
@@ -135,15 +109,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 
   events: {
-    // Fires when a Google account is attached to an existing user (see
-    // allowDangerousEmailAccountLinking above). The Google side has just
-    // proved ownership of this email; the password side never did, since
-    // signup doesn't verify emails. Clearing passwordHash means anyone who
-    // registered this email before its real owner loses access the moment
-    // the owner signs in with Google. Trade-off: a legitimate user who
-    // signed up with a password and later links Google can no longer log
-    // in with that password, only with Google, until a real
-    // password-reset flow exists.
+    // A Google account was linked to an existing user (see
+    // allowDangerousEmailAccountLinking). Google proved ownership of the email;
+    // the password never did, so it's cleared and anyone who pre-registered the
+    // address loses access. A user who links Google keeps only Google sign-in
+    // until a password reset flow exists.
     async linkAccount({ user, account }) {
       if (account.provider !== "google" || !user.id) return;
       await prisma.user.update({ where: { id: user.id }, data: { passwordHash: null } });

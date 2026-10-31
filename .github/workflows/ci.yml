@@ -1,9 +1,9 @@
-# Checks every pull request and every push to main/dev: typecheck, lint and
-# unit tests. Needs no secrets and never touches a database.
+# Runs on every pull request and every push to main/dev: typecheck, lint, unit
+# tests, and the booking database tests against a throwaway Postgres. No
+# secrets, no real database.
 #
-# The end-to-end tests aren't here on purpose: they write to whatever
-# database .env points at, which is production today. They can join once a
-# separate test database exists (see #107).
+# End-to-end tests run locally (pnpm test:e2e): they need the running app with
+# Stripe test keys and a Blob store.
 name: CI
 
 on:
@@ -14,7 +14,7 @@ on:
 permissions:
   contents: read
 
-# A newer push to the same branch or PR makes the older run pointless.
+# A newer push to the same ref cancels the older run.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -24,9 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      # prisma.config.ts reads this, and `prisma generate` (run by
-      # postinstall) loads that config. Generating the client never
-      # connects, so a placeholder URL is enough.
+      # `prisma generate` (postinstall) loads prisma.config.ts, which reads
+      # this. Generating never connects, so a placeholder is enough.
       POSTGRES_URL_NON_POOLING: postgresql://ci:ci@localhost:5432/ci
     steps:
       - uses: actions/checkout@v4
@@ -40,8 +39,7 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # --frozen-lockfile: fail if package.json and pnpm-lock.yaml disagree,
-      # instead of quietly resolving different versions than Vercel builds.
+      # --frozen-lockfile fails if package.json and pnpm-lock.yaml disagree.
       - name: Install
         run: pnpm install --frozen-lockfile
 
@@ -53,3 +51,47 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+
+  # The booking core against a real Postgres: row locks, capacity sums and
+  # payment completion. The database is built from the migrations, which proves
+  # they apply from scratch.
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_URL_NON_POOLING: postgresql://ci:ci@localhost:5432/ci
+      POSTGRES_PRISMA_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations
+        run: pnpm exec prisma migrate deploy
+
+      - name: Database tests
+        run: pnpm test:db

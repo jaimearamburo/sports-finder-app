@@ -21,23 +21,15 @@ function StatusBadge({ status }: { status: BookingOrder["status"] }) {
   );
 }
 
-// One entry per order (every Booking row sharing an orderId already
-// collapsed into one by getUserBookingOrders - a multi-day pass is one
-// purchase, not several unrelated rows). The reference number is the only
-// clickable part of an entry; clicking it opens a Dialog with the full
-// per-slot breakdown rather than navigating anywhere - there's no more
-// detailed page to navigate TO that this table doesn't already have the
-// data for. One Dialog shared by every entry (not one per row/card) and
-// driven by which orderId is "open," rather than each one owning its own
-// uncontrolled Dialog/DialogTrigger pair the way the checkout page's
-// single Terms dialog does - that pattern doesn't extend to a list with
-// an unknown number of entries.
+// One entry per order (getUserBookingOrders groups the rows, so a pass is one
+// entry). The reference opens a dialog with the per-slot breakdown; there's no
+// detail page. One shared Dialog driven by the open orderId, rather than one
+// per row.
 export function BookingsTable({ orders }: { orders: BookingOrder[] }) {
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
   const openOrder = orders.find((order) => order.orderId === openOrderId) ?? null;
 
-  // Derived once, shared by both the desktop table and the mobile card
-  // list below, so the two renderings of the same data can't drift apart.
+  // Shared by the desktop table and the phone cards.
   const rows = orders.map((order) => ({
     order,
     firstSlot: order.slots[0],
@@ -46,11 +38,8 @@ export function BookingsTable({ orders }: { orders: BookingOrder[] }) {
 
   return (
     <>
-      {/* Desktop/tablet: a real table. Below md it's replaced entirely
-          (not just horizontally scrolled) by the card list further down -
-          a table that's merely scrollable still cuts off the Status
-          column at a glance on a phone, which is the whole point of
-          showing status at all. */}
+      {/* A table from md up. Below md it's replaced by cards rather than
+          scrolled, so the status column is never cut off. */}
       <div className="hidden overflow-x-auto rounded-md border md:block">
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-muted/40 text-xs tracking-wide text-muted-foreground uppercase">
@@ -91,9 +80,7 @@ export function BookingsTable({ orders }: { orders: BookingOrder[] }) {
         </table>
       </div>
 
-      {/* Mobile: one stacked card per order, same data as the table above
-          with nothing cropped - every field (reference, listing, date,
-          status) is fully visible without horizontal scrolling. */}
+      {/* Phones: one card per order with every field visible. */}
       <div className="flex flex-col gap-3 md:hidden">
         {rows.map(({ order, firstSlot, lastSlot }) => (
           <div key={order.orderId} className="rounded-md border bg-card p-4">
@@ -118,11 +105,8 @@ export function BookingsTable({ orders }: { orders: BookingOrder[] }) {
         ))}
       </div>
 
-      {/* One Dialog, its content swapped by which order is currently
-          open - see this component's own comment above for why that's
-          one Dialog rather than one per row. onOpenChange only ever needs
-          to react to a close (Escape, overlay click, the X button); an
-          open is always driven by setOpenOrderId above instead. */}
+      {/* One Dialog whose content follows the open order. onOpenChange only
+          handles closing; opening goes through setOpenOrderId. */}
       <Dialog open={openOrder !== null} onOpenChange={(open) => !open && setOpenOrderId(null)}>
         <DialogContent>
           {openOrder && (
@@ -151,9 +135,8 @@ export function BookingsTable({ orders }: { orders: BookingOrder[] }) {
                     {openOrder.slots.length > 1 ? "Dates" : "Date"}
                   </p>
                   <ul className="flex flex-col gap-1">
-                    {/* "× n" when one booking covers several people/passes,
-                        so the total paid adds up visibly - without it, $70
-                        for "1 day" of a $35 pass read as an overcharge. */}
+                    {/* "× n" when one booking covers several people, so the
+                        total visibly adds up. */}
                     {openOrder.slots.map((slot) => (
                       <li key={slot.id} className="flex justify-between gap-3">
                         <span>{formatBookingTime(slot.startsAt, slot.endsAt, openOrder.timeZone, openOrder)}</span>

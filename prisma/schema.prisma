@@ -1,48 +1,30 @@
-// Prisma schema for the Sports Booking App.
-// Docs: https://pris.ly/d/prisma-schema
+// Prisma schema for the sports booking app. Docs:
+// https://pris.ly/d/prisma-schema
 
-// -----------------------------------------------------------------------------
-// NAMING CONVENTION NOTE
-// Model and field names below are written in idiomatic TypeScript camelCase
-// (e.g. `createdAt`), because these become the property names you'll actually
-// type in application code (`booking.createdAt`, `listing.venueId`). Every
-// model and field is mapped to a snake_case table/column name in the actual
-// Postgres database via @@map / @map, so the SQL itself follows snake_case as
-// requested. If you'd rather have snake_case property names in your
-// TypeScript code too (e.g. `booking.created_at`), say so and I'll flip it —
-// it's a straightforward pass at this stage, better to change now than later.
-// -----------------------------------------------------------------------------
+// Model and field names are camelCase for application code; @map/@@map give the
+// Postgres tables and columns snake_case names.
 
 generator client {
-  // Prisma ORM v7 uses the newer "prisma-client" generator, and requires an
-  // explicit output path (there's no default location anymore).
+  // Prisma 7: the "prisma-client" generator needs an explicit output path.
   provider = "prisma-client"
   output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  // As of Prisma ORM v7, connection URLs no longer live here — the CLI
-  // (migrate, studio, etc.) reads its connection from prisma.config.ts
-  // instead, and the running app passes its own connection via the
-  // @prisma/adapter-pg driver adapter when PrismaClient is instantiated
-  // in application code. See prisma.config.ts in this same project.
+  // Prisma 7: connection URLs live in prisma.config.ts (CLI) and in the
+  // @prisma/adapter-pg adapter (app runtime), not here.
 }
 
 // =============================================================================
 // ENUMS
 // =============================================================================
 
-// The role assigned to a user account. Drives what a user is allowed to do
-// across the whole platform (see each model's comments for how it's used).
-//   admin       - full access to everything: every venue, every listing,
-//                 every booking, user management.
-//   venue_owner - can create/manage venues, listings, and bookings, but only
-//                 for venues where venues.owner_id points back to their own
-//                 user id (see Venue below). Can also browse/book normally
-//                 like a regular user elsewhere on the platform — this is
-//                 not an exclusive role.
-//   user        - can browse, book, and manage their own bookings only.
+// A user's platform-wide role.
+// - admin: full access to every venue, listing and booking.
+// - venue_owner: manages only venues they own (Venue.ownerId), and can browse
+//   and book like any user.
+// - user: browses, books and manages their own bookings.
 enum UserRole {
   admin
   venue_owner
@@ -51,15 +33,13 @@ enum UserRole {
   @@map("user_role")
 }
 
-// Determines which booking screen and which conflict-check logic a Listing
-// uses. This is a closed, code-driven set — adding a new value here means
-// writing new UI + booking logic to support it, so it's intentionally not
-// admin-editable data (unlike Activity, which is).
-//   time_range    - user picks a start time + duration within operating
-//                    hours (tennis court, padel court, football pitch).
-//   date_range    - user picks a start date + end date (campsite, day pass).
-//   fixed_session - user books into one specific pre-scheduled occurrence
-//                    with a capacity (gym class, Pilates class).
+// Decides a Listing's booking screen and conflict-check logic. A closed set: a
+// new value needs new UI and booking logic.
+// - time_range: pick a start time and length within opening hours (courts,
+//   pitches).
+// - date_range: pick days (campsites, day passes).
+// - fixed_session: book one scheduled occurrence with limited capacity
+//   (classes).
 enum BookingMechanic {
   time_range
   date_range
@@ -68,13 +48,9 @@ enum BookingMechanic {
   @@map("booking_mechanic")
 }
 
-// Lifecycle status of a single booking.
-//   pending   - booking created, awaiting payment confirmation.
-//   confirmed - payment succeeded (or free booking confirmed); the listing
-//               is held for that time range.
-//   cancelled - cancelled by the user, venue owner, or admin; frees up the
-//               listing for that time range again (excluded from the
-//               overlap/capacity check described on Booking below).
+// - pending: card authorized, not yet captured.
+// - confirmed: paid (or free).
+// - cancelled: frees the capacity again (excluded from capacity checks).
 enum BookingStatus {
   pending
   confirmed
@@ -87,30 +63,17 @@ enum BookingStatus {
 // CORE DOMAIN MODELS
 // =============================================================================
 
-// A person with an account on the platform. This is the single account type
-// for everyone — there is no separate "venue owner account." A user's `role`
-// determines what they're allowed to do, and a venue_owner user can own any
-// number of venues (see Venue.ownerId below) all from this one account/login;
-// owning multiple venues never requires multiple accounts.
-//
-// Relationships:
-//   - Has many Venues, if role = venue_owner (as the owner).
-//   - Has many Bookings, as the account that made the booking.
-//   - Has many Accounts/Sessions — required by the Auth.js adapter, see
-//     the AUTH.JS section at the bottom of this file.
+// Every account, whatever its role. A venue owner owns any number of venues
+// from one account.
 model User {
   id            String    @id @default(cuid())
   name          String
   email         String    @unique
-  // Nullable because a user who signs up via an OAuth provider (e.g. Google,
-  // via Auth.js) never sets a password on our side.
+  // Null for users who signed up with Google.
   passwordHash  String?   @map("password_hash")
   role          UserRole  @default(user)
-  // Both nullable fields below are required by @auth/prisma-adapter's fixed
-  // User schema, not by our own domain model — the adapter writes to them
-  // directly when a user signs in via an OAuth provider (Google). Credentials
-  // users never get emailVerified set (no email verification flow in MVP
-  // scope) and generally have no image.
+  // Required by @auth/prisma-adapter, which writes them on Google sign-in.
+  // Credentials users never have emailVerified set (no verification flow).
   emailVerified DateTime? @map("email_verified")
   image         String?
   createdAt     DateTime  @default(now()) @map("created_at")
@@ -126,13 +89,7 @@ model User {
   @@map("users")
 }
 
-// A physical venue/location, owned by one User. A venue owner can own
-// multiple venues in different locations — that's simply multiple Venue rows
-// all pointing to the same ownerId, no extra accounts required.
-//
-// Relationships:
-//   - Belongs to one User (the owner).
-//   - Has many Listings — the actual bookable things located at this venue.
+// A physical venue, owned by one User.
 model Venue {
   id          String  @id @default(cuid())
   ownerId     String  @map("owner_id")
@@ -141,24 +98,17 @@ model Venue {
   description String?
   address     String
 
-  // Rolling public booking window, in days from today, in this venue's
-  // local time (see City.timezone). Not stored per-day state - "today +
-  // bookingWindowDays" naturally advances every real day with no batch
-  // job needed.
+  // Rolling public booking window, in days from today on the venue's clock.
   bookingWindowDays Int @default(30) @map("booking_window_days")
 
-  // Default minutes a BookingHold reserves a slot before it expires,
-  // inherited by every Listing unless overridden there.
+  // Default minutes a BookingHold reserves a slot; a Listing can override it.
   holdDurationMinutes Int @default(5) @map("hold_duration_minutes")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // onDelete: Restrict (not Cascade) is deliberate — deleting a user account
-  // should never silently wipe out venues, listings, and booking history.
-  // A real app would soft-delete/deactivate users; for this MVP we simply
-  // block deleting a user who still owns venues. Same reasoning for City:
-  // a city with venues attached shouldn't be deletable out from under them.
+  // Restrict, not Cascade: deleting a user or city must not wipe venues,
+  // listings and booking history.
   owner                 User                   @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   city                  City                   @relation(fields: [cityId], references: [id], onDelete: Restrict)
   listings              Listing[]
@@ -169,22 +119,12 @@ model Venue {
   @@map("venues")
 }
 
-// Platform-curated reference data, the same pattern as Tag and Activity:
-// venue managers pick from this list rather than typing a city name freely,
-// which is what makes the browse page's city filter reliable and lets a
-// venue's timezone come from a trusted source instead of being typed by
-// hand per venue. Curated via the seed script for now, the same way
-// Tag/Activity are — there's no admin UI yet to actually gate this behind
-// an admin-only permission.
-// Platform-curated, same pattern as City/Tag/Activity - a fixed reference
-// list a City picks from, not a free-text field a venue manager could
-// misspell or duplicate ("US" vs "USA" vs "United States").
+// Platform-curated reference list (seed-managed, like City, Tag and Activity),
+// so cities can't name a country inconsistently.
 model Country {
   id   String @id @default(cuid())
   name String @unique
-  // ISO 3166-1 alpha-2 (e.g. "AU", "US", "GB") - used for the browse
-  // sidebar's city dropdown, grouped and labeled by this relation (see
-  // lib/browse-cities.ts) rather than a city-level free-text suffix.
+  // ISO 3166-1 alpha-2 code (e.g. "AU"); groups the browse city dropdown.
   code String @unique
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -198,19 +138,15 @@ model City {
   id   String @id @default(cuid())
   name String @unique
 
-  // Optional state/territory, mainly for display and to leave room for
-  // same-named cities in different regions later without a schema change.
+  // Optional state or territory, for display and to allow same-named cities in
+  // different regions.
   region String?
 
-  // IANA timezone identifier (e.g. "Australia/Sydney") - the single
-  // source of truth a Venue's timezone is read from via this relation,
-  // rather than Venue storing its own and risking it drifting out of
-  // sync with reality.
+  // IANA timezone (e.g. "Australia/Sydney"); every venue time in this city uses
+  // it.
   timezone String
 
-  // onDelete: Restrict, not Cascade - a Country with cities still
-  // attached shouldn't be silently removable out from under them (same
-  // reasoning as Venue.city below).
+  // Restrict: a country with cities can't be deleted.
   countryId String  @map("country_id")
   country   Country @relation(fields: [countryId], references: [id], onDelete: Restrict)
 
@@ -221,16 +157,9 @@ model City {
   @@map("cities")
 }
 
-// A category of bookable thing — e.g. "Tennis," "Camping," "Pilates Class."
-// This is intentionally decoupled from any specific venue: it's shared
-// reference data that every venue's listings link into, which is what
-// powers platform-wide browsing/filtering ("show me all Tennis venues").
-//
-// `bookingMechanic` is the single field that decides which booking screen
-// and which conflict-check logic every Listing under this Activity uses.
-//
-// Relationships:
-//   - Has many Listings, across many different venues.
+// A platform-wide category of bookable thing ("Tennis", "Camping", "Pilates
+// Class"), shared by every venue's listings. Its bookingMechanic decides how
+// every Listing under it is booked.
 model Activity {
   id              String          @id @default(cuid())
   name            String          @unique
@@ -238,18 +167,10 @@ model Activity {
   description     String?
   icon            String?
 
-  // Only meaningful when bookingMechanic = date_range. true = accommodation
-  // semantics (explicit check-in/check-out, even for a 1-night stay,
-  // "night(s)" wording, one contiguous range) - e.g. Camping. false = a
-  // pass/ticket (pick which individual day(s) it covers, "day(s)" wording,
-  // non-contiguous multi-select) - e.g. a gym day pass. This binary doesn't
-  // cover every possible date_range product - a future "equipment rental"
-  // style listing (a contiguous range like accommodation, but "day" wording
-  // like a pass) wouldn't fit either value correctly. Not solved for now
-  // since nothing like it exists in this project yet; revisit as a richer
-  // type (not a boolean) if it ever does. Lives here, not on Listing, for
-  // the same reason bookingMechanic does: every Listing under one Activity
-  // should behave identically, not risk drifting row by row.
+  // Only used with date_range. true: accommodation (check-in/check-out,
+  // "nights", one contiguous range), e.g. camping. false: a pass (individually
+  // picked days, "days"), e.g. a gym day pass. Set per Activity so every
+  // Listing under it behaves the same.
   isAccommodation Boolean @default(false) @map("is_accommodation")
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -261,20 +182,13 @@ model Activity {
   @@map("activities")
 }
 
-// A quick-filter tag shown in the browse UI's top row (Tennis, Padel,
-// Classes, Camping, etc.). An Activity can belong to multiple tags at once
-// — "Tennis Class" belongs to both "Tennis" and "Classes" — and a tag
-// applies to multiple Activities, which is exactly why this needs a
-// many-to-many join table rather than a simple field on Activity.
+// A browse quick-filter tag. Many-to-many with Activity: "Tennis Class" is
+// tagged both "Tennis" and "Classes".
 model Tag {
   id           String   @id @default(cuid())
   name         String   @unique
-  // Display fields for the browse page's tag chip row. emoji and color
-  // have no format constraint at the database level; the application
-  // trusts whatever is stored here the same way it trusts any other
-  // admin-entered content. Defaults let a tag created without these set
-  // explicitly still render something sensible. displayOrder defaults to
-  // 1 so untouched tags tie and fall back to alphabetical order.
+  // Browse chip display fields; formats aren't enforced by the database. Equal
+  // displayOrder values fall back to alphabetical order.
   emoji        String   @default("🏷️")
   color        String   @default("#1f1f1f") // hex string, e.g. "#2f9e52"
   displayOrder Int      @default(1) @map("display_order")
@@ -285,7 +199,7 @@ model Tag {
   @@map("tags")
 }
 
-// Join table implementing the Activity <-> Tag many-to-many relationship.
+// Activity <-> Tag join table.
 model ActivityTag {
   activityId String @map("activity_id")
   tagId      String @map("tag_id")
@@ -297,84 +211,49 @@ model ActivityTag {
   @@map("activity_tags")
 }
 
-// The actual bookable thing at a specific venue — "Court 1," "Campsite A,"
-// "Monday 6pm HIIT." This is where a Venue and an Activity come together: a
-// venue owner picks which Activity category a Listing belongs to, and that
-// Activity's bookingMechanic decides which field group below applies.
-//
-// There is deliberately no separate "slot" table anywhere in this schema —
-// pre-generating one row per bookable time increment doesn't scale once
-// duration is variable (see Booking below for how availability/conflict
-// checking works instead).
-//
-// Relationships:
-//   - Belongs to one Venue.
-//   - Belongs to one Activity (its category).
-//   - Has many Bookings.
+// The bookable thing at a venue ("Court 1", "Campsite A", "Monday 6pm HIIT").
+// Its Activity's bookingMechanic decides which field group below applies.
+// There's no slot table: availability is computed from bookings (see Booking).
 model Listing {
   id                        String  @id @default(cuid())
   venueId                   String  @map("venue_id")
   activityId                String  @map("activity_id")
   name                      String
   description               String?
-  // Public URL of the listing's photo in Vercel Blob, or null for none (the
-  // browse card then falls back to its tag emoji). Only the URL is stored:
-  // the file itself lives in Blob, uploaded straight from the manager's
-  // browser, so images never pass through a Server Action or the database.
+  // Public Vercel Blob URL of the listing's photo; null shows the tag emoji.
+  // The browser uploads the file to Blob directly.
   imageUrl                  String? @map("image_url")
-  // Max number of simultaneous/overlapping bookings this listing allows.
-  // 1 for an exclusive-use court or campsite; >1 for a class with multiple
-  // open spots; null for no limit at all (a free group run or hike).
-  // This single field is what lets the same conflict-check logic (see
-  // Booking) cover courts, classes, and unlimited activities without
-  // branching: null simply skips the count-against-capacity check.
+  // Maximum overlapping quantity: 1 for an exclusive court or campsite, more
+  // for a class, null for unlimited (skips the capacity check).
   capacity                  Int?    @default(1)
-  // Caps how many quantity units a single booking transaction may claim
-  // against this listing at once (bringing a group to one class, say).
-  // Independent of `capacity` above: capacity is the listing's total
-  // ceiling shared across all bookings on a given slot, this is a
-  // per-purchase ceiling on top of that - a 20-spot class might still only
-  // let one order claim 5 of them. Null means no cap beyond capacity
-  // itself.
+  // Per-booking cap on quantity (e.g. at most 5 places of a 20-place class in
+  // one order). Null: no cap beyond capacity.
   maxBookingsPerTransaction Int?    @default(5) @map("max_bookings_per_transaction")
   pricePerUnit              Decimal @map("price_per_unit") @db.Decimal(10, 2)
 
-  // --- Used when Activity.bookingMechanic = time_range ---
-  // (tennis court, padel court, football pitch: user picks a start time +
-  // duration within these bounds; availability is computed on demand from
-  // existing bookings, never pre-generated.)
+  // time_range: start time and length within these bounds.
   operatingHoursStart String? @map("operating_hours_start") // e.g. "09:00"
   operatingHoursEnd   String? @map("operating_hours_end") // e.g. "21:00"
   minDurationMinutes  Int?    @map("min_duration_minutes")
   maxDurationMinutes  Int?    @map("max_duration_minutes")
   incrementMinutes    Int?    @map("increment_minutes")
 
-  // --- Used when Activity.bookingMechanic = date_range ---
-  // (campsite, day pass: user picks a start date + end date.)
+  // date_range: number of days or nights.
   minDurationDays Int? @map("min_duration_days")
   maxDurationDays Int? @map("max_duration_days")
 
-  // --- Used when Activity.bookingMechanic = fixed_session ---
-  // (gym class, Pilates class: one recurring weekly occurrence per Listing
-  // row. A class recurring multiple times a week, e.g. HIIT on Mon/Wed/Fri,
-  // is modeled as multiple Listing rows sharing the same Activity —
-  // "HIIT - Monday," "HIIT - Wednesday" — rather than a separate schedule
-  // table, to keep this simple for the MVP.)
+  // fixed_session: one weekly occurrence per Listing. A class held on several
+  // weekdays is several Listings.
   recurrenceDayOfWeek    Int?    @map("recurrence_day_of_week") // 0 = Sunday ... 6 = Saturday
   recurrenceStartTime    String? @map("recurrence_start_time") // e.g. "18:00"
   sessionDurationMinutes Int?    @map("session_duration_minutes")
 
-  // Overrides Venue.holdDurationMinutes for this listing specifically.
-  // Null means inherit the venue's default.
+  // Overrides Venue.holdDurationMinutes; null inherits it.
   holdDurationMinutes Int? @map("hold_duration_minutes")
 
-  // Null = active and bookable; a timestamp = archived (retired from the
-  // browse page and new bookings) as of that time. A venue owner retiring
-  // "Court 1" sets this instead of deleting the row - deleting would
-  // cascade and destroy every past Booking against it, which is exactly
-  // the history-loss Booking's own onDelete: Restrict below exists to
-  // prevent. Archiving is the only supported way to retire a listing with
-  // any booking history; a listing with none can still be hard-deleted.
+  // Null: active. Set: archived (hidden from browse and new bookings) since
+  // that time. Archiving is the only way to retire a listing with booking
+  // history (Booking.listing is Restrict).
   archivedAt DateTime? @map("archived_at")
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -391,55 +270,32 @@ model Listing {
   @@map("listings")
 }
 
-// A single reservation against a Listing for a specific time range. This is
-// intentionally mechanic-agnostic: whether the Listing is a court, a
-// campsite, or a class, a Booking always just stores startsAt/endsAt — there
-// is no separate "slot" row anywhere in this schema.
+// One reservation of a Listing for [startsAt, endsAt), the same shape for every
+// booking mechanic.
 //
-// Conflict prevention is NOT a unique constraint (capacity can be > 1). It's
-// enforced in application code inside a transaction: before inserting, sum
-// the `quantity` of existing bookings on this listingId whose [startsAt,
-// endsAt) range overlaps the requested range and whose status != cancelled;
-// reject the new booking if that sum plus its own requested quantity would
-// exceed listing.capacity. Summing quantity rather than counting rows is
-// what lets one booking legitimately claim more than one spot (a group of 4
-// booking one yoga class in a single purchase) without the capacity check
-// under- or over-counting them. For a capacity-1 listing (a court), this
-// still means any overlap at all is rejected, since even a single quantity-1
-// booking already exhausts it. Same rule, same code path, for every activity
-// type. The index below on (listingId, startsAt, endsAt) keeps that overlap
-// query fast as bookings grow.
+// Conflicts are prevented in application code, not by a constraint (capacity
+// can exceed 1): inside a transaction, sum the quantity of non-cancelled
+// bookings and active holds overlapping the requested range, and reject if
+// adding the new quantity would exceed listing.capacity. The (listingId,
+// startsAt, endsAt) index keeps that query fast.
 //
-// Guest bookings: userId is nullable. When null, guestName/guestEmail are
-// used instead. Prisma doesn't enforce "exactly one of userId or
-// guestEmail must be set" at the schema level — validate that with Zod (or
-// similar) before insert, in the booking server action.
-//
-// Relationships:
-//   - Belongs to one Listing.
-//   - Optionally belongs to one User (null = guest booking, no account).
+// userId is null for guest bookings, which use the guest fields instead (guest
+// checkout isn't built).
 model Booking {
   id        String  @id @default(cuid())
-  // Groups every row created from one checkout attempt under one
-  // user-facing reference - a multi-day pass finalizes into several
-  // Booking rows (one per day), all sharing this same value. Generated
-  // once in application code (not a column default), first on the
-  // BookingHold rows it's carried over from at finalize time. See
-  // BookingHold.orderId for the fuller reasoning.
+  // Shared by every row from one checkout (a pass creates one row per day);
+  // carried over from BookingHold.orderId.
   orderId   String  @map("order_id")
   listingId String  @map("listing_id")
   userId    String? @map("user_id")
 
-  // Used only when userId is null (guest checkout, no account).
+  // Only used when userId is null (guest checkout).
   guestName  String? @map("guest_name")
   guestEmail String? @map("guest_email")
   guestPhone String? @map("guest_phone")
 
-  // Who this specific booking is for, collected at checkout regardless of
-  // account status - separate from the guest fields above, since a logged-in
-  // user can still book on behalf of someone else (a friend, a dependent).
-  // Mandatory; phone is optional since User itself has no phone field to
-  // pull from for the "booking for myself" case.
+  // Who the booking is for, collected at checkout; may differ from the account
+  // holder. Phone is optional.
   attendeeName  String  @map("attendee_name")
   attendeeEmail String  @map("attendee_email")
   attendeePhone String? @map("attendee_phone")
@@ -448,31 +304,23 @@ model Booking {
   endsAt   DateTime      @map("ends_at")
   status   BookingStatus @default(pending)
 
-  // How many units of listing.capacity this one booking claims - 1 for an
-  // exclusive-use court (where capacity is 1 anyway), or more for a group
-  // claiming several spots in one class/session in a single purchase.
+  // How many capacity units this booking claims (a group booking several places
+  // at once).
   quantity Int @default(1)
 
-  // The Stripe PaymentIntent that paid for this booking. Every row in one
-  // order shares it. The card is authorized first and only captured once
-  // the hold is confirmed still valid, so a "pending" booking is one whose
-  // PaymentIntent is authorized but not yet captured (see
-  // completeOrderPayment in lib/bookings.ts). Null only on bookings made
-  // before payments existed.
+  // The Stripe PaymentIntent for this booking, shared by every row in the
+  // order. A pending booking's card is authorized but not yet captured (see
+  // completeOrderPayment). Null for free bookings.
   stripePaymentIntentId String?  @map("stripe_payment_intent_id")
   amountPaid            Decimal? @map("amount_paid") @db.Decimal(10, 2)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // onDelete: Restrict (not Cascade) is deliberate, the same reasoning as
-  // Venue.owner below - a Listing with any booking history attached can't
-  // be hard-deleted out from under it. Retiring a listing sets
-  // Listing.archivedAt instead; see that field's comment.
+  // Restrict: a listing with bookings can't be deleted; archive it instead
+  // (Listing.archivedAt).
   listing Listing @relation(fields: [listingId], references: [id], onDelete: Restrict)
-  // onDelete: SetNull (not Cascade) is deliberate — if a user account is
-  // ever deleted, their past bookings should still exist for the venue's
-  // records, just detached from the (now-gone) account rather than erased.
+  // SetNull: deleting an account keeps its bookings for the venue's records.
   user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([listingId, startsAt, endsAt])
@@ -483,10 +331,8 @@ model Booking {
   @@map("bookings")
 }
 
-//   block - unavailable: a venue-wide or listing-specific closure.
-//   open  - available regardless of any overlapping block: punches through
-//           a venue-level block for one listing, or extends bookability
-//           beyond the venue's public bookingWindowDays for a specific slot.
+// - block: unavailable (a closure).
+// - open: available despite a venue-level block, or beyond the booking window.
 enum OverrideKind {
   block
   open
@@ -494,43 +340,28 @@ enum OverrideKind {
   @@map("override_kind")
 }
 
-// A single mechanism for several related features: one-off or recurring
-// closures (a venue closed on public holidays, a court closed for
-// resurfacing), a venue-wide block cascading to its listings, and a
-// listing-level exception that punches through a venue block or extends
-// bookability beyond the public booking window. All of these are the same
-// shape — who this applies to, when, and which way it pushes availability —
-// so they share one table distinguished only by `kind`.
+// A closure or exception for a venue or one listing: one-off or weekly
+// closures, a venue-wide block, or a listing-level exception that overrides a
+// venue block or opens dates beyond the booking window.
 //
-// Exactly one of venueId/listingId is set (enforced in application code,
-// not the schema — see the function that creates these once built). A
-// venueId row blocks every listing under that venue; a listingId row
-// applies to just that one listing and takes precedence over any
-// overlapping venue-level row.
-//
-// Relationships:
-//   - Optionally belongs to one Venue (venue-wide rule).
-//   - Optionally belongs to one Listing (listing-specific rule).
+// Exactly one of venueId/listingId is set (application-enforced). A
+// listing-level row beats a venue-level row on the same date.
 model AvailabilityOverride {
   id        String       @id @default(cuid())
   venueId   String?      @map("venue_id")
   listingId String?      @map("listing_id")
   kind      OverrideKind
 
-  // Set = a recurring weekly rule active on these weekdays (0 = Sunday
-  // ... 6 = Saturday), evaluated in the venue's local time. Empty = a
-  // one-off rule for the single date range below instead.
+  // Weekdays (0 = Sunday ... 6 = Saturday) for a weekly rule within
+  // startDate-endDate; empty for every day in the range.
   daysOfWeek Int[] @map("days_of_week")
 
-  // No endDate at all means this override applies on startDate only - a
-  // single day - regardless of daysOfWeek. Set endDate to actually get
-  // recurring behavior: daysOfWeek is only consulted across a real range.
+  // Without endDate the override covers startDate only, whatever daysOfWeek
+  // says.
   startDate DateTime  @map("start_date") @db.Date
   endDate   DateTime? @map("end_date") @db.Date
 
-  // Time-of-day bounds, in the venue's local time, matching the plain
-  // "HH:MM" string convention already used on Listing above. Null on
-  // both means the override covers the whole day.
+  // Venue-local "HH:MM" bounds; null on both means the whole day.
   startTime String? @map("start_time")
   endTime   String? @map("end_time")
 
@@ -545,46 +376,27 @@ model AvailabilityOverride {
   @@map("availability_overrides")
 }
 
-// A temporary claim on a listing's time slot while a user completes
-// checkout, so two people can't both be finishing a booking for the same
-// slot at once. Deliberately separate from Booking: holds are ephemeral and
-// high-churn (created and discarded constantly as carts complete or time
-// out), while Booking is a permanent record — mixing them would pollute
-// booking history and force incompatible indexing needs onto one table.
+// A temporary claim on a slot while a user checks out, so two people can't book
+// the same slot at once. Kept apart from Booking: holds are short-lived and
+// high-churn; bookings are permanent records.
 //
-// Expiry is enforced by filtering `expiresAt > now()` in every
-// availability/capacity query, not by a cleanup job — correct even if
-// nothing has deleted the row yet. A periodic job to delete expired rows is
-// still worth having eventually, but only for table housekeeping, not
-// correctness.
-//
-// Relationships:
-//   - Belongs to one Listing.
-//   - Optionally belongs to one User (null = guest hold, no account yet).
+// Expiry is enforced by filtering on expiresAt > now in every capacity query,
+// so expired rows never need deleting for correctness.
 model BookingHold {
   id        String   @id @default(cuid())
-  // One value shared by every hold row created from the same checkout
-  // attempt (a multi-day pass creates one row per day), generated once in
-  // application code rather than a column default - a default would give
-  // every row its own value, defeating the point of grouping them. This
-  // is the single id the URL and UI actually expose: a visitor should
-  // never see or reason about the individual row ids underneath one
-  // checkout, only this one reference. Carried over unchanged onto the
-  // Booking rows this converts into at finalize time, so a multi-day
-  // pass stays one logical booking there too, not several unrelated ones.
+  // Shared by every hold from one checkout (a pass creates one row per day) and
+  // generated in application code, since a column default would differ per row.
+  // The only id the URL and UI expose; carried over to the Booking rows.
   orderId   String   @map("order_id")
   listingId String   @map("listing_id")
   startsAt  DateTime @map("starts_at")
   endsAt    DateTime @map("ends_at")
 
-  // Guests can hold a slot before creating an account, same as Booking's
-  // own optional userId.
+  // Null for a guest hold (guest checkout isn't built).
   userId     String? @map("user_id")
   guestToken String? @map("guest_token")
 
-  // Mirrors Booking.quantity - how many capacity units this hold reserves,
-  // so a group's hold blocks the right amount of capacity for everyone
-  // else, not just one unit.
+  // How many capacity units this hold reserves (mirrors Booking.quantity).
   quantity Int @default(1)
 
   expiresAt DateTime @map("expires_at")
@@ -596,29 +408,17 @@ model BookingHold {
   @@index([listingId, startsAt, endsAt])
   @@index([expiresAt])
   @@index([orderId])
-  // Supports createBookingHold's one-active-hold-per-user lookup. This
-  // index alone doesn't prevent two concurrent requests from the same
-  // user both passing that check - see createBookingHold's own comment
-  // for the actual race-safety mechanism (a lock on the User row, same
-  // technique used for per-listing capacity).
+  // For the one-active-hold-per-user check. Race safety comes from
+  // createBookingHold's User row lock, not this index.
   @@index([userId, expiresAt])
   @@map("booking_holds")
 }
 
-// =============================================================================
-// AUTH.JS (NEXTAUTH) REQUIRED MODELS
-// -----------------------------------------------------------------------------
-// These three models are boilerplate required by Auth.js's official Prisma
-// adapter (@auth/prisma-adapter) — they are not part of the booking domain
-// design above, and you generally won't query them directly; the adapter
-// reads/writes them for you. Included now so Phase 2 (Authentication) is a
-// pure code task with no schema changes needed.
-//   Account            - one row per OAuth provider linked to a user
-//                         (e.g. their Google login).
-//   Session            - active login sessions, only used if you choose
-//                         database-backed sessions instead of JWT sessions.
-//   VerificationToken  - used for email verification / magic-link flows.
-// =============================================================================
+// Auth.js models required by @auth/prisma-adapter; the adapter reads and writes
+// them.
+// - Account: one row per OAuth provider linked to a user.
+// - Session: database sessions (unused: the app uses JWT sessions).
+// - VerificationToken: email verification / magic links (unused).
 
 model Account {
   id                String  @id @default(cuid())

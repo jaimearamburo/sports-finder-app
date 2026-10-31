@@ -10,9 +10,8 @@ function Slider({
   getThumbAriaLabel,
   ...props
 }: SliderPrimitive.Root.Props & {
-  // Accessible name for each handle, by index. Without it a screen reader
-  // announces every handle as just "slider" - unusable on a two-handle
-  // range where the user needs to know which end they're moving.
+  // Accessible name per handle, so a two-handle range announces which end is
+  // which.
   getThumbAriaLabel?: (index: number) => string
 }) {
   const _values = Array.isArray(value)

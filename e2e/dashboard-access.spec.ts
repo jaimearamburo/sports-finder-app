@@ -3,17 +3,15 @@ import { authFile, fixtureIds } from "./fixtures";
 import { query } from "./db";
 import { tamperNextAction } from "./helpers";
 
-// Who can reach the venue dashboard, and what each person can see and change
-// there. These are the rules lib/authz enforces at three layers (proxy,
-// page, data); the tests check the outcome from the outside, the way a
-// person or a script would hit the app - including crafted requests that
-// skip the UI, since Server Actions are public endpoints.
+// Who can reach the dashboard and what each person can see and change, checked
+// from outside as a person or script would, including crafted requests that
+// skip the UI (Server Actions are public endpoints).
 
 const ids = () => fixtureIds();
 
-// Note: lists render twice (a table for desktop, cards for phones, one
-// hidden by CSS), so "is visible" checks match the table's exact text, and
-// "isn't there" checks match any text at all.
+// Lists render twice (desktop table and phone cards, one hidden by CSS), so
+// "visible" checks match the table's exact text and "absent" checks match any
+// text.
 
 // Every dashboard page, as owner A would reach it.
 const dashboardPaths = () => {

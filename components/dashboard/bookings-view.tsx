@@ -27,12 +27,10 @@ const WHEN_LABELS: { value: BookingsWhen; label: string }[] = [
   { value: "all", label: "All" },
 ];
 
-// The bookings page's filter bar, and the results it controls (passed in
-// as children, already rendered on the server). The filters live in the
-// URL, so a filtered view survives a refresh and can be linked to: each
-// change navigates to the new URL inside a transition, and the current
-// results stay on screen, faded, until the new ones arrive - the same
-// feedback as the browse page's filters.
+// The bookings page's filter bar and its server-rendered results (children).
+// Filters live in the URL, so views survive refresh and can be linked; changes
+// navigate in a transition and the old results stay faded until the new ones
+// arrive.
 export function BookingsView({
   filters,
   venues,
@@ -46,8 +44,8 @@ export function BookingsView({
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState(filters.q ?? "");
 
-  // Keep the search box in step when the URL changes some other way (back
-  // button, "Clear filters"): React's adjust-state-during-render pattern.
+  // Keep the search box in sync when the URL changes elsewhere (back button,
+  // Clear filters), during render.
   const [shownQ, setShownQ] = useState(filters.q);
   if (shownQ !== filters.q) {
     setShownQ(filters.q);

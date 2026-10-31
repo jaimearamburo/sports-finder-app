@@ -28,8 +28,7 @@ export type OverviewBooking = {
   when: string;
   attendeeName: string;
   quantity: number;
-  // "pending": the card is authorized but the payment hasn't been captured
-  // yet (see completeOrderPayment). Usually only for a moment.
+  // "pending": card authorized, not yet captured (see completeOrderPayment).
   status: "pending" | "confirmed";
 };
 
@@ -43,10 +42,8 @@ export type DashboardOverview = {
 const COMING_UP_LIMIT = 8;
 const REVENUE_DAYS = 30;
 
-// Everything the overview page shows, for the venues this user may manage:
-// their own as a venue owner, every venue as an admin. Counts are of
-// booking orders, matching My Bookings, so a 3-day pass counts once.
-// Cancelled bookings are left out everywhere.
+// Everything the overview shows, for the venues this user may manage. Counts
+// are orders (a 3-day pass counts once); cancelled bookings are excluded.
 export const getDashboardOverview = withPermission(
   "dashboard:access",
   async (session): Promise<DashboardOverview> => {
@@ -69,10 +66,8 @@ export const getDashboardOverview = withPermission(
           _count: { select: { listings: { where: { archivedAt: null } } } },
         },
       }),
-      // Every booking that hasn't finished yet (isUpcomingBooking decides
-      // exactly, per venue). Bounded by how far ahead anyone can book (the
-      // booking window), so this stays a modest set however much history
-      // builds up.
+      // Bookings that haven't finished (isUpcomingBooking decides per venue).
+      // Bounded by the booking window, so the set stays small.
       prisma.booking.findMany({
         where: {
           status: { not: "cancelled" },

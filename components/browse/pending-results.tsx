@@ -3,11 +3,9 @@
 import type { ReactNode } from "react";
 import { useBrowseNavigation } from "@/contexts/browse-navigation";
 
-// Dims and slightly blurs the results while anything is loading new ones:
-// a filter change from any control, or a header search still being
-// interpreted. The existing results stay visible underneath (there's no key
-// on the Suspense inside, so a transition keeps them), which reads as
-// "updating" rather than a blank page.
+// Dims and blurs the results while new ones load (a filter change or a header
+// search). The old results stay visible underneath (the Suspense inside has no
+// key, so a transition keeps them).
 export function PendingResults({ children }: { children: ReactNode }) {
   const { isPending } = useBrowseNavigation();
   return (

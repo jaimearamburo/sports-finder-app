@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 
-// The layout shared by the short text pages linked from the footer (Terms,
-// Privacy, Contact): a heading, an optional one-line summary, then plain
-// sections. One component so the three pages can't drift apart.
+// Layout for the footer's text pages (Terms, Privacy, Contact): heading,
+// optional summary, plain sections.
 export function InfoPage({ title, summary, children }: { title: string; summary?: string; children: ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-12 sm:px-6">

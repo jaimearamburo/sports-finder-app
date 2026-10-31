@@ -36,7 +36,7 @@ import {
   type ListingKind,
 } from "@/lib/validation/listing";
 
-// Everything about each kind of listing that the form words differently.
+// The form's wording per kind of listing.
 const KIND_COPY: Record<
   ListingKind,
   {
@@ -98,8 +98,7 @@ const KIND_COPY: Record<
 };
 
 const KIND_ORDER: ListingKind[] = ["court", "class", "pass", "stay"];
-// One width for every short control (times, counts, lengths, numbers), the
-// same as the price box, so fields in the two columns line up.
+// One width for short controls, matching the price box so columns line up.
 const CONTROL_WIDTH = "w-40 tabular-nums";
 const MECHANIC: Record<ListingKind, "time_range" | "date_range" | "fixed_session"> = {
   court: "time_range",
@@ -119,9 +118,8 @@ const WEEKDAYS = [
 const SESSION_LENGTHS = Array.from({ length: 16 }, (_, i) => (i + 1) * 15); // 15 min to 4 hr
 const DAY_COUNTS = Array.from({ length: DAYS_MAX }, (_, i) => i + 1);
 
-// Number fields are kept as typed text, so a box can be empty or half-typed
-// while editing; they become numbers on submit, where anything that isn't a
-// number fails validation with a readable message.
+// Number fields are kept as text so they can be empty or half-typed; they're
+// converted on submit, where invalid values fail validation.
 type FormState = {
   [K in keyof ListingFormInput]: ListingFormInput[K] extends number | null ? string : ListingFormInput[K];
 };
@@ -129,8 +127,8 @@ type FormState = {
 function toState(values: ListingFormInput): FormState {
   return {
     ...values,
-    // A new listing starts with no price (NaN), shown as an empty box rather
-    // than 0, which would make it easy to save a listing as free by mistake.
+    // A new listing starts with an empty price, not 0, so it isn't saved as
+    // free by mistake.
     price: Number.isFinite(values.price) ? String(values.price) : "",
     capacity: values.capacity === null ? "" : String(values.capacity),
     maxPerBooking: String(values.maxPerBooking),
@@ -148,8 +146,8 @@ function toNumber(text: string): number {
   return text.trim() === "" ? Number.NaN : Number(text);
 }
 
-// The form's values as validated input. Capacity 1 means exactly one place,
-// so the per-booking limit is 1 by definition (that field isn't shown).
+// Form values as validated input. Capacity 1 means the per-booking limit is 1
+// (that field is hidden).
 function toInput(state: FormState, unlimited: boolean): ListingFormInput {
   const capacity = unlimited ? null : toNumber(state.capacity);
   return {
@@ -191,7 +189,7 @@ function previewCard(state: FormState, unlimited: boolean, activity: ActivityOpt
   };
 }
 
-// Plain-English lines under the preview: what booking it will look like.
+// Plain-English summary under the preview.
 function summaryLines(state: FormState, unlimited: boolean, kind: ListingKind): string[] {
   const lines: string[] = [];
   const schedule = getScheduleLine({
@@ -220,8 +218,8 @@ function summaryLines(state: FormState, unlimited: boolean, kind: ListingKind): 
   return lines;
 }
 
-// Where focus goes for each field when it has an error: the control itself,
-// or, for a button group, its selected button.
+// Where focus goes for a field with an error: the control, or a button group's
+// selected button.
 function focusField(field: keyof ListingFormInput) {
   const group = document.querySelector<HTMLElement>(`[aria-labelledby="${field}-label"] [tabindex="0"]`);
   (group ?? document.getElementById(field))?.focus();
@@ -247,11 +245,9 @@ const FIELD_ORDER: (keyof ListingFormInput)[] = [
   "maxDays",
 ];
 
-// The listing form, for adding a listing to a venue and for editing one.
-// The fields shown follow the activity's kind (court, class, pass, stay);
-// the live preview on the side is the real browse card. Validated with the
-// same rules as the server for instant inline errors - the server re-checks
-// everything, plus ownership.
+// Add or edit a listing. Fields follow the activity's kind (court, class, pass,
+// stay); the preview is the real browse card. Uses the server's schema for
+// inline errors; the server re-checks everything, plus ownership.
 export function ListingForm({
   venue,
   activities,
@@ -259,8 +255,8 @@ export function ListingForm({
   listingId,
 }: {
   venue: ListingEditorVenue;
-  // Every activity when adding a listing; just the listing's own when
-  // editing, since the activity can't change after creation.
+  // Every activity when adding; only the listing's own when editing (it can't
+  // change).
   activities: ActivityOption[];
   initialValues: ListingFormInput;
   // Present when editing.
@@ -282,12 +278,11 @@ export function ListingForm({
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setState((current) => ({ ...current, [key]: value }));
-    // Any change means a pending warning no longer describes these values.
+    // Any change invalidates a pending warning.
     setImpact(null);
   }
 
-  // Choosing an activity of a different kind starts that kind's usual
-  // settings (classes and passes are shared, courts and stays exclusive).
+  // An activity of a different kind starts with that kind's defaults.
   function chooseActivity(activityId: string) {
     const next = activities.find((option) => option.id === activityId);
     if (!next) return;
@@ -301,8 +296,7 @@ export function ListingForm({
     setErrors((current) => ({ ...current, activityId: undefined }));
   }
 
-  // Changing the start step keeps the booking lengths valid: they snap up
-  // to the next multiple, so the dropdowns always show a real choice.
+  // Booking lengths snap up to multiples of the new step, so they stay valid.
   function chooseStep(step: number) {
     setState((current) => {
       const snap = (minutes: string) => String(Math.max(step, Math.ceil(Number(minutes) / step) * step));
@@ -367,8 +361,7 @@ export function ListingForm({
 
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
-      {/* noValidate: the shared schema is the one client-side check, so the
-          browser's own popups don't fire first with different wording. */}
+      {/* noValidate: the shared schema is the only client-side check. */}
       <form onSubmit={handleSubmit} noValidate className="flex min-w-0 flex-col gap-6">
         <FormSection title="Activity" description="What this listing is. It decides how it's booked.">
           {editing && activity ? (
@@ -748,7 +741,7 @@ export function ListingForm({
             </>
           ) : (
             <>
-              {/* Not while a photo is uploading: the save would go without it. */}
+              {/* Disabled mid-upload: the save would miss the photo. */}
               <Button type="submit" disabled={isPending || uploadingImage}>
                 {isPending ? "Saving..." : uploadingImage ? "Uploading photo..." : editing ? "Save changes" : "Add listing"}
               </Button>
@@ -760,15 +753,13 @@ export function ListingForm({
         </div>
       </form>
 
-      {/* The preview: the real browse card, built from what's typed. Below
-          the form on phones, alongside it (and staying in view while
-          scrolling) on wider screens. */}
+      {/* Preview of the browse card: below the form on phones, beside it and
+          sticky on wider screens. */}
       <aside aria-label="Preview" className="lg:sticky lg:top-24">
         <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Preview in browse</p>
         {activity && kind ? (
           <>
-            {/* Purely visual: the card isn't a link here, and screen
-                readers get the summary below instead. */}
+            {/* Visual only; screen readers get the summary below. */}
             <div aria-hidden className="w-full max-w-72">
               <ListingCard listing={previewCard(state, unlimited, activity, venue)} />
             </div>
@@ -788,8 +779,7 @@ export function ListingForm({
   );
 }
 
-// A dropdown of lengths ("30 min", "1 hr 30 min"), for booking and session
-// lengths - only valid choices are offered, so nothing needs typing.
+// Booking or session lengths; only valid choices are offered.
 function MinutesSelect({
   id,
   options,
@@ -825,7 +815,7 @@ function MinutesSelect({
   );
 }
 
-// A dropdown of day or night counts, 1 to the most a booking can cover.
+// Day or night counts, 1 to the maximum a booking can cover.
 function CountSelect({
   id,
   unit,
@@ -863,8 +853,7 @@ function CountSelect({
 }
 
 // Shown when saving would leave upcoming bookings outside the new settings.
-// Neutral rather than yellow (yellow is kept for hold timers - see the
-// design conventions in CLAUDE.md); the icon carries the caution.
+// Neutral, not amber (reserved for hold timers); the icon carries the caution.
 function ImpactNotice({ impact }: { impact: ListingImpact }) {
   const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
   return (

@@ -16,9 +16,8 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint: 
   );
 }
 
-// Same pill shape as My Bookings' status badge. "Payment processing" is
-// neutral grey, not amber: yellow is reserved for hold warnings (see the
-// design conventions in CLAUDE.md), and this is information, not a problem.
+// Same pill as My Bookings' status badge. "Payment processing" is neutral grey:
+// information, not a hold warning.
 function StatusBadge({ status }: { status: OverviewBooking["status"] }) {
   return (
     <span
@@ -32,13 +31,13 @@ function StatusBadge({ status }: { status: OverviewBooking["status"] }) {
   );
 }
 
-// The dashboard's home: headline numbers, the venues this user manages,
-// and the next few bookings. An admin sees all of it across every venue.
+// Dashboard home: headline numbers, managed venues and the next bookings;
+// admins see every venue.
 export default async function DashboardOverviewPage() {
   await requirePermission("dashboard:access");
   const overview = await getDashboardOverview();
-  // Only an auth failure has no stats, and requirePermission already ruled
-  // that out - this keeps the type honest rather than being a real path.
+  // Only an auth failure lacks stats, which requirePermission rules out; this
+  // narrows the type.
   if (!("stats" in overview)) notFound();
 
   const { stats, venues, comingUp, showOwners } = overview;
@@ -109,8 +108,7 @@ export default async function DashboardOverviewPage() {
           <p className="rounded-md border bg-card p-4 text-muted-foreground">No upcoming bookings.</p>
         ) : (
           <>
-            {/* Desktop: a table. Phones: the same rows as cards, the
-                pattern My Bookings uses. */}
+            {/* A table on desktop, cards on phones. */}
             <div className="hidden overflow-x-auto rounded-md border bg-card md:block">
               <table className="w-full text-left text-sm">
                 <thead className="border-b bg-muted/40 text-xs tracking-wide text-muted-foreground uppercase">

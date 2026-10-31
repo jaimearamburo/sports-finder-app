@@ -8,9 +8,9 @@ import { requirePermission } from "@/lib/auth-guards";
 import { listManagerBookings } from "@/lib/dashboard/bookings";
 import { BOOKINGS_PAGE_SIZE, bookingFiltersQuery, parseBookingFilters } from "@/lib/validation/manager-bookings";
 
-// Every booking at the venues this user manages (all venues for an admin),
-// filtered and paged. The filters are in the URL - see BookingsView - so a
-// listing's "Bookings" link can open this page already filtered to it.
+// Bookings at the venues this user manages (all for an admin), filtered and
+// paged. Filters are in the URL, so a listing's "Bookings" link opens it
+// pre-filtered.
 export default async function DashboardBookingsPage({
   searchParams,
 }: {
@@ -46,8 +46,8 @@ export default async function DashboardBookingsPage({
         ) : (
           <>
             <ManagerBookingsTable orders={orders} />
-            {/* "Showing 21–40 of 57", with Previous / Next as plain links,
-                so paging keeps every filter and works without JavaScript. */}
+            {/* "Showing 21–40 of 57" with Previous/Next as plain links, so
+                paging keeps the filters and works without JavaScript. */}
             <nav aria-label="Pages" className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
               <p className="text-muted-foreground tabular-nums">
                 Showing {firstShown}–{lastShown} of {total} {total === 1 ? "booking" : "bookings"}
@@ -66,7 +66,7 @@ export default async function DashboardBookingsPage({
   );
 }
 
-// A disabled-looking span at either end, rather than a link to nowhere.
+// A disabled-looking span at either end instead of a dead link.
 function PageLink({ href, label }: { href: string | null; label: string }) {
   const className = buttonVariants({ variant: "outline", size: "sm" });
   return href ? (

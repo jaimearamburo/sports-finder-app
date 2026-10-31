@@ -5,21 +5,15 @@ import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
 import { browsePriceSchema } from "@/lib/validation/browse";
 import { QuickFiltersPanel, type QuickFilterValues } from "@/components/browse/quick-filters-panel";
 
-// Owns the "date", "priceMin", and "priceMax" URL params (set-or-delete)
-// and nothing else, the same router-only role TagFilters plays for
-// TagFilterChips and BrowseSidebar plays for BrowseSidebarPanel. Exposes
-// one changeAction callback; rendering lives in QuickFiltersPanel. Reads
-// and writes through useBrowseFilters, so a change still loading from any
-// other control is kept, not overwritten.
-// priceMin/priceMax are the same params BrowseSidebar's own price slider
-// reads and writes - both read and write the same URL keys independently,
-// since the URL itself is the single shared source of truth.
+// Owns the date, priceMin and priceMax URL params (set or delete); rendering
+// lives in QuickFiltersPanel. The sidebar's price slider writes the same price
+// params. Goes through useBrowseFilters, so a change still loading from another
+// control is kept.
 export function QuickFilters() {
   const { params, update } = useBrowseFilters();
 
   const date = params.get("date") ?? "";
-  // Same parser BrowseSidebar uses (see browsePriceSchema), so a junk
-  // value falls back to "no price filter" instead of becoming NaN.
+  // browsePriceSchema, so junk values mean no price filter rather than NaN.
   const { priceMin, priceMax } = browsePriceSchema.parse({
     priceMin: params.get("priceMin") ?? undefined,
     priceMax: params.get("priceMax") ?? undefined,

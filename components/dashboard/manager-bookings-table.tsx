@@ -7,9 +7,8 @@ import { formatBookingTime } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import type { ManagerBookingOrder } from "@/lib/dashboard/bookings";
 
-// The order's date(s) on one line. A multi-day pass shows its first day
-// and how many more, so a long pass doesn't stretch the row; the dialog
-// lists every day.
+// The order's dates on one line: a pass shows its first day and how many more;
+// the dialog lists every day.
 function whenLine(order: ManagerBookingOrder): string {
   const first = order.slots[0];
   const line = formatBookingTime(first.startsAt, first.endsAt, order.timeZone, order);
@@ -17,8 +16,8 @@ function whenLine(order: ManagerBookingOrder): string {
 }
 
 function StatusBadge({ order }: { order: ManagerBookingOrder }) {
-  // "Payment processing" wins over upcoming/past: it's the one state that
-  // may still change on its own (see completeOrderPayment).
+  // "Payment processing" wins over upcoming/past: it can still change on its
+  // own.
   const [label, tone] =
     order.status === "pending"
       ? ["Payment processing", "bg-muted text-muted-foreground"]
@@ -50,11 +49,9 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-// The bookings list for venue managers: a table on desktop, cards on
-// phones (the pattern My Bookings and the overview use). The reference
-// opens one shared dialog with the full order - every date, the
-// attendee's contact details and what was paid - rather than a separate
-// page, since the list already holds everything.
+// The managers' bookings list: a table on desktop, cards on phones. The
+// reference opens one shared dialog with the full order (dates, attendee
+// contact, amount paid).
 export function ManagerBookingsTable({ orders }: { orders: ManagerBookingOrder[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const open = orders.find((order) => order.orderId === openId) ?? null;

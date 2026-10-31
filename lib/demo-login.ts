@@ -1,23 +1,19 @@
 import { z } from "zod";
 
-// One-click demo logins on the login page: "Log in as venue owner" and "Log
-// in as regular user", for people trying the app without signing up.
+// One-click demo logins on the login page ("Log in as venue owner" / "Log in as
+// regular user").
 //
-// No password is involved anywhere. The buttons send only which demo they
-// want ("owner" or "user"); the server maps that to an account from the
-// environment and signs it in through its own Auth.js provider ("demo",
-// see auth.ts). So nothing secret is ever in the page, and the demo
-// accounts' real passwords (if they have any) stay private.
+// No password is involved: the buttons send only "owner" or "user", and the
+// server maps that to an account from the environment and signs it in through
+// the "demo" provider (auth.ts).
 //
-// Settings (server-side env vars):
-// - DEMO_LOGIN_ENABLED=true turns it on; anything else and the buttons
-//   don't render and the provider refuses every request.
+// Server env vars:
+// - DEMO_LOGIN_ENABLED=true enables it; otherwise the buttons don't render and
+//   the provider refuses.
 // - DEMO_OWNER_EMAIL / DEMO_USER_EMAIL: the accounts each button signs in.
 //
-// Demo visitors can do anything those accounts can, including editing the
-// owner's venues and listings - a deliberate choice for a portfolio demo.
-// Admin accounts are always refused (see auth.ts), so a misconfigured email
-// can never hand admin rights to the public.
+// Demo visitors can do anything those accounts can (a deliberate choice for a
+// portfolio demo). Admin accounts are always refused.
 
 export const DEMO_ACCOUNTS = ["owner", "user"] as const;
 export type DemoAccount = (typeof DEMO_ACCOUNTS)[number];

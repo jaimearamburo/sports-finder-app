@@ -5,17 +5,12 @@ import { updateTag } from "next/cache";
 export type DevRevalidateBrowseState = { success?: boolean } | undefined;
 
 /**
- * TEMPORARY DEV-ONLY TOOL. Deletable once an admin UI exists to manage
- * tags and venues, which would revalidate these on save instead.
+ * Development-only tool, to be deleted once an admin UI revalidates tags and
+ * venues on save.
  *
- * getBrowseTags and getBrowseCities cache their query results for an hour
- * (see lib/browse-tags.ts, lib/browse-cities.ts). Reseeding the database
- * changes the underlying rows but not that cache, so without this the
- * browse page keeps showing pre-reseed tags and cities until the cache
- * expires on its own. The `NODE_ENV` check is defense in depth, same as
- * dev/reset-password/actions.ts: there is nothing sensitive here, but a
- * production route that force-clears a cache on demand should not be
- * left reachable regardless.
+ * Browse tags and cities are cached for an hour, so after a reseed the browse
+ * page shows old data until this clears the cache. The NODE_ENV check keeps it
+ * off deployed builds.
  */
 export async function devRevalidateBrowse(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- useActionState always calls with (state, payload); this action needs neither.

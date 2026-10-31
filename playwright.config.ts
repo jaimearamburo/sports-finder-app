@@ -3,20 +3,18 @@ import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
-// End-to-end tests (e2e/): real browser checks of whole pages against a
-// running dev server and the local database. Unit tests of plain logic
-// live next to their files and run with Vitest (`pnpm test`).
+// End-to-end tests: real browser checks against a dev server and the local
+// database.
 //
-// Run with `pnpm test:e2e`. It starts `pnpm dev` if nothing is already
-// listening on the base URL, creates its own test accounts and records
-// (e2e/fixtures.ts), and removes them afterwards.
+// Run with `pnpm test:e2e`. Starts `pnpm dev` if nothing is listening on the
+// base URL, creates its own test records (e2e/fixtures.ts) and removes them
+// afterwards.
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
-  // One worker: the tests share one dev server and database, and some
-  // check what a write did, so running them one at a time keeps results
-  // deterministic.
+  // One worker: tests share one server and database and some check writes, so
+  // they run sequentially for deterministic results.
   workers: 1,
   timeout: 60_000,
   expect: { timeout: 15_000 },

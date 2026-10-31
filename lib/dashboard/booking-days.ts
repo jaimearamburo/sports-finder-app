@@ -1,9 +1,7 @@
 import { addDays, todayInTimezone } from "@/lib/dates";
 
-// Calendar-day maths for booking counts in the dashboard, shared by the
-// overview and the venue page so "today" and "upcoming" mean the same
-// thing everywhere. Plain functions with no database access, so they're
-// unit-tested directly.
+// Calendar-day maths shared by the dashboard overview, venue page and bookings
+// page, so "today" and "upcoming" mean the same everywhere. No database access.
 
 export type BookingMechanic = "time_range" | "date_range" | "fixed_session";
 
@@ -13,11 +11,9 @@ export function dayKey(date: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
-// The first and last calendar day a booking covers, at its venue. Courts
-// and classes are real instants, read on the venue's clock. Passes and
-// stays are stored as plain calendar days (UTC midnight, end exclusive -
-// see formatBookingTime), so they're read in UTC. Either way the end is
-// exclusive, so the last day is the one just before it.
+// The first and last calendar day a booking covers at its venue. Courts and
+// classes are instants read on the venue's clock; passes and stays are
+// UTC-midnight days read in UTC. The end is exclusive.
 export function bookingDays(
   booking: { startsAt: Date; endsAt: Date },
   timeZone: string,
@@ -34,10 +30,9 @@ export function venueWeek(timeZone: string): { today: string; weekEnd: string } 
   return { today: dayKey(today, "UTC"), weekEnd: dayKey(addDays(today, 6), "UTC") };
 }
 
-// Whether a booking hasn't finished yet. Courts and classes are over once
-// their end time passes; passes and stays once their last day is behind
-// the venue's today (they're stored as UTC-midnight days, so at venues
-// ahead of UTC their stored end falls partway through the venue's own day).
+// Whether a booking hasn't finished. Courts and classes end at their end time;
+// passes and stays once their last day is before the venue's today (their
+// UTC-midnight end can fall partway through the venue's day).
 export function isUpcomingBooking(
   booking: { startsAt: Date; endsAt: Date },
   timeZone: string,

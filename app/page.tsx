@@ -17,35 +17,28 @@ import {
 import { getBrowseTags } from "@/lib/browse-tags";
 import { getBrowseCities } from "@/lib/browse-cities";
 
-// Small async wrapper so the cached tags fetch lives inside its own
-// Suspense boundary rather than blocking the rest of the page.
+// Its own Suspense boundary, so the tags don't block the page.
 async function TagFilterSection() {
   const tags = await getBrowseTags();
   return <TagFilters tags={tags} />;
 }
 
-// Small async wrapper so the cached cities fetch lives inside its own
-// Suspense boundary rather than blocking the rest of the page.
+// Its own Suspense boundary, so the cities don't block the page.
 async function BrowseSidebarSection() {
   const cities = await getBrowseCities();
   return <BrowseSidebar cities={cities} />;
 }
 
-// Mirrors BrowseSidebarSection for the mobile pill row. Calling
-// getBrowseCities() again here rather than hoisting the fetch up to Home
-// itself lets each piece stream in independently; getBrowseCities() is
-// wrapped in React's cache() specifically so this and
-// BrowseSidebarSection never trigger two real queries in one request.
+// The mobile pill row's cities. getBrowseCities is wrapped in React's cache(),
+// so this and BrowseSidebarSection share one query per request.
 async function MobileFilterBarSection() {
   const cities = await getBrowseCities();
   return <MobileFilterBar cities={cities} />;
 }
 
-// The browse and landing page. Every filter control writes to the URL
-// instead of local state. Data fetching lives in separate components
-// (BrowseSidebarSection, TagFilterSection, ListingSection), each wrapped
-// in Suspense so the sidebar and chip row render immediately regardless of
-// how long the listings query takes.
+// The browse and landing page. Every filter lives in the URL. Data loads in
+// Suspense-wrapped sections (sidebar, tag chips, listings), so the filters
+// render while the listings query runs.
 export default function Home({
   searchParams,
 }: {
@@ -53,10 +46,8 @@ export default function Home({
 }) {
   return (
     <div>
-      {/* Screen-reader-only page heading: the browse layout has no visible
-          title (the filters and listings speak for themselves visually),
-          but screen-reader users navigate by headings and need an h1 to
-          land on. */}
+      {/* Screen-reader-only h1: browse has no visible title, but screen-reader
+          users navigate by headings. */}
       <h1 className="sr-only">Browse activities</h1>
       <BrowsePageShell
         sidebar={
@@ -65,10 +56,8 @@ export default function Home({
           </Suspense>
         }
       >
-        {/* Mobile-only (see BrowsePageShell / MobileFilterBar) -
-            the sidebar's own filters as a pill row, shown above the tag
-            chips since it's the first narrowing step, same as the tag
-            chips are the first thing under it. */}
+        {/* Phones only: the sidebar's filters as a pill row above the tag
+            chips. */}
         <div className="md:hidden">
           <Suspense fallback={<MobileFilterBarSkeleton />}>
             <MobileFilterBarSection />
@@ -81,11 +70,9 @@ export default function Home({
         <QuickFilters />
         <SearchInterpretation />
 
-        {/* No key on the Suspense below. A keyed boundary remounts on
-            every change and always shows its fallback again; leaving it
-            unkeyed lets a transition-wrapped filter change keep the
-            existing results visible, dimmed by PendingResults, while the
-            new ones load. */}
+        {/* No key on the Suspense below: a keyed boundary would show its
+            fallback on every change, while an unkeyed one keeps the old results
+            visible (dimmed by PendingResults) during a transition. */}
         <PendingResults>
           <Suspense fallback={<ListingGridSkeleton />}>
             {searchParams.then((params) => (

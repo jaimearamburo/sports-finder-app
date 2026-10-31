@@ -15,9 +15,8 @@ function ArchivedBadge() {
   );
 }
 
-// A listing's photo as a small square, or its activity's emoji when it has
-// none - so managers can see at a glance which listings still need one.
-// Decorative (empty alt): the listing's name is right beside it.
+// The listing's photo as a small square, or its emoji, so missing photos stand
+// out. Empty alt: the name is beside it.
 function ListingThumbnail({ listing }: { listing: VenueListingRow }) {
   return (
     <div className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-md bg-muted text-lg">
@@ -38,9 +37,8 @@ function UpcomingCount({ count }: { count: number }) {
   );
 }
 
-// In the desktop table the buttons stay on one line (`nowrap`), and the
-// table gives the other columns' text the room to wrap instead; on the
-// phone cards they may wrap.
+// In the desktop table the buttons stay on one line (`nowrap`) and other
+// columns wrap; on phone cards they may wrap.
 function ListingActions({ listing, nowrap = false }: { listing: VenueListingRow; nowrap?: boolean }) {
   return (
     <div className={cn("flex items-center gap-2", nowrap ? "flex-nowrap" : "flex-wrap")}>
@@ -68,10 +66,8 @@ function ListingActions({ listing, nowrap = false }: { listing: VenueListingRow;
   );
 }
 
-// A venue's page: its settings at a glance (changed through "Edit venue")
-// and its listings, which are archived and restored here. Archived listings
-// are hidden until "Show archived" is used; that choice lives in the URL
-// (?archived=1), so it survives a refresh and the back button.
+// A venue's page: its settings (changed through "Edit venue") and its listings,
+// archived and restored here. "Show archived" is in the URL (?archived=1).
 export default async function VenuePage({
   params,
   searchParams,
@@ -83,8 +79,8 @@ export default async function VenuePage({
   const [{ venueId }, { archived }] = await Promise.all([params, searchParams]);
   const showArchived = archived === "1";
   const venue = await getVenuePage(venueId, showArchived);
-  // Missing, or someone else's: the same not-found either way, so another
-  // owner's venue is never confirmed to exist.
+  // Missing or someone else's: the same not-found, so other owners' venues are
+  // never confirmed.
   if (!venue || "ok" in venue) notFound();
 
   const basePath = `/dashboard/venues/${venue.id}`;
@@ -163,10 +159,8 @@ export default async function VenuePage({
           </p>
         ) : (
           <>
-            {/* Wide screens (lg up): a table. Phones and tablets: the same rows as
-                cards (below lg the table is too cramped once the sidebar
-                takes its share and the buttons stay on one line), the pattern
-                the overview and My Bookings use. */}
+            {/* A table from lg up; cards below, where the sidebar leaves the
+                table too cramped. */}
             <div className="hidden overflow-x-auto rounded-md border bg-card lg:block">
               <table className="w-full text-left text-sm">
                 <thead className="border-b bg-muted/40 text-xs tracking-wide text-muted-foreground uppercase">

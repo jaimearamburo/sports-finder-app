@@ -22,8 +22,7 @@ export type ManagedVenue = {
 export type OwnerOption = { id: string; label: string };
 
 export type VenueFormValues = {
-  // "" when not set yet (a new venue). Only used by people who may assign
-  // owners; for everyone else the field isn't shown and is ignored.
+  // "" for a new venue. Only used by people who may assign owners.
   ownerId: string;
   name: string;
   description: string;
@@ -46,20 +45,15 @@ export function formatLocation(city: { name: string; region: string | null; coun
   return [city.name, city.region, city.country.name].filter(Boolean).join(", ");
 }
 
-// The browse page's city list is cached (lib/browse-cities.ts) and only
-// lists cities that have a venue, and the search vocabulary caches the same
-// tag. updateTag rather than revalidateTag: inside a Server Action it
-// expires the entry immediately, so a manager who just added a venue in a
-// new city sees it in the browse filters straight away.
+// The browse city list and search vocabulary are cached and only include cities
+// with venues. updateTag expires them immediately inside a Server Action, so a
+// venue in a new city shows in the filters straight away.
 function refreshCityCaches() {
   updateTag("browse-cities");
 }
 
-// Every platform city a venue can be in, grouped by country for the city
-// dropdown. All cities, not just ones with venues (unlike the browse
-// filter), since a new venue may be the first in its city. Platform data,
-// the same for everyone, so no permission is involved beyond reaching the
-// page that shows it.
+// Every platform city, grouped by country, for the city dropdown. All cities,
+// since a new venue may be the first in its city.
 export async function getCityOptions(): Promise<CityOptionGroup[]> {
   const cities = await prisma.city.findMany({
     orderBy: [{ country: { name: "asc" } }, { name: "asc" }],
@@ -75,9 +69,8 @@ export async function getCityOptions(): Promise<CityOptionGroup[]> {
   return [...groups].map(([countryName, cities]) => ({ countryName, cities }));
 }
 
-// Everyone who can own a venue, for the admin-only owner dropdown: users
-// with the venue_owner role. Sorted by name, labelled with the email too so
-// two people with the same name can be told apart.
+// Users with the venue_owner role, for the admin-only owner dropdown. Labelled
+// with email to tell same-named people apart.
 export const getOwnerOptions = withPermission("venues:assign-owner", async (): Promise<OwnerOption[]> => {
   const owners = await prisma.user.findMany({
     where: { role: "venue_owner" },
@@ -114,8 +107,8 @@ export const listManagedVenues = withPermission("dashboard:access", async (sessi
   }));
 });
 
-// A venue's current values for the edit form, or null when it doesn't exist
-// or this user may not manage it - the page shows not-found either way.
+// A venue's values for the edit form; null when it doesn't exist or this user
+// may not manage it.
 export const getVenueForEdit = withPermission(
   "venues:manage",
   async (session, venueId: string): Promise<(VenueFormValues & { id: string }) | null> => {
@@ -135,10 +128,9 @@ export const getVenueForEdit = withPermission(
   }
 );
 
-// Parses form input and confirms the chosen city is real. Shared by create
-// and update so both apply exactly the same rules. The owner comes back
-// separately (requestedOwnerId), because whether it may be used at all is
-// decided by resolveOwnerId, not here - it never goes into `data`.
+// Parses form input and checks the city exists; shared by create and update.
+// The requested owner is returned separately: resolveOwnerId decides whether
+// it's used.
 async function parseVenueInput(input: VenueInput) {
   const parsed = venueSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, fieldErrors: getFieldErrors(parsed.error) };
@@ -148,13 +140,11 @@ async function parseVenueInput(input: VenueInput) {
   return { ok: true as const, data, requestedOwnerId };
 }
 
-// Who a venue should belong to after this save. The server decides, never
-// the form:
-// - Someone who may assign owners (an admin) must choose one, and it must
-//   be a real user with the venue_owner role - so venues always belong to
-//   a venue owner, never to an admin or a regular user.
-// - Anyone else can't choose: whatever the request says is ignored, and the
-//   venue keeps its owner (`keep`), or, for a new venue, belongs to them.
+// Who the venue belongs to after this save, decided by the server:
+// - Someone who may assign owners (admin) must choose a user with the
+//   venue_owner role.
+// - Anyone else can't choose: the request's owner is ignored; the venue keeps
+//   its owner (`keep`) or, when new, belongs to them.
 async function resolveOwnerId(
   actor: Actor,
   requestedOwnerId: string | undefined,
@@ -185,11 +175,8 @@ export const createVenue = withPermission(
   }
 );
 
-// Saves changes to a venue this user may manage. The ownership check runs
-// on the stored venue, before anything is written, so a crafted request
-// naming someone else's venue changes nothing. Only someone who may assign
-// owners can move a venue to a different owner; for anyone else the owner
-// stays as it is, whatever the request contains.
+// Saves a venue this user may manage. Ownership is checked on the stored venue
+// before writing. Only someone who may assign owners can change the owner.
 export const updateVenue = withPermission(
   "venues:manage",
   async (session, venueId: string, input: VenueInput): Promise<SaveVenueResult> => {

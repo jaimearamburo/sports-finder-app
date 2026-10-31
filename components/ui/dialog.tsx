@@ -30,16 +30,10 @@ function DialogOverlay({
   return (
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
-      // A plain dim, no backdrop-filter: blur() is a genuinely expensive
-      // compositor operation, and its cost is both higher and far spikier
-      // than a flat-color overlay (verified directly - repeated opens
-      // measured 46-73ms without it vs. spikes past 800ms with it under a
-      // throttled CPU). bg-black/50, not the blurred version's /10 - that
-      // low an opacity was only legible as "dimmed" because the blur was
-      // doing most of the actual visual separation from the page behind
-      // it. No open/close animation on either the overlay or the popup -
-      // the 100ms fade/zoom stuttered on close, and an instant show/hide
-      // reads smoother than a short animation that can drop frames.
+      // A plain dim without backdrop blur: blur is expensive and spiky on slow
+      // CPUs. bg-black/50 gives enough separation alone. No open/close
+      // animation: an instant show/hide is smoother than a short animation that
+      // can drop frames.
       className={cn(
         "fixed inset-0 isolate z-50 bg-black/50",
         className

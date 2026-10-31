@@ -7,31 +7,24 @@ import { signIn } from "@/auth";
 import { signupSchema } from "@/lib/validation/auth";
 import { getFieldErrors } from "@/lib/validation/field-errors";
 
-// Per-field validation messages, shown under the matching input. A field
-// is only present here if it actually failed; the form checks
-// `errors?.name` etc. to decide what to render. Exported so SignupForm's
-// own client-side check (same schema) can produce the same shape.
+// Per-field messages; a field is present only if it failed. Exported so
+// SignupForm's client check produces the same shape.
 export type SignupErrors = {
   name?: string;
   email?: string;
   password?: string;
 };
 
-// The shape `useActionState` threads between renders of the signup form:
-// `errors` for field-level problems (bad email, short password, ...),
-// `message` for a whole-form problem that isn't tied to one input (e.g. the
-// account was created but the automatic sign-in step failed). `undefined`
-// is the initial state, before the form has ever been submitted.
+// useActionState's state: `errors` per field, `message` for form-wide problems
+// (e.g. sign-in after signup failed). undefined before the first submit.
 export type SignupFormState = { errors?: SignupErrors; message?: string } | undefined;
 
 export async function signup(
   _prevState: SignupFormState,
   formData: FormData
 ): Promise<SignupFormState> {
-  // Re-validated here even though SignupForm runs the same schema first -
-  // this action is a public endpoint and the client check can be skipped
-  // entirely. The schema also trims/lowercases email (see
-  // lib/validation/auth.ts for why that normalisation matters).
+  // Re-validated here: the action is a public endpoint. The schema also trims
+  // and lowercases the email.
   const parsed = signupSchema.safeParse({
     name: formData.get("name") ?? "",
     email: formData.get("email") ?? "",
@@ -42,30 +35,23 @@ export async function signup(
   }
   const { name, email, password } = parsed.data;
 
-  // Checks whether an account with this email already exists.
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
-    // This does reveal that the email is registered - an accepted gap, not
-    // an oversight. Without email verification there's no way to hide it
-    // and still tell a real user why signup failed; rate limiting is the
-    // usual cap on bulk enumeration and is deferred (see CLAUDE.md). It
-    // deliberately doesn't say whether the account is password- or
-    // Google-based.
+    // Reveals the email is registered: an accepted gap without email
+    // verification (rate limiting is deferred). Doesn't say whether the account
+    // is password- or Google-based.
     return { errors: { email: "An account with this email already exists." } };
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  // Creates the new user account.
   await prisma.user.create({ data: { name, email, passwordHash } });
 
   try {
-    // Sign the new user in immediately rather than sending them to log in
-    // again with what they just typed.
+    // Sign the new user in immediately.
     await signIn("credentials", { email, password, redirectTo: "/" });
   } catch (error) {
-    // signIn's success path redirects internally by throwing a special
-    // Next.js error that isn't an AuthError. Only rethrowing an actual
-    // AuthError here avoids swallowing that redirect.
+    // signIn redirects by throwing a Next.js error that isn't an AuthError;
+    // only AuthErrors are handled here so the redirect isn't swallowed.
     if (error instanceof AuthError) {
       return {
         message: "Account created, but automatic sign-in failed. Please log in.",

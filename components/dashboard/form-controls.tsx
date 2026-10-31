@@ -5,18 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-// Small form building blocks shared by the dashboard's forms (venues,
-// listings), so every field looks and behaves the same way: label on top,
-// hint and error underneath, all tied to the control for screen readers.
+// Form building blocks for the dashboard forms: label on top, hint and error
+// below, tied to the control for screen readers.
 
 export const TEXTAREA_CLASS =
   "min-h-24 w-full rounded-md border border-input bg-transparent px-2.5 py-2 text-base shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm";
 
-// One labelled field with its error and optional hint. The error and hint
-// are tied to the control with aria-describedby (passed to `children`), so
-// a screen reader reads out why a field is invalid when it's focused.
-// `labelFor` is the control's id - leave it out for a group of buttons,
-// which is labelled by its own aria-labelledby instead.
+// One labelled field. The error and hint are linked via aria-describedby
+// (passed to `children`). Omit `labelFor` for a button group labelled by its
+// own aria-labelledby.
 export function Field({
   id,
   label,
@@ -59,8 +56,7 @@ export function Field({
   );
 }
 
-// A titled group of related fields, drawn as a card - the sections a long
-// form is broken into so it reads as a few small steps, not one wall.
+// A titled card grouping related fields.
 export function FormSection({
   title,
   description,
@@ -82,8 +78,7 @@ export function FormSection({
   );
 }
 
-// A money amount: "$" inside the box on the left, the unit ("per hour")
-// outside on the right, so it's clear what the number means.
+// "$" inside the box, the unit ("per hour") outside it.
 export function MoneyInput({
   id,
   value,
@@ -115,8 +110,7 @@ export function MoneyInput({
           onChange={(e) => onChange(e.target.value)}
           aria-invalid={invalid}
           aria-describedby={describedBy}
-          // No up/down arrows: nobody adjusts a price a cent at a time, and
-          // they crowd a short box.
+          // No spinner arrows: prices aren't adjusted a cent at a time.
           className="[appearance:textfield] pl-6 tabular-nums [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         />
       </div>
@@ -125,10 +119,9 @@ export function MoneyInput({
   );
 }
 
-// A row of buttons where exactly one is selected - quicker than a dropdown
-// for a handful of short choices (15 / 30 / 60 min, the days of the week).
-// A real radio group for assistive technology: arrow keys move the
-// selection, and only the selected button is in the tab order.
+// A row of buttons with exactly one selected, for a few short choices. A real
+// radio group: arrow keys move the selection; only the selected button is
+// tabbable.
 export function SegmentedControl<T extends string | number>({
   labelledBy,
   options,
@@ -165,9 +158,8 @@ export function SegmentedControl<T extends string | number>({
       aria-labelledby={labelledBy}
       aria-describedby={describedBy}
       aria-invalid={invalid || undefined}
-      // 36px tall overall (28px buttons + 3px padding + 1px border, each
-      // side) - the same height as inputs and dropdowns, so labels in a row
-      // of mixed controls line up.
+      // 36px overall (28px buttons + 3px padding + 1px border per side),
+      // matching inputs so labels line up.
       className="inline-flex w-fit max-w-full flex-wrap gap-1 rounded-lg border bg-muted/50 p-0.75"
     >
       {options.map((option, index) => {

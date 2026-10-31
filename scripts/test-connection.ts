@@ -1,11 +1,6 @@
 import "dotenv/config";
 import { prisma } from "../lib/prisma";
 
-// async function testFind() {
-//   const venues = await prisma.venue.findMany({ take: 5 });
-//   console.log(`Connected successfully. Found ${venues.length} venues`);
-// }
-
 async function testCreateActivity() {
   const activity = await prisma.activity.create({
     data: {

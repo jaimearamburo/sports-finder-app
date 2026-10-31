@@ -13,16 +13,12 @@ const initialState: LoginFormState = undefined;
 export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const [state, formAction, pending] = useActionState(login, initialState);
   const [clientMessage, setClientMessage] = useState<string | null>(null);
-  // Controlled, so the email survives a failed login: React resets an
-  // uncontrolled form after its action runs. The password is left
-  // uncontrolled on purpose - clearing it after a wrong attempt is the
-  // usual behaviour.
+  // Controlled so the email survives a failed login (React resets uncontrolled
+  // forms after an action). The password is uncontrolled so it clears.
   const [email, setEmail] = useState("");
 
-  // Same schema the login action re-checks server-side, run first so a
-  // blank field or non-email is caught with no round trip. `noValidate` on
-  // the form keeps the browser's own popups from firing first with
-  // different wording.
+  // The same schema the action re-checks, run first for instant feedback.
+  // noValidate stops the browser's own popups.
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     const result = loginSchema.safeParse(Object.fromEntries(new FormData(e.currentTarget)));
     if (!result.success) {
@@ -37,9 +33,8 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
 
   return (
     <form action={formAction} onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-      {/* Carries the page's already-sanitized callbackUrl through to the
-          server action. A plain form submit only gives the action access
-          to named form fields, not the page's own props or searchParams. */}
+      {/* Passes the sanitised callbackUrl to the action, which only sees form
+          fields. */}
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
 
       <div className="flex flex-col gap-1.5">
@@ -60,7 +55,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         <Input id="password" name="password" type="password" />
       </div>
 
-      {/* role="alert" so the message is announced as soon as it appears. */}
+      {/* Announced as soon as it appears. */}
       {message && (
         <p role="alert" className="text-sm text-destructive">
           {message}

@@ -1,19 +1,11 @@
 import type { PickerListing, SelectedSlots } from "@/components/listings/picker-types";
 
-// Plain pricing math with no client/browser dependency, so both SlotPicker
-// (client-side, for the live running total) and the checkout page (a
-// Server Component) can call it directly - a "use client" file's exports
-// are replaced with client references when imported elsewhere, so calling
-// one directly from server code (rather than rendering it as JSX) throws
-// at runtime, which is why this can't live in slot-picker.tsx itself.
+// Plain pricing maths shared by SlotPicker (client) and the checkout page
+// (server). Kept out of slot-picker.tsx because server code can't call a "use
+// client" module's exports.
 
-// pricePerUnit is a per-hour/per-day/flat-per-session rate depending on
-// mechanic (see getPriceSuffix in listing-card.tsx). This scales each
-// slot into an actual cost and sums across all of them. Every mechanic
-// except a non-accommodation date_range pass only ever produces one slot.
-// Quantity (how many people/units one purchase claims) is deliberately not
-// handled here - callers multiply this function's result by quantity
-// once, at the top level, so this stays ignorant of it.
+// Scales pricePerUnit (per hour, per day or per session, by mechanic) to each
+// slot and sums them. Quantity isn't handled here: callers multiply the result.
 export function getTotalPrice(
   listing: Pick<PickerListing, "bookingMechanic" | "pricePerUnit">,
   slots: SelectedSlots
@@ -31,8 +23,7 @@ export function getTotalPrice(
   }, 0);
 }
 
-// fixed_session is always exactly one flat-rate session with no
-// duration/quantity axis to break down, so it gets no breakdown line.
+// A class is one flat-rate session, so it has no breakdown line.
 export function getBreakdownLine(
   listing: Pick<PickerListing, "bookingMechanic" | "pricePerUnit" | "isAccommodation">,
   slots: SelectedSlots

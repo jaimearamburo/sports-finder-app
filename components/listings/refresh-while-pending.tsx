@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 
 const INTERVAL_MS = 2000;
 
-// Re-renders the current Server Component page every couple of seconds, for
-// the confirmation page while a payment is still settling: the Stripe
-// webhook confirms the booking in the background, and this picks that up
-// without the customer having to reload. Stops by itself once the page
-// renders without it (the booking is confirmed or has failed).
+// Re-renders the page every couple of seconds while a payment settles, so the
+// confirmation page picks up the webhook's result. Stops once the page renders
+// without it.
 export function RefreshWhilePending() {
   const router = useRouter();
   useEffect(() => {

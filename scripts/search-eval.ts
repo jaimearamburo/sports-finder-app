@@ -1,12 +1,11 @@
-// Evaluation set for AI-powered search: runs each query through the real
-// LLM interpreter and checks the filters it returns. This is what decides
-// whether the model (and its prompt) are good enough - run it after any
-// change to lib/llm.ts or lib/search/.
+// Evaluation set for natural-language search: runs each query through the real
+// LLM interpreter and checks the returned filters. Run after any change to
+// lib/llm.ts or lib/search/.
 //
-//   pnpm exec tsx -r dotenv/config scripts/search-eval.ts
+// pnpm exec tsx -r dotenv/config scripts/search-eval.ts
 //
-// Costs a fraction of a cent per run (about 26 short LLM calls). "today"
-// is fixed so date and season expectations don't drift with the calendar.
+// Costs a fraction of a cent (about 26 short calls). "today" is fixed so date
+// and season expectations don't drift.
 import { interpretWithLlm } from "../lib/llm";
 import { querySearchVocabulary } from "../lib/search/vocabulary-query";
 import type { Interpretation, When } from "../lib/search/interpretation";

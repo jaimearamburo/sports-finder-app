@@ -1,16 +1,13 @@
 import pg from "pg";
 
-// Direct database access for the end-to-end tests: creating their test
-// records and checking what a request did or didn't change. Plain `pg`
-// rather than the app's Prisma client - Prisma 7's generated client is an
-// ES module, and Playwright loads this project's TypeScript as CommonJS, so
-// the two can't share a process. These are small, fixed queries, so SQL is
-// clear enough.
+// Direct database access for the e2e tests: creating test records and checking
+// what requests changed. Plain `pg`, because Prisma 7's client is an ES module
+// and Playwright loads this project's TypeScript as CommonJS.
 //
-// Uses the direct (non-pooled) connection, like the Prisma CLI.
-// rejectUnauthorized: false because some hosts' certificate chains aren't in
-// Node's trust store (Supabase's isn't) - acceptable for a local test run
-// against a development database (never production: see global-setup.ts).
+// Uses the direct connection, like the Prisma CLI. rejectUnauthorized: false
+// because some hosts' certificate chains aren't in Node's trust store;
+// acceptable for a development database (production is refused in
+// global-setup.ts).
 
 let pool: pg.Pool | null = null;
 
@@ -33,8 +30,8 @@ export async function closeDb() {
   pool = null;
 }
 
-// Timestamps in this schema are `timestamp without time zone` holding UTC
-// (Prisma's convention), so they're written as UTC wall-clock text.
+// Columns are `timestamp without time zone` holding UTC, so values are written
+// as UTC text.
 export function utc(date: Date): string {
   return date.toISOString().replace("T", " ").replace("Z", "");
 }

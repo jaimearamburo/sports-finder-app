@@ -3,34 +3,22 @@
 import { createContext, startTransition, use, useMemo, useOptimistic, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-// One shared record of where the browse page is navigating to, for every
-// control that changes its filters: the sidebar, the mobile filter bar, the
-// quick-filter pills, the tag chips, the search chips and the header search.
+// Where the browse page is navigating to, shared by every filter control
+// (sidebar, mobile bar, quick-filter pills, tag chips, search chips, header
+// search).
 //
-// Why it exists: the URL is the source of truth for the filters, but it only
-// changes once a navigation finishes. When each control built its next URL
-// from the URL on screen, a quick second click in a different control
-// (Free, then Tennis) was built from the old URL and replaced the first
-// navigation, losing the first filter. Here, every control builds on the
-// URL that's already on its way, so quick clicks across controls add up.
+// The URL holds the filters but only changes when a navigation finishes. Every
+// control builds its next URL on the one already in flight, so quick clicks
+// across controls add up instead of replacing each other. Also provides one
+// loading flag that dims the results, including while the header search
+// interprets a query.
 //
-// It also gives the page one "something is loading" flag, which is what
-// dims the results - including while the header search, which sits outside
-// the browse page, interprets a query.
+// One optimistic value (useOptimistic), no state library: shown immediately,
+// dropped once the navigation lands and the real URL says the same. Callers use
+// only the hooks. In contexts/ because the site header uses it too.
 //
-// No state library: this is one optimistic value. useOptimistic shows it
-// immediately and drops it once the navigation lands, after which the real
-// URL (which then says the same thing) takes over.
-//
-// Packaged as one module - context, provider and hooks together - so callers
-// only ever use the hooks and never touch the context object directly. It
-// lives in contexts/ rather than components/browse/ because it isn't a
-// visual component and the site header uses it too.
-//
-// If re-renders ever matter (every consumer re-renders on each filter
-// click today, which is cheap at this size), the next step would be splitting
-// this into a values context and an actions context, so components that
-// only call actions stop re-rendering.
+// Every consumer re-renders on each filter change, which is cheap at this size;
+// splitting values and actions into two contexts would avoid it if needed.
 type BrowseNavigationValue = {
   // The query string being navigated to, or null when nothing is in flight.
   pendingQuery: string | null;
@@ -45,10 +33,9 @@ type BrowseNavigationValue = {
 
 const BrowseNavigationContext = createContext<BrowseNavigationValue | null>(null);
 
-// Lives in the root layout, above both the site header and the page, because
-// the header search takes part too. Deliberately doesn't read
-// useSearchParams itself: that would make every page in the app wait for the
-// URL on the client. The hooks below read it, in components that already do.
+// In the root layout, above the header and the page, since the header search
+// uses it. Doesn't read useSearchParams (that would make every page wait for
+// the URL on the client); the hooks do.
 export function BrowseNavigationProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [pendingQuery, setPendingQuery] = useOptimistic<string | null>(null);
@@ -61,10 +48,8 @@ export function BrowseNavigationProvider({ children }: { children: ReactNode }) 
       pushBrowse(query) {
         setPendingQuery(query);
         setIsPending(true);
-        // push, not replace, so each filter change is its own history entry
-        // and the back button steps back through filter states. Always "/":
-        // browse is the home page, and the header search navigates there
-        // from any page.
+        // push, not replace, so the back button steps through filter states.
+        // Always "/": browse is the home page.
         router.push(query ? `/?${query}` : "/");
       },
       markPending() {
@@ -83,10 +68,8 @@ export function useBrowseNavigation(): BrowseNavigationValue {
   return value;
 }
 
-// The browse filters every control should display and build on: the URL
-// currently being navigated to if there is one, otherwise the URL on screen.
-// update() applies a change on top of exactly that, so a second click never
-// discards a first one that's still loading.
+// The filters to display and build on: the URL in flight if any, else the URL
+// on screen. update() applies a change on top of it.
 export function useBrowseFilters(): {
   params: URLSearchParams;
   isPending: boolean;

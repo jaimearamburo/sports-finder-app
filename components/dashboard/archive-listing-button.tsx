@@ -14,15 +14,10 @@ import {
 } from "@/components/ui/dialog";
 import { setListingArchivedAction } from "@/app/dashboard/listings/actions";
 
-// Archive or restore one listing, after a confirmation dialog. Archiving is
-// easy to undo (Restore), but it immediately takes the listing out of
-// browse and new bookings, so it's worth one deliberate click. When the
-// listing has upcoming bookings, the dialog says they're kept, since that's
-// the first thing a manager will wonder.
-// Archiving is the closest thing to a delete in the dashboard, so it's
-// marked in Google's red for actions (#D93025, 4.6:1 with white text;
-// the brighter brand red #EA4335 fails contrast). Restore stays a plain
-// outline button.
+// Archive or restore a listing after a confirmation dialog: archiving
+// immediately removes it from browse and new bookings. The dialog notes that
+// upcoming bookings are kept. Archive uses Google's action red (#D93025, 4.6:1
+// with white; the brand red #EA4335 fails contrast); Restore stays outline.
 const ARCHIVE_CLASS = "bg-[#d93025] text-white hover:bg-[#b3261e] focus-visible:border-[#d93025] focus-visible:ring-[#d93025]/30";
 
 export function ArchiveListingButton({

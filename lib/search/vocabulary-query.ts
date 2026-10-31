@@ -1,16 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import type { SearchVocabulary } from "./interpretation";
 
-// The uncached query behind the search vocabulary. The app reads it
-// through getSearchVocabulary (lib/search/vocabulary.ts), which caches it;
-// this raw version exists so the evaluation script can load the same
-// vocabulary outside Next, where Next's cache isn't available.
+// The uncached vocabulary query; the app reads it through getSearchVocabulary
+// (cached), and the eval script calls it directly outside Next.
 //
-// "Classes" is left out of the tags on purpose. Several tags in the browse
-// URL mean "any of these", so "tennis class" mapped to Tennis + Classes
-// would match every class of any sport. Class intent goes through the
-// single-valued booking type instead (fixed_session) - the same reason the
-// quick-filter chip row leaves "Classes" out (see lib/browse-tags.ts).
+// "Classes" is excluded from the tags: several tags mean "any of", so "tennis
+// class" as Tennis + Classes would match every class. Class intent goes through
+// the booking type (fixed_session) instead.
 const EXCLUDED_TAG = "Classes";
 
 export async function querySearchVocabulary(): Promise<SearchVocabulary> {

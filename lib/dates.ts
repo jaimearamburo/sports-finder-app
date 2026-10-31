@@ -1,7 +1,5 @@
-// Plain date-math helpers with no DB/server dependency, so both
-// lib/availability.ts (server-side) and the slot picker components
-// (client-side) can share the exact same calendar-day normalization
-// instead of each defining their own copy.
+// Calendar-day helpers shared by server code and the pickers. A "day" is a Date
+// at UTC midnight.
 
 import { TZDate } from "@date-fns/tz";
 
@@ -13,50 +11,34 @@ export function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
-// A calendar widget (react-day-picker, and the native Date constructor in
-// general) builds a clicked day as LOCAL midnight. Every bookable-date list
-// in this app (getBookableDates, AvailabilityOverride resolution) is built
-// in UTC-day terms instead (Date.UTC(...) throughout), so a calendar's own
-// selection has to be re-expressed with the same year/month/day numbers in
-// UTC form before it can be compared against or stored alongside those.
+// Re-expresses a calendar widget's local-midnight Date as the same y/m/d at UTC
+// midnight, the app's convention for a calendar day.
 export function localDateToUTCDay(date: Date): Date {
   return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
 }
 
-// "Today," as seen on a wall clock in a given IANA timezone - not the
-// server's own UTC day, and not the viewer's. A booking's real-world
-// validity is about the venue's clock, not either party's location.
-// TZDate.tz(timeZone) gives the current instant with its getters
-// overridden to read that zone's local calendar/clock values, so
-// localDateToUTCDay (built for exactly this "read local y/m/d, re-express
-// as UTC midnight" conversion) applies unchanged.
+// Today on the venue's clock (UTC-midnight Date), not the server's or the
+// viewer's.
 export function todayInTimezone(timeZone: string): Date {
   return localDateToUTCDay(TZDate.tz(timeZone));
 }
 
-// The viewer's own local calendar day at midnight (plain Date, local
-// timezone - not the UTC-midnight convention the functions above produce).
-// Used to bound a date picker's own "no past dates" check at a point in
-// the UI with no single venue to anchor "today" to (the browse grid spans
-// many venues/timezones at once, so there's nothing more specific to use).
+// The viewer's local midnight (a plain local Date). For date pickers with no
+// single venue to anchor "today", e.g. the browse filter across many timezones.
 export function startOfLocalToday(): Date {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return today;
 }
 
-// A booking's real-world date/time - shared by checkout, confirmation and
-// My Bookings so all three describe the same booking identically.
+// A booking's date/time, shared by checkout, confirmation and My Bookings.
 //
-// Courts and classes store real instants, so they're formatted in the
-// venue's timezone: one date plus a start-end time.
+// Courts and classes are real instants, shown in the venue's timezone as one
+// date plus a start-end time.
 //
-// date_range bookings (stays, passes) store plain calendar days as UTC
-// midnight, so they're formatted in UTC. Formatting them in the venue's
-// timezone shifted every date a day early at venues behind UTC. Their end
-// is exclusive (the day after the last booked day), which is shown as-is
-// for a stay - it's the check-out date - but pulled back a day for a pass,
-// so one pass day reads as a single date rather than "27 Oct - 28 Oct".
+// Passes and stays are calendar days stored as UTC midnight, shown in UTC.
+// Their end is exclusive: shown as-is for a stay (the check-out date), one day
+// earlier for a pass, so a one-day pass shows a single date.
 export function formatBookingTime(
   startsAt: Date,
   endsAt: Date,

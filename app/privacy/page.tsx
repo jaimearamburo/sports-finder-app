@@ -4,8 +4,7 @@ import { InfoPage } from "@/components/info-page";
 
 export const metadata: Metadata = { title: "Privacy | PlayBook" };
 
-// Keep this in step with what the app actually stores and sends: it's a
-// plain description of the code, not legal boilerplate.
+// Keep in step with what the app actually stores and sends.
 export default function PrivacyPage() {
   return (
     <InfoPage title="Privacy" summary="What this demo stores, and where it goes.">

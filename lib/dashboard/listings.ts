@@ -47,9 +47,7 @@ export type VenuePageData = {
   // Only filled in for admins, who see every owner's venues.
   ownerName: string | null;
   listings: VenueListingRow[];
-  // How many listings are archived, whether or not they're being shown -
-  // so the page can say "Show 3 archived" or hide the toggle when there are
-  // none.
+  // Archived listings, shown or not, for the "Show 3 archived" toggle.
   archivedCount: number;
 };
 
@@ -57,10 +55,9 @@ export type ArchiveListingResult = { ok: true } | { ok: false; error: string };
 
 const LISTING_NOT_FOUND = "This listing doesn't exist, or it isn't one you manage.";
 
-// One venue with its listings, for the venue page. null when the venue
-// doesn't exist or this user may not manage it (the page shows not-found
-// either way, so another owner's venue is never confirmed to exist).
-// Archived listings are left out unless asked for.
+// One venue with its listings for the venue page; null when it doesn't exist or
+// this user may not manage it (the page shows not-found either way). Archived
+// listings only when asked for.
 export const getVenuePage = withPermission(
   "venues:manage",
   async (session, venueId: string, includeArchived: boolean): Promise<VenuePageData | null> => {
@@ -142,11 +139,10 @@ export const getVenuePage = withPermission(
   }
 );
 
-// Archives a listing (archived: true) or restores it (false). Archiving
-// hides it from browse and from new bookings; it's how a listing is retired,
-// since deleting would destroy its booking history (Booking.listing is
-// onDelete: Restrict). Bookings already made stay valid either way. The
-// ownership check runs on the stored listing before anything is written.
+// Archives (true) or restores (false) a listing. Archiving hides it from browse
+// and new bookings; it's how a listing is retired, since Booking.listing is
+// Restrict. Existing bookings stay valid. Ownership is checked on the stored
+// listing before writing.
 export const setListingArchived = withPermission(
   "venues:manage",
   async (session, listingId: string, archived: boolean): Promise<ArchiveListingResult> => {
@@ -159,8 +155,8 @@ export const setListingArchived = withPermission(
     });
     if (!listing || !canManageListing(session.user, listing)) return { ok: false, error: LISTING_NOT_FOUND };
 
-    // Already in the requested state (e.g. a double click, or two tabs):
-    // nothing to change, and archiving again mustn't move the archive date.
+    // Already in that state (double click, two tabs): nothing to do, and the
+    // archive date must not move.
     if ((listing.archivedAt !== null) === archived) return { ok: true };
     await prisma.listing.update({ where: { id: listing.id }, data: { archivedAt: archived ? new Date() : null } });
     return { ok: true };
@@ -231,8 +227,7 @@ const VENUE_SELECT = {
   city: { select: { name: true, timezone: true, country: { select: { name: true } } } },
 } as const;
 
-// A stored listing as form values. Fields its kind doesn't use get the
-// usual defaults, so switching what's shown never meets an empty value.
+// A stored listing as form values. Fields its kind doesn't use get defaults.
 function toFormValues(listing: Prisma.ListingGetPayload<{ include: { activity: true } }>): ListingFormInput {
   const d = NEW_LISTING_DEFAULTS;
   return {
@@ -256,11 +251,8 @@ function toFormValues(listing: Prisma.ListingGetPayload<{ include: { activity: t
   };
 }
 
-// Parsed values as database columns. Columns the listing's kind doesn't use
-// are cleared, so a listing never carries stale settings from another kind
-// that some code might one day read. holdDurationMinutes (a per-listing
-// override of the venue's hold time) isn't part of the form and is left
-// as it is.
+// Parsed values as columns. Columns the kind doesn't use are cleared.
+// holdDurationMinutes isn't in the form and is left unchanged.
 function toListingColumns(parsed: ParsedListing) {
   const cleared = {
     operatingHoursStart: null,
@@ -280,8 +272,7 @@ function toListingColumns(parsed: ParsedListing) {
     imageUrl: parsed.imageUrl,
     pricePerUnit: parsed.price,
     capacity: parsed.capacity,
-    // Only meaningful when one booking can take several places; otherwise
-    // the quantity picker isn't shown and 1 is the truth.
+    // 1 unless one booking can take several places.
     maxBookingsPerTransaction: parsed.capacity === 1 ? 1 : parsed.maxPerBooking,
   };
   switch (parsed.kind) {
@@ -317,9 +308,8 @@ function toListingColumns(parsed: ParsedListing) {
   }
 }
 
-// The columns that decide which bookings fit a listing. Only a change to
-// one of these can leave an upcoming booking outside the rules, so they're
-// what the schedule-change warning compares.
+// The columns that decide which bookings fit; only changes to these trigger the
+// schedule-change warning.
 const BOOKING_RULE_SELECT = {
   capacity: true,
   operatingHoursStart: true,
@@ -374,9 +364,8 @@ export const getListingEditor = withPermission(
   }
 );
 
-// A new listing at a venue this user may manage. Which rules apply comes
-// from the chosen activity, looked up here rather than trusted from the
-// form.
+// A new listing at a venue this user may manage. The rules come from the chosen
+// activity, looked up here.
 export const createListing = withPermission(
   "venues:manage",
   async (session, venueId: string, input: ListingFormInput): Promise<SaveListingResult> => {
@@ -403,23 +392,16 @@ export const createListing = withPermission(
   }
 );
 
-// Saves changes to a listing this user may manage. The activity can't
-// change (a court can't become a class - its bookings were made under the
-// court's rules), so the stored one is used whatever the form sends.
+// Saves a listing this user may manage. The activity can't change (existing
+// bookings were made under its rules), so the stored one is used.
 //
-// A new or removed photo replaces the stored one; the old file is deleted
-// from the store once the listing is saved (never before, so a failed save
-// can't leave the listing pointing at a deleted file).
+// A replaced or removed photo's old file is deleted after saving, never before.
 //
-// When a change to the booking rules (hours, lengths, days, session,
-// capacity) would leave upcoming bookings outside them, or a time slot
-// booked beyond the new capacity, nothing is saved the first time: the
-// result carries `impact` so the form can say so, and saving again with
-// confirmImpact keeps the bookings and applies the change. Those bookings
-// are never cancelled here - they were valid when made. Edits that leave
-// the rules as they are (name, price, photo...) skip the check: a booking
-// already outside the rules was outside them before, and warning about it
-// on every save would make a photo change look like it affects bookings.
+// When a booking-rule change (hours, lengths, days, session, capacity) would
+// leave upcoming bookings outside the rules or over capacity, nothing is saved
+// and the result carries `impact`; saving again with confirmImpact applies it.
+// Bookings are never cancelled. Other edits (name, price, photo) skip the
+// check.
 export const updateListing = withPermission(
   "venues:manage",
   async (session, listingId: string, input: ListingFormInput, confirmImpact: boolean): Promise<SaveListingResult> => {

@@ -9,14 +9,11 @@ const DASHBOARD_LINKS: SectionNavLink[] = [
   { label: "Bookings", href: "/dashboard/bookings" },
 ];
 
-// The venue dashboard's chrome: the section nav as a sidebar on desktop and
-// a pill row on phones, around every dashboard page.
+// The dashboard's section nav around every dashboard page.
 //
-// requirePermission here is about what's shown, not the protection. Without
-// it, a page's not-found for someone without access would render inside
-// this layout, showing them the dashboard's own navigation. The protection
-// stays in each page (layouts don't re-render on client-side navigation,
-// so a layout check can be skipped) and in the data functions.
+// requirePermission here only stops a refused user's not-found rendering inside
+// the dashboard nav. The protection is in each page (layouts don't re-render on
+// client navigation) and in the data functions.
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   await requirePermission("dashboard:access");
   return (

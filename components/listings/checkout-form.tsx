@@ -35,16 +35,13 @@ function formatCountdown(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-// Loaded once per page load, outside any component, so re-renders never
-// re-download Stripe.js. null when the publishable key isn't configured -
-// the form then says payments are unavailable rather than crashing.
+// Loaded once per page load, outside any component, so re-renders don't reload
+// Stripe.js. Without a publishable key the form says payments are unavailable.
 const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = PUBLISHABLE_KEY ? loadStripe(PUBLISHABLE_KEY) : null;
 
-// The Payment Element renders inside Stripe's own iframe, so the site's CSS
-// can't reach it - these variables restyle it to match the shared Input
-// component (globals.css tokens): same font, border, radius, focus ring and
-// error colour, so the card fields read as part of this form.
+// The Payment Element renders in Stripe's iframe, out of reach of the site's
+// CSS; these variables match it to the shared Input component.
 const STRIPE_APPEARANCE: Appearance = {
   theme: "stripe",
   variables: {
@@ -60,27 +57,25 @@ const STRIPE_APPEARANCE: Appearance = {
     spacingUnit: "4px",
   },
   rules: {
-    // White fields, like the attendee inputs above (bg-card), so they stand out
-    // from the grey page. colorBackground stays the page colour: it also
-    // paints the area around the fields inside Stripe's iframe.
+    // White fields like the attendee inputs, to stand out from the grey page.
+    // colorBackground stays the page colour because it also paints around the
+    // fields.
     ".Input": { backgroundColor: "#ffffff", border: "1px solid #e5e5e5", boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)" },
     ".Input:focus": { borderColor: "#1857c4", boxShadow: "0 0 0 3px rgba(24, 87, 196, 0.5)" },
     ".Label": { fontWeight: "500", color: "#0a0a0a" },
   },
 };
 
-// iPhones zoom the page in when an input under 16px gets focus. The site's
-// own Input avoids that with text-base below md and text-sm from md up;
-// the card fields are in Stripe's iframe, out of reach of that CSS, so the
-// same rule is applied through the appearance settings. Read once, when the
-// form first renders in the browser (Stripe only reads it then too).
+// iPhones zoom into inputs under 16px. The site's Input uses text-base below
+// md; the same rule reaches Stripe's iframe through its appearance settings.
+// Read once on first render, as Stripe does.
 const NARROW_SCREEN = "(max-width: 767px)";
 function checkoutAppearance(): Appearance {
   const narrow = typeof window !== "undefined" && window.matchMedia(NARROW_SCREEN).matches;
   return { ...STRIPE_APPEARANCE, variables: { ...STRIPE_APPEARANCE.variables, fontSizeBase: narrow ? "16px" : "14px" } };
 }
 
-// Same font as the rest of the site, loaded into Stripe's iframe.
+// The site's font, loaded into Stripe's iframe.
 const STRIPE_FONTS = [{ cssSrc: "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" }];
 
 type CheckoutFormProps = {
@@ -89,17 +84,16 @@ type CheckoutFormProps = {
   listingId: string;
   listingName: string;
   activityName: string;
-  // The listing's primary tag colour, for the category label - same source
-  // as the listing page's own label. Undefined falls back to grey.
+  // The listing's primary tag colour for the category label; undefined falls
+  // back to grey.
   accentColor?: string;
   venueName: string;
   cityName: string;
   scheduleLines: string[];
   quantity: number;
   total: number;
-  // The total in cents and its currency, computed on the server exactly as
-  // the PaymentIntent's amount will be (see startHoldPayment), so the
-  // Payment Element is set up for the same charge.
+  // The total in cents, computed exactly as startHoldPayment computes the
+  // PaymentIntent amount.
   amountMinor: number;
   currency: string;
   breakdown: string | null;
@@ -107,13 +101,11 @@ type CheckoutFormProps = {
   defaultEmail: string;
 };
 
-// The Payment Element needs a surrounding <Elements> provider. It's set up
-// in "deferred" mode (amount and currency only, no PaymentIntent yet): the
-// PaymentIntent is created at submit time, once the attendee details are
-// final, so a page view that never pays creates nothing on Stripe's side.
-// captureMethod and the card-only method list must match what
-// startHoldPayment creates, or Stripe rejects the confirmation. A free order
-// has nothing to pay, so it gets no Stripe instance at all.
+// <Elements> in deferred mode (amount and currency, no PaymentIntent yet): the
+// PaymentIntent is created on submit, so a page view that never pays creates
+// nothing on Stripe. captureMethod and the payment method list must match
+// startHoldPayment, or Stripe rejects the confirmation. A free order gets no
+// Stripe instance.
 export function CheckoutForm(props: CheckoutFormProps) {
   const free = props.amountMinor === 0;
   const [appearance] = useState(checkoutAppearance);
@@ -162,38 +154,28 @@ function CheckoutFormContent({
   const stripe = useStripe();
   const elements = useElements();
   const free = amountMinor === 0;
-  // Whether the card fields are filled in validly (reported by the Payment
-  // Element itself) and whether the element has finished loading.
+  // Whether the card fields are valid (reported by the Payment Element) and
+  // whether it has loaded.
   const [cardComplete, setCardComplete] = useState(false);
   const [paymentReady, setPaymentReady] = useState(false);
-  // Set once a payment has been attempted, so an expired-hold screen can
-  // reassure the customer their card wasn't charged.
+  // Lets the expired-hold screen reassure the customer they weren't charged.
   const [paymentAttempted, setPaymentAttempted] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof AttendeeInput, string>>>({});
   const [isPending, startTransition] = useTransition();
 
-  // Re-syncs to the real wall clock every second rather than counting
-  // down from a fixed number, so the displayed time stays correct even
-  // if this tab is backgrounded and its timers get throttled for a while.
+  // Recomputed from the wall clock every second, so it stays correct when a
+  // background tab's timers are throttled.
   const [remainingMs, setRemainingMs] = useState(() => expiresAt.getTime() - Date.now());
   useEffect(() => {
     const interval = setInterval(() => setRemainingMs(expiresAt.getTime() - Date.now()), 1000);
     return () => clearInterval(interval);
   }, [expiresAt]);
 
-  // Checked client-side purely for instant feedback - the payment actions
-  // re-check this server-side regardless, since a stalled background tab
-  // can't be trusted to notice its own countdown hit zero. Deliberately
-  // never released by just navigating away, including "Back to listing"
-  // below (plain navigation, no side effect) - the hold is meant to stay
-  // in force until it's either finalized, explicitly cancelled via the
-  // listing page's own active-hold banner, or it naturally expires, so a
-  // user who wanders off without deciding stays genuinely locked out of
-  // starting a second booking, not quietly let back in. Cancelling only
-  // from the banner (not here too) means there's exactly one place that
-  // can end a hold early, and clicking "back" is never a surprise.
+  // Client-side UX only; the payment actions re-check expiry on the server.
+  // Navigating away never releases the hold: only finishing, the active-hold
+  // banner's Cancel, or expiry ends it.
   const expired = remainingMs <= 0;
 
   function bookForMyself() {
@@ -208,13 +190,9 @@ function CheckoutFormContent({
     nameInputRef.current?.focus();
   }
 
-  // router.back(), not router.push - pushing a fresh entry for a URL
-  // already in history is what caused a real reported bug: going back to
-  // the listing, then clicking "Back to browse" there, only popped this
-  // new pushed entry and landed back on checkout instead of browse. No
-  // refresh needed here: back() is a history navigation, so
-  // RefreshOnHistoryNavigation (root layout) re-fetches the listing page,
-  // exactly as it does for the browser's own back button.
+  // router.back(), not push: pushing a URL already in history adds a duplicate
+  // entry, so the listing's own Back button would return to checkout.
+  // RefreshOnHistoryNavigation re-fetches the listing after back().
   function handleBackToListing() {
     router.back();
   }
@@ -230,25 +208,20 @@ function CheckoutFormContent({
     paymentAvailable &&
     (free || (stripe !== null && elements !== null && cardComplete));
 
-  // Paying is three steps, all inside one transition so the button stays
-  // disabled throughout:
-  // 1. startHoldPaymentAction re-checks the attendee details and the hold,
-  //    and creates a PaymentIntent for the exact amount (or, for a free
-  //    order, confirms it outright).
-  // 2. stripe.confirmPayment authorizes the card in Stripe's iframe,
-  //    including any bank verification (3-D Secure) in Stripe's own pop-up.
-  //    Card only, so it never redirects away from this page.
-  // 3. confirmHoldPaymentAction secures the booking and only then captures
-  //    the money. If the hold ran out meanwhile, the authorization is
-  //    released and nothing is charged.
+  // Paying runs in one transition, so the button stays disabled throughout:
+  // 1. startHoldPaymentAction re-checks the attendee and hold and creates a
+  //    PaymentIntent (or confirms a free order).
+  // 2. stripe.confirmPayment authorizes the card, including 3-D Secure in
+  //    Stripe's pop-up. Card only, so no redirect.
+  // 3. confirmHoldPaymentAction secures the booking, then captures. If the hold
+  //    expired, the authorization is released.
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
     setError(null);
 
-    // Same attendee rules startHoldPayment re-checks server-side, run
-    // first so a typo'd email or junk phone number is flagged inline,
-    // under the field, with no round trip.
+    // Same rules the server re-checks; run first for inline errors without a
+    // round trip.
     const attendee = attendeeSchema.safeParse({ attendeeName: name, attendeeEmail: email, attendeePhone: phone });
     if (!attendee.success) {
       setFieldErrors(getFieldErrors(attendee.error));
@@ -258,8 +231,8 @@ function CheckoutFormContent({
 
     startTransition(async () => {
       try {
-        // Validates the card fields and shows Stripe's own inline errors
-        // before anything is created server-side.
+        // Validates the card fields and shows Stripe's inline errors before
+        // anything is created.
         if (!free) {
           const { error: submitError } = await elements!.submit();
           if (submitError) {
@@ -288,14 +261,13 @@ function CheckoutFormContent({
           elements: elements!,
           clientSecret: started.clientSecret,
           redirect: "if_required",
-          // Only used if a payment method ever needs a redirect, which a
-          // card-only checkout doesn't - the confirmation page can still
-          // show the result if it does.
+          // Only used by payment methods that redirect, which card-only
+          // checkout doesn't.
           confirmParams: { return_url: `${window.location.origin}/bookings/confirmation/${orderId}` },
         });
         if (confirmError) {
-          // Declined cards, failed verification and the like - Stripe's own
-          // message is written for customers.
+          // Declined cards, failed verification, etc.; Stripe's messages are
+          // written for customers.
           setError(confirmError.message ?? "Your card couldn't be charged. Try another card.");
           return;
         }
@@ -312,9 +284,8 @@ function CheckoutFormContent({
     });
   }
 
-  // Never swapped in while a payment is in flight: the server decides
-  // whether a payment that lands at the last second still counts, and
-  // its answer (including "you weren't charged") must reach the customer.
+  // Never shown mid-payment: the server decides whether a last-second payment
+  // counts, and its answer must reach the customer.
   if (expired && !isPending) {
     return <HoldExpiredNotice listingId={listingId} notCharged={paymentAttempted} />;
   }
@@ -331,10 +302,8 @@ function CheckoutFormContent({
 
       <div className="mb-6 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         <span>Complete your booking before your hold expires.</span>
-        {/* The server and the browser render this a moment apart, so the
-            seconds can differ by one; that's expected for a clock, and the
-            interval corrects it straight away. Without this, React treats
-            the difference as a hydration error and re-renders the form. */}
+        {/* Server and browser render a second apart; the interval corrects it
+            immediately. */}
         <span suppressHydrationWarning className="font-mono font-semibold text-red-600 tabular-nums">
           {formatCountdown(remainingMs)}
         </span>
@@ -347,8 +316,7 @@ function CheckoutFormContent({
         >
           {activityName}
         </p>
-        {/* The page's h1 - styled like the rest of the summary card, but a
-            real heading so screen-reader users can find the page's subject. */}
+        {/* The page's h1, styled like the rest of the summary card. */}
         <h1 className="font-semibold">{listingName}</h1>
         <p className="text-sm text-muted-foreground">
           {venueName}, {cityName}
@@ -367,9 +335,8 @@ function CheckoutFormContent({
         </div>
       </div>
 
-      {/* noValidate: attendeeSchema in handleSubmit is the single
-          client-side check, so the browser's own type="email" popup
-          doesn't fire first with different wording. */}
+      {/* noValidate: attendeeSchema is the only client-side check, so the
+          browser's own popups don't fire with different wording. */}
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
         <div>
           <div className="mb-3 flex flex-wrap gap-2">
@@ -441,23 +408,22 @@ function CheckoutFormContent({
             onCheckedChange={setAgreedToTerms}
             required
             className="mt-0.5"
-            // The full sentence, Terms included: the <label> below can only
-            // hold the first half (see its comment), which left the
-            // checkbox named just "I agree to <venue>'s".
-            aria-label={`I agree to ${venueName}'s Terms and Conditions`}
+            // Named by the label and Terms button together so screen readers
+            // hear the full sentence. Not aria-label: Base UI labels the
+            // checkbox through aria-labelledby, which takes precedence.
+            aria-labelledby="agreeToTerms-label agreeToTerms-terms"
           />
-          {/* Only "I agree to {venueName}'s" sits inside the actual
-              <label> - the Terms trigger is a sibling outside it on
-              purpose. A click anywhere inside a <label for="..."> also
-              toggles its associated control natively, so nesting the
-              dialog trigger inside the label would silently flip the
-              checkbox every time someone just meant to read the terms. */}
+          {/* Only "I agree to {venueName}'s" is inside the <label>: clicking
+              anywhere in a label toggles its checkbox, so the Terms trigger
+              sits outside it. */}
           <span className="text-sm">
-            <Label htmlFor="agreeToTerms" className="inline font-normal">
+            <Label id="agreeToTerms-label" htmlFor="agreeToTerms" className="inline font-normal">
               I agree to {venueName}&apos;s{" "}
             </Label>
             <Dialog>
-              <DialogTrigger className="underline underline-offset-2">Terms and Conditions</DialogTrigger>
+              <DialogTrigger id="agreeToTerms-terms" className="underline underline-offset-2">
+                Terms and Conditions
+              </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>{venueName}&apos;s Terms and Conditions</DialogTitle>
@@ -483,8 +449,8 @@ function CheckoutFormContent({
             {stripePromise ? (
               <>
                 <TestCardHint />
-                {/* Held open while Stripe's iframe loads, so the button
-                    below doesn't jump when the card fields appear. */}
+                {/* Reserves space while Stripe's iframe loads, so the button
+                    doesn't jump. */}
                 {!paymentReady && (
                   <div className="flex flex-col gap-3" aria-hidden>
                     <Skeleton className="h-10 w-full" />
@@ -520,14 +486,12 @@ function CheckoutFormContent({
 const TEST_CARD_NUMBER = "4242 4242 4242 4242";
 
 // Test mode only: real cards are declined, so demo visitors need the test
-// number. A blue info box (not the amber reserved for hold warnings) so it
-// isn't missed, with a copy button. The card fields can't be filled in for
-// the visitor: they live in Stripe's own iframe, which this page can't touch
-// by design (it keeps card details away from the site).
+// number. Blue, not amber (reserved for hold warnings). Copy rather than
+// autofill: Stripe's iframe is out of the page's reach.
 function TestCardHint() {
-  // The result of the last copy, shown in a bubble above the button that
-  // fades out. The button's own text never changes, so nothing around it
-  // shifts. `shown` drives the fade; the bubble unmounts after it.
+  // Result of the last copy, shown in a fading bubble above the button; the
+  // button text never changes, so nothing shifts. `shown` drives the fade; the
+  // bubble unmounts after.
   const [result, setResult] = useState<"copied" | "failed" | null>(null);
   const [shown, setShown] = useState(false);
   const timers = useRef<number[]>([]);
@@ -540,14 +504,13 @@ function TestCardHint() {
       await navigator.clipboard.writeText(TEST_CARD_NUMBER.replaceAll(" ", ""));
       next = "copied";
     } catch {
-      // Clipboard blocked (permissions, older browser): the number is on
-      // screen to type instead.
+      // Clipboard blocked: the number is on screen to type.
       next = "failed";
     }
     timers.current.forEach(clearTimeout);
     setResult(next);
     setShown(true);
-    // Visible for 2 seconds, then a 300ms fade, then gone.
+    // Visible for 2 seconds, then a 300ms fade.
     timers.current = [
       window.setTimeout(() => setShown(false), 2000),
       window.setTimeout(() => setResult(null), 2300),
@@ -568,8 +531,8 @@ function TestCardHint() {
           Copy card number
         </Button>
         {result && (
-          // Positioned over the layout, not in it, so it moves nothing.
-          // Hidden from screen readers: the status line below says the same.
+          // Overlaid, so it moves nothing. Hidden from screen readers; the
+          // status line announces the same.
           <span
             aria-hidden
             className={cn(

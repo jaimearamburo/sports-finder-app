@@ -4,10 +4,8 @@ import { SectionMobileNav, SectionSidebarNav, type SectionNavLink } from "@/comp
 
 const ACCOUNT_LINKS: SectionNavLink[] = [{ label: "My Bookings", href: "/account" }];
 
-// The account area's shared chrome (sidebar on desktop, pill row on
-// phones) - every route under /account gets this, same role a top-level
-// layout.tsx plays for the rest of the app via app/layout.tsx's
-// header/footer.
+// The account area's section nav (sidebar on desktop, pill row on phones)
+// around every /account page.
 export default function AccountLayout({ children }: { children: ReactNode }) {
   return (
     <SectionPageShell

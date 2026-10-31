@@ -1,19 +1,15 @@
 import { z } from "zod";
 
-// The manager bookings page's filters, read from the URL. Every value falls
-// back to "no filter" when it's missing or malformed, rather than failing
-// the page - the same approach as the browse filters (lib/validation/
-// browse.ts): a hand-edited or stale link should still show something
-// sensible. Whether a venue or listing in the URL is one this user may see
-// is checked against the database, not here.
+// The bookings page's URL filters. Missing or malformed values fall back to "no
+// filter", like browse. Whether this user may see a venue or listing is checked
+// against the database, not here.
 
 export const WHEN_OPTIONS = ["upcoming", "past", "all"] as const;
 export type BookingsWhen = (typeof WHEN_OPTIONS)[number];
 
 export const BOOKINGS_PAGE_SIZE = 20;
-// The longest date range the filter accepts. Matching dates is done
-// precisely per venue in code (see lib/dashboard/bookings.ts), over the
-// bookings in the range, so the range is kept to a size that stays quick.
+// Longest accepted date range; dates are matched per venue in code, so the
+// range is kept small.
 export const MAX_RANGE_DAYS = 366;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -72,9 +68,8 @@ export function parseBookingFilters(params: Record<string, string | string[] | u
   return { when: raw.when, venue: raw.venue, listing: raw.listing, from, to, q: raw.q || undefined, page: raw.page };
 }
 
-// Clean filters back to a query string, leaving out defaults so URLs stay
-// short. `changes` overrides individual values; anything that changes
-// what's shown should reset the page, which callers do by passing page: 1.
+// Filters back to a query string, omitting defaults. `changes` overrides
+// values; callers reset paging with page: 1.
 export function bookingFiltersQuery(filters: BookingFilters, changes: Partial<BookingFilters> = {}): string {
   const next = { ...filters, ...changes };
   const params = new URLSearchParams();

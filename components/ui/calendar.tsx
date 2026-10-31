@@ -38,10 +38,9 @@ function Calendar({
       )}
       captionLayout={captionLayout}
       locale={locale}
-      // Day buttons are named "Monday 12 October 2026" rather than the
-      // library's "Monday, October 12th, 2026": the button shows "12", and
-      // a name must contain the visible text as a word ("12th" doesn't
-      // count) for voice-control users - axe's label-content-name-mismatch.
+      // Day buttons are named "Monday 12 October 2026" rather than "Monday,
+      // October 12th, 2026": the visible "12" must appear as a word in the name
+      // for voice-control users (axe's label-content-name-mismatch).
       labels={{
         labelDayButton: (date, modifiers, options, dateLib) => {
           let label = dateLib ? dateLib.format(date, "EEEE d MMMM yyyy") : date.toDateString()
@@ -122,13 +121,8 @@ function Calendar({
             : "[&:first-child[data-selected=true]_button]:rounded-l-(--cell-radius)",
           defaultClassNames.day
         ),
-        // bg-primary/15 rather than bg-muted (the shadcn default) - muted
-        // is a near-white gray, barely visible against this calendar's own
-        // near-white background, which made a multi-day selection look
-        // like only the endpoints were highlighted. A light tint of the
-        // same primary color used for the endpoints reads as one
-        // continuous shaded band instead, matching how most range
-        // calendars (e.g. Airbnb's) actually render a selection.
+        // A light primary tint rather than bg-muted, which is barely visible on
+        // the calendar's background, so a range reads as one continuous band.
         range_start: cn(
           "relative isolate z-0 rounded-l-(--cell-radius) bg-primary/15 after:absolute after:inset-y-0 after:right-0 after:w-4 after:bg-primary/15",
           defaultClassNames.range_start
@@ -229,17 +223,10 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        // Airbnb-style hover: a border, not a background fill. This is
-        // deliberately a different CSS property than the selected states'
-        // bg-primary/bg-primary\/15 below, so hovering an already-selected
-        // date can never visually compete with or hide its blue fill the
-        // way a hover background would. border-0 above sets width to 0 by
-        // default; hover:border-2 brings it back to 2px, with no
-        // !important needed since a :hover-qualified selector is already
-        // more specific than the plain border-0 class.
-        // transition-none overrides the shared Button component's own
-        // transition-all (inherited, not written here) so the border
-        // snaps in immediately instead of fading.
+        // Hover shows a border, not a background, so it never hides a selected
+        // day's fill. hover:border-2 overrides border-0 (a :hover selector is
+        // more specific). transition-none overrides Button's transition-all so
+        // the border appears instantly.
         "relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 leading-none font-normal transition-none group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 hover:border-2 hover:border-foreground data-[range-end=true]:rounded-(--cell-radius) data-[range-end=true]:rounded-r-(--cell-radius) data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-primary/15 data-[range-middle=true]:text-foreground data-[range-start=true]:rounded-(--cell-radius) data-[range-start=true]:rounded-l-(--cell-radius) data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70",
         defaultClassNames.day,
         className

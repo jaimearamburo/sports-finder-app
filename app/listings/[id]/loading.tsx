@@ -1,12 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Shown while the listing detail page loads (listing, bookable dates,
-// active hold, occupancy - all awaited before it can render). The real
-// page's card outline rather than one big grey block: the same bordered
-// white card, its photo area in the shape the photo will have (a calm,
-// still tint, like the page's own frame before a photo loads), and three
-// short pulsing lines where the activity, name and venue go. Deliberately
-// no more than that - not a replica of the booking section below.
+// Shown while the listing page loads. The real card outline: bordered white
+// card, a still tinted photo area in the photo's shape, and three pulsing lines
+// for activity, name and venue.
 export default function ListingLoading() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-7 sm:px-6">

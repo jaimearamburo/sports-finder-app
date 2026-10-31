@@ -2,18 +2,16 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Icon colour by meaning. The title always stays the normal text colour -
-// these pages used to mix red and black titles for the same kind of
-// message, so the icon alone now carries the tone.
+// Icon colour carries the tone; the title always uses the normal text colour.
 const TONE_CLASS = {
   error: "text-destructive",
   muted: "text-muted-foreground",
   success: "text-emerald-600",
 } as const;
 
-// The one layout for every full-page notice: errors, not-found pages and
-// an expired hold. A plain component (no "use client"), so both Server
-// Components and the client-side error boundary can use it.
+// The layout for every full-page notice: errors, not-found pages and an expired
+// hold. No "use client", so Server Components and the client error boundary can
+// both use it.
 export function NoticePage({
   icon: Icon,
   tone,
@@ -24,8 +22,8 @@ export function NoticePage({
   icon: LucideIcon;
   tone: keyof typeof TONE_CLASS;
   title: string;
-  // The explanatory paragraph(s), plus anything else that belongs between
-  // the title and the buttons (e.g. an error reference).
+  // Explanation paragraphs, plus anything between the title and the buttons
+  // (e.g. an error reference).
   children: ReactNode;
   actions: ReactNode;
 }) {

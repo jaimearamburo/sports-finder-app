@@ -8,32 +8,23 @@ import { Label } from "@/components/ui/label";
 import { signupSchema } from "@/lib/validation/auth";
 import { getFieldErrors } from "@/lib/validation/field-errors";
 
-// `useActionState` needs a starting value for state before the form has
-// ever been submitted, matching the `undefined` branch of SignupFormState.
 const initialState: SignupFormState = undefined;
 
 export function SignupForm() {
-  // `formAction`, not the raw `signup` function, is wired to the form's
-  // `action` prop. React intercepts submissions through it so it can call
-  // `signup` with the previous state and update `state`/`pending` on each
-  // submit automatically.
+  // formAction calls `signup` with the previous state and updates
+  // `state`/`pending` on each submit.
   const [state, formAction, pending] = useActionState(signup, initialState);
   const [clientErrors, setClientErrors] = useState<SignupErrors | null>(null);
-  // Controlled, so the fields survive a server-side error: React resets an
-  // uncontrolled form after its action runs, which wiped everything typed
-  // when the server said e.g. "an account with this email already exists".
+  // Controlled so the fields survive a server error (React resets uncontrolled
+  // forms after an action).
   const [values, setValues] = useState({ name: "", email: "", password: "" });
   const field = (key: keyof typeof values) => ({
     value: values[key],
     onChange: (e: ChangeEvent<HTMLInputElement>) => setValues((v) => ({ ...v, [key]: e.target.value })),
   });
 
-  // Runs the exact schema the server action uses, before anything is sent,
-  // so obvious mistakes get the same messages instantly with no round
-  // trip. Only a convenience - the action re-validates regardless. The
-  // form is `noValidate` so the browser's own required/type="email"
-  // popups don't fire first with different wording; this is the single
-  // client-side check.
+  // The action's schema, run first for instant feedback; the action
+  // re-validates. noValidate stops the browser's own popups.
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     const result = signupSchema.safeParse(Object.fromEntries(new FormData(e.currentTarget)));
     if (!result.success) {
@@ -44,15 +35,14 @@ export function SignupForm() {
     setClientErrors(null);
   }
 
-  // A fresh client-side failure wins; otherwise show whatever the server
-  // last returned (e.g. "email already exists," which only it can know).
+  // A fresh client-side failure wins; otherwise show the server's last errors
+  // (e.g. "email already exists").
   const errors = clientErrors ?? state?.errors;
 
   return (
     <form action={formAction} onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-      {/* Each error has an id its input points at (aria-describedby), so a
-          screen reader reads out *why* a field is invalid when it's
-          focused, not just that it is. */}
+      {/* Each error has an id its input references (aria-describedby), so
+          screen readers say why a field is invalid. */}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="name">Name</Label>
         <Input
@@ -106,8 +96,7 @@ export function SignupForm() {
         )}
       </div>
 
-      {/* role="alert": a form-wide message has no field to be attached to,
-          so it's announced as soon as it appears instead. */}
+      {/* A form-wide message has no field, so it's announced on appearance. */}
       {state?.message && (
         <p role="alert" className="text-sm text-destructive">
           {state.message}

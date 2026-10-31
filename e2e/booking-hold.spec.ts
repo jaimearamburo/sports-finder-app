@@ -3,11 +3,10 @@ import { test, expect } from "@playwright/test";
 import { ACCOUNTS, authFile, fixtureIds } from "./fixtures";
 import { query, utc } from "./db";
 
-// The "booking in progress" banner on listing pages (one active hold per
-// user). Going back from checkout returns the listing at the scroll
-// position it was left at - usually the bottom, where Book Now is - so the
-// banner, added above, must bring the page back to the top to be seen.
-// The hold is inserted directly (the slot picker isn't what's under test).
+// The active-hold banner on listing pages. Going back from checkout restores
+// the listing scrolled to the bottom (where Book Now is), so the banner must
+// scroll the page to the top. The hold is inserted directly; the picker isn't
+// under test.
 
 const ids = () => fixtureIds();
 

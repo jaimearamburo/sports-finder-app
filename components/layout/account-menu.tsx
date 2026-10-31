@@ -11,10 +11,8 @@ import type { UserRole } from "@/generated/prisma/enums";
 
 const MENU_LINK_CLASS = cn(buttonVariants({ variant: "ghost", size: "sm" }), "w-full justify-start");
 
-// What the header knows about the signed-in user. Plain values rather than
-// the session object, so this Client Component's props stay serialisable
-// and the app doesn't need a SessionProvider for a few fields SiteHeader
-// already has from auth() on the server.
+// Plain values rather than the session, so props stay serialisable and no
+// SessionProvider is needed.
 export type AccountMenuUser = { name: string | null; email: string | null; role: UserRole };
 
 function RoleBadge({ label }: { label: string }) {
@@ -36,18 +34,16 @@ function Initials({ text }: { text: string }) {
   );
 }
 
-// The header's account control, so it's always visible which account is
-// signed in, and as which kind of user.
+// The header's account control, so it's always clear which account is signed
+// in.
 //
-// Signed in: a button showing the user's initials - plus their name and a
-// role badge on wider screens (`compact` hides those on phones) - that
-// opens a menu with name, email and role, the account links and Log out.
-// Signed out: on phones a round icon with Log in / Sign up in the menu (on
-// wider screens SiteHeader shows those as plain links instead).
+// Signed in: initials (plus name and role badge from md up; `compact` hides
+// them) opening a menu with name, email, role, account links and Log out.
+// Signed out, on phones: an icon with Log in / Sign up in the menu (SiteHeader
+// shows plain links on wider screens).
 export function AccountMenu({ user, compact = false }: { user: AccountMenuUser | null; compact?: boolean }) {
-  // Controlled, not the Popover's own state: SiteHeader stays mounted
-  // across client-side navigations, so without closing it on click the
-  // menu would still be open over the page it just navigated to.
+  // Controlled so it closes on navigation: SiteHeader stays mounted across
+  // client-side navigations.
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
 
@@ -85,17 +81,14 @@ export function AccountMenu({ user, compact = false }: { user: AccountMenuUser |
         )}
       >
         <Initials text={initials} />
-        {/* On phones only the initials show, so screen readers get the
-            button's name from hidden text. Not an aria-label: a name that
-            leaves out what's visible fails WCAG's "label in name" rule
-            (voice-control users say what they see), and the initials are
-            purely visual (aria-hidden). On wider screens the visible name
-            and role are the button's own text. */}
+        {/* On phones only the initials (aria-hidden) show, so the name comes
+            from hidden text. Not aria-label: a name that omits visible text
+            fails WCAG "label in name". */}
         {compact && <span className="sr-only">Account menu for {displayName}</span>}
         {!compact && (
           <>
-            {/* Long names are cut short with "…" so the header never wraps;
-                the full name is in the menu. */}
+            {/* Long names are truncated so the header never wraps; the full
+                name is in the menu. */}
             <span className="max-w-40 truncate text-sm font-medium">{displayName}</span>
             {roleBadge && <RoleBadge label={roleBadge} />}
             <ChevronDown aria-hidden className="size-4 text-muted-foreground" />
@@ -119,8 +112,7 @@ export function AccountMenu({ user, compact = false }: { user: AccountMenuUser |
             {link.label}
           </Link>
         ))}
-        {/* The logout confirmation page, not an immediate sign-out, same as
-            before. */}
+        {/* Goes to the logout confirmation page. */}
         <Link href="/logout" className={MENU_LINK_CLASS} onClick={close}>
           Log out
         </Link>

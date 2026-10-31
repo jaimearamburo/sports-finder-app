@@ -27,17 +27,15 @@ import { getFieldErrors } from "@/lib/validation/field-errors";
 
 type FieldErrors = Partial<Record<keyof VenueInput, string>>;
 
-// Number fields are kept as typed text, so the box can be empty or
-// half-typed while editing; they become numbers only on submit, where a
-// blank or non-numeric value fails the schema with a readable message.
+// Number fields are kept as text so they can be empty or half-typed; they're
+// converted on submit, where invalid values fail the schema.
 type FormState = Omit<VenueFormValues, "bookingWindowDays" | "holdDurationMinutes"> & {
   bookingWindowDays: string;
   holdDurationMinutes: string;
 };
 
-// The venue form, for both adding a venue and editing one. Validates with
-// the same schema as the server for instant inline errors; the server
-// re-checks everything (and ownership) regardless.
+// Add or edit a venue. Uses the server's schema for inline errors; the server
+// re-checks everything, plus ownership.
 export function VenueForm({
   venueId,
   initialValues,
@@ -48,9 +46,9 @@ export function VenueForm({
   venueId?: string;
   initialValues: VenueFormValues;
   cityGroups: CityOptionGroup[];
-  // Only passed to people who may assign owners (admins), and only then is
-  // the Owner field shown. Hiding it is just presentation: the server
-  // ignores an owner from anyone else (see resolveOwnerId).
+  // Only passed to people who may assign owners (admins), which shows the Owner
+  // field. Presentation only: the server ignores an owner from anyone else
+  // (resolveOwnerId).
   ownerOptions?: OwnerOption[];
 }) {
   const router = useRouter();
@@ -79,8 +77,7 @@ export function VenueForm({
       holdDurationMinutes: values.holdDurationMinutes.trim() === "" ? Number.NaN : Number(values.holdDurationMinutes),
     };
     const parsed = venueSchema.safeParse(input);
-    // The owner is required only when the field is shown, which the shared
-    // schema can't know - the server applies the same rule.
+    // Required only when the field is shown; the server applies the same rule.
     const ownerMissing = ownerOptions && !values.ownerId;
     if (!parsed.success || ownerMissing) {
       setFieldErrors({
@@ -98,18 +95,16 @@ export function VenueForm({
         setFormError(result.error ?? null);
         return;
       }
-      // To the venue's own page: its new settings, and (for a new venue)
-      // the obvious next step, adding listings.
+      // To the venue's page: its settings and, for a new venue, adding listings
+      // next.
       router.push(`/dashboard/venues/${result.venueId}`);
     });
   }
 
   return (
-    // noValidate: the schema above is the one client-side check, so the
-    // browser's own popups don't fire first with different wording.
-    // Fields grouped into white section cards, as in the listing editor:
-    // inputs are transparent, so straight on the grey page they read as
-    // grey boxes.
+    // noValidate: the schema is the only client-side check. Fields sit in white
+    // section cards: inputs are transparent and read as grey boxes on the grey
+    // page.
     <form onSubmit={handleSubmit} noValidate className="flex max-w-xl flex-col gap-6">
       <FormSection title="Details" description="How the venue appears to customers, and where it is.">
         {ownerOptions && (
@@ -186,8 +181,8 @@ export function VenueForm({
           id="city"
           label="City"
           error={fieldErrors.cityId}
-          // Each city carries its timezone, and every time at the venue is
-          // shown and validated in it - worth stating where it's chosen.
+          // Every time at the venue uses its city's timezone, so it's stated
+          // here.
           hint={selectedCity ? `Times at this venue use ${selectedCity.timezone} time.` : undefined}
         >
           {(describedBy) => (

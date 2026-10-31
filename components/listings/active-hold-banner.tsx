@@ -7,11 +7,8 @@ import { TriangleAlert } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { releaseBookingHoldAction } from "@/app/listings/[id]/actions";
 
-// Shown on any listing page while the logged-in user has an active hold
-// anywhere (createBookingHold enforces at most one at a time, platform-
-// wide) - proactively surfacing it here, rather than only after they try
-// to start a second checkout and get rejected, with a direct way to
-// finish or cancel it right from wherever they happen to be.
+// Shown on every listing page while the user has an active hold anywhere (one
+// per user), with links to resume or cancel it.
 export function ActiveHoldBanner({
   orderId,
   listingId,
@@ -26,13 +23,10 @@ export function ActiveHoldBanner({
   const router = useRouter();
   const [isCancelling, setIsCancelling] = useState(false);
 
-  // Bring the page to the top whenever the banner appears, so it's the
-  // first thing seen. The usual way here is "Back to listing" from checkout
-  // (browser history): the listing comes back at the scroll position it was
-  // left at - usually the bottom, where Book Now is - and the banner is
-  // added a moment later (RefreshOnHistoryNavigation re-fetches the page),
-  // out of sight above. The rest of the page is blurred and inert until
-  // the hold is resolved, so there's nothing down there to stay for.
+  // Scroll to the top when the banner appears. Returning from checkout restores
+  // the listing's old scroll position (usually the bottom), and the banner
+  // arrives a moment later via RefreshOnHistoryNavigation, out of sight. The
+  // rest of the page is inert until the hold is resolved.
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, []);
@@ -40,9 +34,8 @@ export function ActiveHoldBanner({
   async function handleCancel() {
     setIsCancelling(true);
     await releaseBookingHoldAction({ orderId });
-    // Re-fetches this page's own server data in place rather than a hard
-    // reload - the banner and blur disappear once the hold is actually
-    // gone, since the page re-renders without one.
+    // Re-fetch server data in place; the banner disappears once the hold is
+    // gone.
     router.refresh();
   }
 
@@ -56,10 +49,8 @@ export function ActiveHoldBanner({
         </p>
       </div>
       <div className="flex shrink-0 gap-2">
-        {/* A Link has no native disabled state - without this, clicking
-            Resume right after Cancel could still navigate to an orderId
-            whose hold is already gone (or about to be), landing on the
-            "hold expired" state instead of clearly doing nothing. */}
+        {/* Links have no disabled state; this stops Resume navigating to a hold
+            that is being cancelled. */}
         <Link
           href={`/listings/${listingId}/checkout/${orderId}`}
           aria-disabled={isCancelling}

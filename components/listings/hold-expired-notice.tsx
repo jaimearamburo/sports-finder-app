@@ -3,13 +3,9 @@ import { TriangleAlert } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { NoticePage } from "@/components/notice-page";
 
-// Shown in two places with the same meaning: the checkout page when the
-// hold is already gone (expired, finalized, or not this user's), and the
-// checkout form when its countdown reaches zero while open. One component
-// so the two can't drift apart in wording or style. notCharged adds a line
-// for when the hold ran out during a payment attempt - the card was only
-// authorized, and that authorization is released, so the customer should
-// hear plainly that they weren't charged.
+// Shown on the checkout page when the hold is gone, and in the checkout form
+// when its countdown ends. notCharged adds a line for a hold that expired
+// during payment: the authorization is released, so nothing was charged.
 export function HoldExpiredNotice({ listingId, notCharged = false }: { listingId: string; notCharged?: boolean }) {
   return (
     <NoticePage

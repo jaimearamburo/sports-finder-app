@@ -17,8 +17,6 @@ import { getMetaLine, formatPrice } from "@/components/browse/listing-card";
 export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  // Fetches the listing along with its activity, tags, venue, and city,
-  // everything this page and the slot picker below need to render.
   const listing = await prisma.listing.findUnique({
     where: { id },
     include: {
@@ -27,10 +25,8 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
     },
   });
 
-  // Archived listings 404 the same as a nonexistent id - both render the
-  // same "no longer available" state (app/listings/[id]/not-found.tsx),
-  // since a visitor can't tell the difference between "never existed" and
-  // "existed, now retired" from a dead link, and shouldn't need to.
+  // Archived listings get the same "no longer available" page as a nonexistent
+  // id.
   if (!listing || listing.archivedAt) {
     notFound();
   }
@@ -40,10 +36,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   const scheduleLine = getScheduleLine(listing);
   const bookableDates = await getBookableDates(listing);
 
-  // At most one of these can exist at a time (createBookingHold enforces
-  // it), but this is a plain lookup rather than something that assumes
-  // that - it's just whichever active hold this user currently has
-  // anywhere, not necessarily one for this specific listing.
+  // The user's active hold anywhere (at most one), for the banner.
   const session = await auth();
   const activeHold = session
     ? await prisma.bookingHold.findFirst({
@@ -56,23 +49,15 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
       })
     : null;
 
-  // Only fixed_session has a concept of "spots remaining per occurrence" -
-  // the other two mechanics pass undefined straight through to SlotPicker.
-  // This page's own summary line below deliberately doesn't surface any of
-  // this itself (see the "max" option on getMetaLine) - it's live,
-  // per-occurrence data, and belongs next to the occurrence it describes
-  // (inside the picker), not in a page-level summary with no occurrence of
-  // its own to attach to.
+  // Spots per class occurrence, shown inside the picker beside each occurrence.
+  // Other mechanics pass undefined.
   const spotsRemaining =
     listing.activity.bookingMechanic === "fixed_session"
       ? await getSpotsRemaining(listing, bookableDates, listing.venue.city.timezone)
       : undefined;
 
-  // Same "fetch real occupancy once, pass it down fully resolved" pattern
-  // as spotsRemaining above, extended to the other two mechanics - see
-  // the "Booking hold + confirm flow" section of CLAUDE.md for why this
-  // was missing before (TimeRangePicker/DateRangePicker previously had no
-  // knowledge of existing Bookings/BookingHolds at all).
+  // Occupancy fetched once and passed down, so the pickers disable booked slots
+  // and dates up front.
   const occupiedIntervals =
     listing.activity.bookingMechanic === "time_range"
       ? await getOccupiedIntervals(listing, bookableDates, listing.venue.city.timezone)
@@ -113,9 +98,8 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         />
       )}
 
-      {/* Blurred and inert, not removed - the listing is still there to
-          look at, just not something this page lets you act on while an
-          active hold elsewhere needs resolving first. */}
+      {/* Blurred and inert, not removed, while a hold elsewhere needs
+          resolving. */}
       <div className={activeHold ? "pointer-events-none blur-sm select-none" : undefined}>
       <BackButton className="inline-flex min-h-6 items-center text-sm text-muted-foreground hover:text-foreground">
         ← Go back
@@ -123,12 +107,9 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
       <div className="mt-4 overflow-hidden rounded-md border bg-card shadow-sm">
         {listing.imageUrl ? (
-          // The listing's photo, cropped to fill a fixed shape (object-cover,
-          // centred): 3:2 on phones, a wider 2:1 banner from sm up, so a
-          // portrait or very wide upload still fits the layout. The page's
-          // main image, so it's fetched first rather than lazily. `sizes`
-          // matches the card's width: the full screen on phones, at most
-          // 720px (max-w-3xl less its padding) from md up.
+          // The listing's photo cropped to a fixed shape (3:2 on phones, 2:1
+          // from sm up). The page's main image, so loaded first. `sizes`: full
+          // width on phones, at most 720px from md up.
           <div
             className="relative aspect-[3/2] border-t-[3px] bg-muted/60 sm:aspect-[2/1]"
             style={{ borderTopColor: accentColor }}
@@ -185,8 +166,8 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           <div className="mt-6 flex items-baseline justify-between border-t pt-4">
             <div className="text-sm text-muted-foreground">
               {scheduleLine && <p>{scheduleLine}</p>}
-              {/* Explains why today can disappear from the calendar later
-                  in the day - see isSameDayBookingClosed. */}
+              {/* Explains why today can drop out of the calendar later in the
+                  day (isSameDayBookingClosed). */}
               {listing.activity.bookingMechanic === "date_range" && listing.operatingHoursEnd && (
                 <p>
                   Same-day bookings close {SAME_DAY_CUTOFF_BUFFER_MINUTES / 60} hour
@@ -223,14 +204,9 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
 
-        {/* Full-bleed like the hero image, so it's a sibling of the padded
-            block rather than nested inside it - overflow-hidden on the
-            outer card clips its bottom corners the same way it clips the
-            image's top ones. Google's plain query-string embed, not the
-            Maps Embed API - this form needs no API key, no Google Cloud
-            project, and no billing setup at all, unlike the "official"
-            embed API which is also free of charge but still requires all
-            of that just to get a key. This is good enough for the MVP. */}
+        {/* Full-bleed like the photo, so it sits outside the padded block.
+            Google's key-free query-string embed: no API key, Cloud project or
+            billing needed. */}
         <iframe
           title={`Map of ${listing.venue.name}`}
           src={`https://www.google.com/maps?q=${encodeURIComponent(`${listing.venue.address}, ${listing.venue.city.name}`)}&output=embed`}

@@ -1,10 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Shown while My Bookings fetches the user's orders. A segment's
-// loading.tsx doesn't wrap that segment's own layout.tsx, so the account
-// sidebar (app/account/layout.tsx, no data access) stays on screen and
-// only the content column becomes this placeholder: a heading-sized box
-// and one block where the table/cards go.
+// Shown while My Bookings loads. A segment's loading.tsx doesn't wrap its own
+// layout, so the account nav stays and only the content becomes a heading box
+// and one block.
 export default function AccountLoading() {
   return (
     <div>

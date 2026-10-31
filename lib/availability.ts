@@ -12,20 +12,15 @@ import {
 import { addDays, startOfUTCDay, todayInTimezone } from "@/lib/dates";
 
 type AvailabilityListing = Listing & {
-  // city.timezone, not just bookingWindowDays - every date/time
-  // computation in this file is anchored to the venue's own timezone (see
-  // todayInTimezone/zonedOccurrenceStart/etc.), not the server's or the
-  // viewer's.
+  // Every date/time calculation here uses the venue's timezone, not the
+  // server's or the viewer's.
   venue: Pick<Venue, "bookingWindowDays"> & { city: Pick<City, "timezone"> };
   activity: Pick<Activity, "bookingMechanic">;
 };
 
-// Does this override apply on a given calendar date? No endDate at all
-// means it applies on startDate only - a single day - whether or not
-// daysOfWeek is set; daysOfWeek is only actually consulted once an
-// endDate makes it a real range to recur across. This deliberately
-// avoids a true "indefinite" case, which would have no natural cutoff
-// for how far into the future getBookableDates could ever stop looking.
+// Whether an override applies on a date. Without an endDate it covers startDate
+// only, whether or not daysOfWeek is set; daysOfWeek only applies within a
+// startDate-endDate range.
 function overrideAppliesOn(override: AvailabilityOverride, date: Date): boolean {
   if (date < override.startDate) return false;
   if (!override.endDate) return date.getTime() === override.startDate.getTime();
@@ -33,8 +28,7 @@ function overrideAppliesOn(override: AvailabilityOverride, date: Date): boolean 
   return override.daysOfWeek.length === 0 || override.daysOfWeek.includes(date.getUTCDay());
 }
 
-// Listing-level overrides win over venue-level ones on the same date -
-// e.g. a venue-wide closure with one court still open through it.
+// A listing-level override beats a venue-level one on the same date.
 function resolveOverrideKind(
   date: Date,
   overrides: AvailabilityOverride[],
@@ -46,29 +40,23 @@ function resolveOverrideKind(
   return venueOverride?.kind;
 }
 
-// Hard ceiling on how far an "open" override can push bookability past
-// the venue's normal window, regardless of how far out its own endDate
-// goes. Without this, one override with a far-future endDate could make a
-// listing bookable for a year+ straight, and whatever picks dates from
-// getBookableDates (a dropdown, say) would have to render all of them.
+// How far past today an "open" override can extend bookability, whatever its
+// own endDate says.
 export const MAX_OPEN_EXTENSION_DAYS = 90;
 
-// Every calendar date this listing can be booked on. Base rule: today
-// through Venue.bookingWindowDays, every day for time_range/date_range
-// (both are assumed open daily, same as the rest of this schema), or only
-// the matching weekday for fixed_session. An override then adjusts that:
-// a block removes a date inside the window, an open adds one beyond it -
-// beyond the window nothing is bookable unless something explicitly opens
-// it, same as inside the window nothing is blocked unless something
-// explicitly closes it. Nothing is ever bookable past MAX_OPEN_EXTENSION_DAYS,
-// no matter what an override's own endDate says.
+// Every calendar date this listing can be booked on (UTC-midnight Dates).
+//
+// Base rule: today through Venue.bookingWindowDays, every day for
+// time_range/date_range, only the matching weekday for fixed_session. Inside
+// the window a date is available unless blocked; beyond it, unavailable unless
+// opened. Nothing past MAX_OPEN_EXTENSION_DAYS.
 export async function getBookableDates(listing: AvailabilityListing): Promise<Date[]> {
   const today = todayInTimezone(listing.venue.city.timezone);
   const windowEnd = addDays(today, listing.venue.bookingWindowDays);
   const hardCap = addDays(today, MAX_OPEN_EXTENSION_DAYS);
 
-  // Fetches every override that could still apply today or later, for
-  // either this listing specifically or its venue as a whole.
+  // Overrides for this listing or its venue that can still apply today or
+  // later.
   const overrides = await prisma.availabilityOverride.findMany({
     where: {
       AND: [
@@ -78,32 +66,25 @@ export async function getBookableDates(listing: AvailabilityListing): Promise<Da
     },
   });
 
-  // The loop needs to run past the normal window far enough to catch any
-  // "open" override reaching beyond it - whichever end date is latest,
-  // capped at hardCap so one override can't blow the loop out for a year.
+  // Extend the loop to the latest "open" override, capped at
+  // MAX_OPEN_EXTENSION_DAYS.
   const loopEnd = overrides
     .filter((o) => o.kind === "open")
     .reduce((max, o) => {
-      const end = o.endDate ?? o.startDate; // one-off rows often only set startDate
+      const end = o.endDate ?? o.startDate; // one-off overrides often set only startDate
       return end > max ? end : max;
     }, windowEnd);
   const cappedLoopEnd = loopEnd < hardCap ? loopEnd : hardCap;
 
-  // Runs before any override is even checked, so an "open" override can
-  // never add a day outside a fixed_session listing's own weekday - a
-  // one-off class on a different day needs its own Listing row instead.
-  // There's no admin UI yet to create overrides at all, so nothing enforces
-  // this on the way in - worth a validation rule once one exists.
+  // Checked before overrides, so an "open" override can't add a day outside a
+  // class's own weekday; a one-off class on another day needs its own Listing.
   const matchesPattern = (date: Date) =>
     listing.activity.bookingMechanic !== "fixed_session" || date.getUTCDay() === listing.recurrenceDayOfWeek;
 
   // Same-day cut-off for date_range listings (see isSameDayBookingClosed).
-  // Applied here, the one place that decides bookable days, so the
-  // calendar, the browse date filter and the server's own check of a
-  // submitted booking all agree without each re-implementing it. Courts
-  // and classes don't need it: their pickers and isRequestedSlotValid
-  // already reject start times that have passed, and a court booking must
-  // end by closing time.
+  // Applied here so the calendar, the browse date filter and the server's
+  // booking check all agree. Courts and classes already reject start times that
+  // have passed.
   const todayClosed =
     listing.activity.bookingMechanic === "date_range" &&
     isSameDayBookingClosed(listing.operatingHoursEnd, listing.venue.city.timezone);
@@ -119,10 +100,9 @@ export async function getBookableDates(listing: AvailabilityListing): Promise<Da
   return dates;
 }
 
-// Re-derives whether a submitted startsAt/endsAt is actually legal for
-// this listing, given its bookable dates. The server action calls this
-// itself rather than trusting whatever the client sent - the UI enforces
-// these same rules, but only this check actually matters for security.
+// Whether a submitted startsAt/endsAt is legal for this listing, given its
+// bookable dates. The server's real check; the pickers enforce the same rules
+// only as UX.
 export function isRequestedSlotValid(
   listing: AvailabilityListing,
   startsAt: Date,
@@ -132,20 +112,14 @@ export function isRequestedSlotValid(
   if (endsAt <= startsAt) return false;
   const timeZone = listing.venue.city.timezone;
 
-  // time_range and fixed_session have a real wall-clock start instant, so
-  // a start time that has already passed must be rejected outright, not
-  // just a day that's too early. date_range has no equivalent concept -
-  // its "start" is a whole calendar day, not an instant - so "book
-  // starting today" stays valid regardless of what time it currently is.
+  // Courts and classes have real start instants, so a start in the past is
+  // rejected. A date_range start is a whole calendar day, so today stays valid
+  // all day (until the same-day cut-off).
   if (listing.activity.bookingMechanic !== "date_range" && startsAt < new Date()) return false;
 
-  // date_range slots are stored as plain calendar days (UTC midnight of the
-  // picked day - see DateRangePicker), not real instants, so their day is
-  // read straight off the UTC date. Viewing one through the venue's
-  // timezone, as the other mechanics correctly do, shifted it to the
-  // previous day at any venue behind UTC (UTC midnight on the 28th is 8pm
-  // on the 27th in New York): "today" was rejected as already past, and
-  // every other day was checked against the wrong date.
+  // date_range slots are calendar days stored as UTC midnight, so their day is
+  // read in UTC. Courts and classes are real instants, read in the venue's
+  // timezone.
   const day =
     listing.activity.bookingMechanic === "date_range" ? startOfUTCDay(startsAt) : calendarDayInTimezone(startsAt, timeZone);
   const isBookableDay = bookableDates.some((d) => d.getTime() === day.getTime());
@@ -182,25 +156,18 @@ export function isRequestedSlotValid(
   }
 }
 
-// Remaining capacity for each fixed_session occurrence, keyed by the
-// occurrence's calendar date (ms epoch of its UTC midnight, same convention
-// getBookableDates already returns its dates in) rather than its startsAt -
-// that's what the picker actually has on hand for each button it renders.
-// Grouping the booking query by exact startsAt (rather than the general
-// overlap-range query createBookingHold's conflict check uses) is safe
-// here specifically because isRequestedSlotValid's fixed_session branch
-// above already guarantees every booking against this listing starts at
-// exactly the recurrence time - a fixed_session booking can never
-// partially overlap an occurrence the way a time_range one can. One query
-// for every occurrence date, not one per date.
+// Remaining capacity per class occurrence, keyed by the occurrence's calendar
+// date (UTC-midnight ms, like getBookableDates). Grouping bookings by exact
+// startsAt is safe because isRequestedSlotValid only accepts starts at the
+// recurrence time. One query for all dates.
 export async function getSpotsRemaining(
   listing: Pick<Listing, "id" | "capacity" | "recurrenceStartTime">,
   occurrenceDates: Date[],
   timeZone: string
 ): Promise<Map<number, number | null>> {
   if (listing.capacity === null || !listing.recurrenceStartTime || occurrenceDates.length === 0) {
-    // Unlimited capacity, or no schedule configured at all - nothing to
-    // subtract from, so every occurrence just reports "unlimited" (null).
+    // Unlimited capacity or no schedule: every occurrence reports null
+    // (unlimited).
     return new Map(occurrenceDates.map((d) => [d.getTime(), null]));
   }
 
@@ -209,9 +176,8 @@ export async function getSpotsRemaining(
   );
   const starts = startsByDate.map(([, start]) => start);
 
-  // Sums already-claimed quantity per occurrence start time, from
-  // confirmed bookings and from active (non-expired) holds alike - a
-  // slot someone else is mid-checkout on shouldn't show as open here.
+  // Claimed quantity per occurrence from non-cancelled bookings and unexpired
+  // holds.
   const [bookedSums, heldSums] = await Promise.all([
     prisma.booking.groupBy({
       by: ["startsAt"],
@@ -235,20 +201,13 @@ export async function getSpotsRemaining(
   );
 }
 
-// One existing Booking/BookingHold's occupied range on a single calendar
-// date, in venue-local minutes-of-day - the same unit TimeRangePicker's own
-// candidate start times are already expressed in, so the picker can
-// compare them directly with no further conversion.
+// One booking or hold's occupied range on one date, in venue-local minutes of
+// the day (the unit TimeRangePicker uses).
 export type OccupiedInterval = { startMinutes: number; endMinutes: number; quantity: number };
 
-// Per-date map of existing Bookings/BookingHolds' occupied ranges on a
-// time_range listing, used by TimeRangePicker to disable a start time that
-// would conflict - the picker's own equivalent of the overlap-sum check
-// createBookingHold already enforces server-side (see that transaction's
-// own comment), surfaced here for display instead of enforcement. A
-// time_range booking/hold never spans more than one calendar day -
-// isRequestedSlotValid's time_range branch rejects an overnight request -
-// so every claim belongs to exactly one date's bucket.
+// Occupied ranges per date on a court, so TimeRangePicker can disable
+// conflicting start times. Display only; createBookingHold enforces capacity.
+// Court bookings never span midnight, so each belongs to one date.
 export async function getOccupiedIntervals(
   listing: Pick<Listing, "id">,
   bookableDates: Date[],
@@ -256,9 +215,8 @@ export async function getOccupiedIntervals(
 ): Promise<Map<number, OccupiedInterval[]>> {
   if (bookableDates.length === 0) return new Map();
 
-  // Venue-LOCAL window boundaries spanning the whole bookable range, same
-  // reasoning as hasAvailableSlotOnDate's own dayStart/dayEnd below - one
-  // query covering every date beats one query per date.
+  // Venue-local boundaries across the whole bookable range: one query instead
+  // of one per date.
   const windowStart = zonedOccurrenceStart(bookableDates[0], "00:00", timeZone);
   const windowEnd = zonedOccurrenceStart(addDays(bookableDates[bookableDates.length - 1], 1), "00:00", timeZone);
 
@@ -298,22 +256,17 @@ export async function getOccupiedIntervals(
   return byDate;
 }
 
-// Dates where a date_range listing's capacity is already fully claimed by
-// existing Bookings/BookingHolds, used by DateRangePicker to exclude them
-// from the calendar the same way an AvailabilityOverride block already is -
-// just sourced from real reservations instead of a manually-entered
-// override row. Skipped entirely (no dates ever excluded) when capacity is
-// null (unlimited) - nothing to exhaust.
+// Dates where a date_range listing's capacity is fully claimed by bookings and
+// holds, so DateRangePicker can exclude them. Always empty for unlimited
+// capacity.
 export async function getFullyBookedDates(
   listing: Pick<Listing, "id" | "capacity">,
   bookableDates: Date[]
 ): Promise<Date[]> {
   if (listing.capacity === null || bookableDates.length === 0) return [];
 
-  // date_range's startsAt/endsAt are plain UTC-midnight calendar-day
-  // boundaries (see DateRangePicker's own localDateToUTCDay conversion),
-  // not venue-local wall-clock instants like time_range's - no timezone
-  // conversion belongs here, unlike getOccupiedIntervals above.
+  // date_range slots are UTC-midnight calendar days, so no timezone conversion
+  // is needed here.
   const windowStart = bookableDates[0];
   const windowEnd = addDays(bookableDates[bookableDates.length - 1], 1);
 
@@ -348,15 +301,10 @@ export async function getFullyBookedDates(
   });
 }
 
-// Whether a time_range listing has at least one free slot of its own
-// minimum bookable duration (the smallest commitment a user could actually
-// make) somewhere within operating hours on a given day. Used by the
-// browse page's date filter: a court being "open" that day (per
-// getBookableDates) isn't enough on its own if every increment is already
-// booked out. Walks every increment-aligned candidate start time and
-// checks it against the same overlap-sum logic createBookingHold's own
-// conflict check uses, swept across one day's candidates instead of one
-// proposed slot - stops at the first one that clears.
+// Whether a court has at least one free slot of its minimum length within
+// opening hours on a date. Used by the browse date filter: being open that day
+// isn't enough if every slot is booked. Walks step-aligned start times and
+// stops at the first free one.
 export async function hasAvailableSlotOnDate(
   listing: Pick<Listing, "id" | "capacity" | "operatingHoursStart" | "operatingHoursEnd" | "minDurationMinutes" | "incrementMinutes">,
   date: Date,
@@ -366,20 +314,14 @@ export async function hasAvailableSlotOnDate(
   if (!listing.operatingHoursStart || !listing.operatingHoursEnd || !listing.minDurationMinutes || !listing.incrementMinutes) {
     return false;
   }
-  // incrementMinutes is a nullable Int with no DB constraint forcing it
-  // positive - a 0 or negative value would otherwise never advance
-  // candidateStart below, hanging this request forever.
+  // Guards against a non-positive step, which would loop forever.
   if (listing.incrementMinutes <= 0) return false;
 
-  // Venue-LOCAL day boundaries, not pure UTC ones - "today" at an LA venue
-  // spans a different UTC range than "today" at a Sydney one.
+  // Venue-local day boundaries.
   const dayStart = zonedOccurrenceStart(date, "00:00", timeZone);
   const dayEnd = zonedOccurrenceStart(addDays(date, 1), "00:00", timeZone);
 
-  // Fetches every non-cancelled booking, plus every active hold, that
-  // overlaps this calendar day - used below to compute remaining capacity
-  // at each candidate slot. A hold counts the same as a booking here,
-  // since it's reserving the same capacity while someone else checks out.
+  // Bookings and unexpired holds overlapping this day.
   const [bookings, holds] = await Promise.all([
     prisma.booking.findMany({
       where: {
@@ -410,9 +352,8 @@ export async function hasAvailableSlotOnDate(
     candidateStart + listing.minDurationMinutes <= closeMinutes;
     candidateStart += listing.incrementMinutes
   ) {
-    // Built directly via TZDate (not dayStart + ms offset) - adding plain
-    // milliseconds to a venue-local midnight would silently land on the
-    // wrong wall-clock time across a DST transition within the same day.
+    // Built with TZDate rather than midnight plus an offset, so the wall-clock
+    // time stays correct across a DST change.
     const slotStart = new TZDate(
       date.getUTCFullYear(),
       date.getUTCMonth(),

@@ -3,12 +3,10 @@ import bcrypt from "bcryptjs";
 import { query, utc } from "./db";
 import { removeVenueImages } from "./blob";
 
-// The accounts and records the end-to-end tests run against. They're
-// created fresh before every run and deleted afterwards (global-setup.ts,
-// global-teardown.ts), so the tests never depend on seed data or on anyone
-// knowing a seeded account's password. Everything is marked with the "e2e-"
-// email prefix or the "E2E " name prefix, so it's easy to find and can't be
-// confused with real data.
+// The accounts and records the e2e tests use, created before every run and
+// deleted after (global-setup.ts, global-teardown.ts), so tests never depend on
+// seed data or seeded passwords. Marked with the "e2e-" email prefix or "E2E "
+// name prefix.
 
 export const ROLES = ["ownerA", "ownerB", "user", "admin"] as const;
 export type TestRole = (typeof ROLES)[number];
@@ -20,8 +18,8 @@ export const ACCOUNTS: Record<TestRole, { email: string; name: string; role: "ve
   admin: { email: "e2e-admin@example.com", name: "E2E Admin", role: "admin" },
 };
 
-// What the tests need to know about the created records, passed from global
-// setup to the test workers as JSON in an environment variable.
+// Record ids passed from global setup to the test workers as JSON in an env
+// var.
 export type FixtureIds = {
   venueA: string;
   venueB: string;
@@ -45,11 +43,9 @@ export function testPassword(): string {
   return password;
 }
 
-// Removes everything a previous run may have left behind, in the order the
-// database's foreign keys allow: bookings and holds before listings
-// (bookings.listing_id is ON DELETE RESTRICT), venues (which take their
-// listings with them) before their owners. The test venues' listing photos
-// go first, while their folders can still be found from the venues.
+// Removes leftovers in foreign-key order: bookings and holds before listings
+// (Restrict), venues (cascading to listings) before owners. Photos go first,
+// while their venues can still be found.
 export async function removeTestData() {
   const testVenues = "select v.id from venues v join users u on u.id = v.owner_id where u.email like 'e2e-%'";
   const testListings = `select id from listings where venue_id in (${testVenues})`;
@@ -63,10 +59,9 @@ export async function removeTestData() {
 
 const NOW = "(now() at time zone 'utc')";
 
-// Creates the test accounts (all with one random password, new each run)
-// and two venues with one court each - venue A owned by owner A, venue B by
-// owner B - with one upcoming booking at each, so the tests can check that
-// each owner sees only their own.
+// Creates the test accounts (one random password per run) and two venues with a
+// court each (A owned by owner A, B by owner B), each with an upcoming booking,
+// so tests can check owners see only their own.
 export async function createTestData(): Promise<{ password: string; ids: FixtureIds }> {
   await removeTestData();
   const password = randomBytes(18).toString("base64url");
@@ -82,8 +77,7 @@ export async function createTestData(): Promise<{ password: string; ids: Fixture
     );
   }
 
-  // Platform reference data the seed always provides: any city, and a
-  // "book a time" activity for the courts.
+  // Seed reference data: any city, and a "book a time" activity.
   const [city] = await query<{ id: string }>("select id from cities order by name limit 1");
   const [activity] = await query<{ id: string }>(
     "select id from activities where booking_mechanic = 'time_range' order by name limit 1"
@@ -103,7 +97,7 @@ export async function createTestData(): Promise<{ password: string; ids: Fixture
        values ($1, $2, $3, $4, 20, 1, 1, '08:00', '20:00', 30, 60, 120, ${NOW})`,
       [listing, `E2E Court ${label}`, venue, activity.id]
     );
-    // A confirmed booking a few days out, so it shows as upcoming.
+    // A confirmed booking a few days out, so it's upcoming.
     const startsAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
     startsAt.setUTCMinutes(0, 0, 0);
     const attendee = `E2E Attendee ${label}`;

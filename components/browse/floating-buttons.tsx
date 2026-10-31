@@ -5,26 +5,23 @@ import { ArrowUp, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SITE_SEARCH_ID } from "@/components/layout/header-search";
 
-// How far down the page has to scroll before the buttons are useful - above
-// this, the top of the page and the search box are already in easy reach.
+// Scroll depth before the buttons appear; above it, the top of the page is
+// within easy reach.
 const SHOW_AFTER_PX = 400;
 
-// Styled as a mirror of the Next.js dev badge (bottom-left in development):
-// 36px, 20px from the corner, 80% black with a blur and a thin outline. The
-// badge isn't there in production, but the buttons keep the same look.
+// Mirrors the Next.js dev badge: 36px, 20px from the corner, 80% black with
+// blur and a thin outline.
 const BUTTON_CLASS =
   "flex size-9 items-center justify-center rounded-full bg-black/80 text-white backdrop-blur-[48px] shadow-[0_0_0_1px_#171717,inset_0_0_0_1px_rgba(255,255,255,0.14),0_16px_32px_-8px_rgba(0,0,0,0.24)] hover:bg-black";
 
-// Browse's floating buttons, stacked in the bottom-right corner where a
-// right thumb rests while scrolling: "Back to top" in the corner and, on
-// phones only, "Search" 12px above it. Both appear once the page has
-// scrolled far enough to need them. Small and against the edge, away from
-// the cards people tap, so they're hard to hit by accident.
+// Browse's floating buttons in the bottom-right corner, where a right thumb
+// rests: "Back to top" in the corner and, on phones only, "Search" 12px above
+// it. They appear after scrolling SHOW_AFTER_PX; small and against the edge so
+// they're hard to hit by accident.
 //
-// Always rendered rather than mounted on scroll: visibility is an
-// opacity/pointer-events toggle so they fade in and out. They start hidden
-// (there's no scroll position to render on the server) and correct
-// themselves from window.scrollY once mounted.
+// Always rendered, toggled with opacity and pointer-events so they fade. They
+// start hidden (no scroll position on the server) and update from
+// window.scrollY once mounted.
 export function FloatingButtons() {
   const [visible, setVisible] = useState(false);
 
@@ -37,7 +34,7 @@ export function FloatingButtons() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Hidden buttons leave the tab order and the accessibility tree.
+  // Hidden buttons leave the tab order and accessibility tree.
   const hidden = !visible;
 
   return (
@@ -47,9 +44,8 @@ export function FloatingButtons() {
         visible ? "opacity-100" : "pointer-events-none opacity-0"
       )}
     >
-      {/* The header stays stuck to the top, so focusing its search box
-          needs no scrolling; the tap is the user's own gesture, so phones
-          open the keyboard. */}
+      {/* The header is sticky, so focusing its search box needs no scrolling;
+          being the user's own tap, it opens the phone keyboard. */}
       <button
         type="button"
         onClick={() => document.getElementById(SITE_SEARCH_ID)?.focus()}
