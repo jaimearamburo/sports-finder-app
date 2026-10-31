@@ -1,9 +1,10 @@
 # Checks every pull request and every push to main/dev: typecheck, lint and
-# unit tests. Needs no secrets and never touches a database.
+# unit tests, plus the booking database tests against a throwaway Postgres
+# that exists only for the run. Needs no secrets and never touches a real
+# database.
 #
-# The end-to-end tests aren't here on purpose: they write to whatever
-# database .env points at, which is production today. They can join once a
-# separate test database exists (see #107).
+# The end-to-end tests aren't here: they need a running app with Stripe
+# test keys and a Blob store, so they're run locally (pnpm test:e2e).
 name: CI
 
 on:
@@ -53,3 +54,47 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+
+  # The booking core against a real Postgres (pnpm test:db): row locks,
+  # capacity sums and payment completion. An empty database, built from the
+  # migrations, which also proves they apply cleanly from scratch.
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_URL_NON_POOLING: postgresql://ci:ci@localhost:5432/ci
+      POSTGRES_PRISMA_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations
+        run: pnpm exec prisma migrate deploy
+
+      - name: Database tests
+        run: pnpm test:db

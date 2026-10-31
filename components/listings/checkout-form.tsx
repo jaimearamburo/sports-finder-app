@@ -441,10 +441,13 @@ function CheckoutFormContent({
             onCheckedChange={setAgreedToTerms}
             required
             className="mt-0.5"
-            // The full sentence, Terms included: the <label> below can only
-            // hold the first half (see its comment), which left the
-            // checkbox named just "I agree to <venue>'s".
-            aria-label={`I agree to ${venueName}'s Terms and Conditions`}
+            // Named by the label and the Terms button together, so screen
+            // readers hear the whole sentence: the <label> can only hold
+            // the first half (see its comment). Not aria-label: Base UI
+            // names the checkbox from its <label> through aria-labelledby,
+            // which outranks aria-label, so the name stopped at
+            // "I agree to <venue>'s".
+            aria-labelledby="agreeToTerms-label agreeToTerms-terms"
           />
           {/* Only "I agree to {venueName}'s" sits inside the actual
               <label> - the Terms trigger is a sibling outside it on
@@ -453,11 +456,13 @@ function CheckoutFormContent({
               dialog trigger inside the label would silently flip the
               checkbox every time someone just meant to read the terms. */}
           <span className="text-sm">
-            <Label htmlFor="agreeToTerms" className="inline font-normal">
+            <Label id="agreeToTerms-label" htmlFor="agreeToTerms" className="inline font-normal">
               I agree to {venueName}&apos;s{" "}
             </Label>
             <Dialog>
-              <DialogTrigger className="underline underline-offset-2">Terms and Conditions</DialogTrigger>
+              <DialogTrigger id="agreeToTerms-terms" className="underline underline-offset-2">
+                Terms and Conditions
+              </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>{venueName}&apos;s Terms and Conditions</DialogTitle>

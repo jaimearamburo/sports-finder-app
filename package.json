@@ -10,6 +10,7 @@
     "postinstall": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db": "vitest run --config vitest.db.config.mts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
