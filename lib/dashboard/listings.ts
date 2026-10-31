@@ -29,7 +29,7 @@ export type VenueListingRow = {
   emoji: string | null;
   // Already formatted the way browse shows it: "$20/hr", "$45/night", "Free".
   price: string;
-  // "Open 6:00 AM – 10:00 PM daily", "Every Monday, 6:00 PM", or null.
+  // "Daily 6:00 AM – 10:00 PM", "Every Monday, 6:00 PM", or null.
   schedule: string | null;
   upcomingBookings: number;
   archived: boolean;

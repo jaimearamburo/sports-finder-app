@@ -8,6 +8,10 @@ import { searchAction } from "@/app/search/actions";
 import { clearAllParams } from "@/components/browse/search-interpretation";
 import { useBrowseFilters, useBrowseNavigation } from "@/contexts/browse-navigation";
 
+// The header search box's id, so other controls can focus it (the floating
+// search button on browse, components/browse/floating-buttons.tsx).
+export const SITE_SEARCH_ID = "site-search";
+
 // Example queries shown in rotation, to signal that the search box takes
 // plain language rather than exact names. Each uses an activity and city
 // that actually exist in the data.
@@ -174,6 +178,7 @@ export function HeaderSearch() {
           isn't a reliable label, and this one changes every few seconds. */}
       <Input
         ref={inputRef}
+        id={SITE_SEARCH_ID}
         type="search"
         name="q"
         aria-label="Search"

@@ -38,9 +38,12 @@ function UpcomingCount({ count }: { count: number }) {
   );
 }
 
-function ListingActions({ listing }: { listing: VenueListingRow }) {
+// In the desktop table the buttons stay on one line (`nowrap`), and the
+// table gives the other columns' text the room to wrap instead; on the
+// phone cards they may wrap.
+function ListingActions({ listing, nowrap = false }: { listing: VenueListingRow; nowrap?: boolean }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className={cn("flex items-center gap-2", nowrap ? "flex-nowrap" : "flex-wrap")}>
       <Link
         href={`/dashboard/listings/${listing.id}`}
         className={buttonVariants({ variant: "outline", size: "sm" })}
@@ -160,9 +163,11 @@ export default async function VenuePage({
           </p>
         ) : (
           <>
-            {/* Desktop: a table. Phones: the same rows as cards, the pattern
+            {/* Wide screens (lg up): a table. Phones and tablets: the same rows as
+                cards (below lg the table is too cramped once the sidebar
+                takes its share and the buttons stay on one line), the pattern
                 the overview and My Bookings use. */}
-            <div className="hidden overflow-x-auto rounded-md border bg-card md:block">
+            <div className="hidden overflow-x-auto rounded-md border bg-card lg:block">
               <table className="w-full text-left text-sm">
                 <thead className="border-b bg-muted/40 text-xs tracking-wide text-muted-foreground uppercase">
                   <tr>
@@ -195,15 +200,15 @@ export default async function VenuePage({
                       <td className="px-4 py-3 text-muted-foreground">
                         <UpcomingCount count={listing.upcomingBookings} />
                       </td>
-                      <td className="px-4 py-3">
-                        <ListingActions listing={listing} />
+                      <td className="w-px px-4 py-3">
+                        <ListingActions listing={listing} nowrap />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <ul className="flex flex-col gap-3 md:hidden">
+            <ul className="flex flex-col gap-3 lg:hidden">
               {venue.listings.map((listing) => (
                 <li key={listing.id} className={cn("rounded-md border bg-card p-4 text-sm", listing.archived && "bg-muted/30")}>
                   <div className="flex items-start gap-3">

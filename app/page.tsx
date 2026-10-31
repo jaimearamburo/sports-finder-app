@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { BrowseSidebar } from "@/components/browse/browse-sidebar";
 import { MobileFilterBar } from "@/components/browse/mobile-filter-bar";
 import { BrowsePageShell } from "@/components/browse/browse-page-shell";
-import { BackToTopButton } from "@/components/browse/back-to-top-button";
+import { FloatingButtons } from "@/components/browse/floating-buttons";
 import { TagFilters } from "@/components/browse/tag-filters";
 import { QuickFilters } from "@/components/browse/quick-filters";
 import { SearchInterpretation } from "@/components/browse/search-interpretation";
@@ -94,7 +94,7 @@ export default function Home({
           </Suspense>
         </PendingResults>
       </BrowsePageShell>
-      <BackToTopButton />
+      <FloatingButtons />
     </div>
   );
 }
