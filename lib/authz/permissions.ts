@@ -1,21 +1,12 @@
 import type { UserRole } from "@/generated/prisma/enums";
 
-// The single place that decides what each role is allowed to do.
+// The single map of what each role may do. Code asks can(user, permission),
+// never "is this user an admin?", so changing a role's rights is an edit here
+// alone. Roles live on User.role; their permissions live in code.
 //
-// Code asks "can this user do X?" (can(user, "venues:create")), never "is
-// this user an admin?". Changing what a role may do, or adding a role, is
-// then an edit to this map alone, not a hunt through every `role === ...`
-// check in the app. Roles themselves live on User.role in the database;
-// the permissions they grant live here in code, where they're typed,
-// reviewed and versioned - the usual split until roles need to be edited
-// at runtime by customers, which this app doesn't need.
-//
-// What a user may do with one particular record ("does this owner own this
-// venue?") is a separate question, answered in policies.ts.
-//
-// A plain module with no server-only imports, so it runs anywhere: the
-// proxy, Server Components, client components (to decide which links to
-// show) and unit tests.
+// Record-level questions ("does this owner own this venue?") are in
+// policies.ts. No server-only imports, so it runs in the proxy, server and
+// client components, and tests.
 
 export const PERMISSIONS = [
   // Open the venue manager dashboard.
@@ -24,29 +15,28 @@ export const PERMISSIONS = [
   "venues:create",
   // Manage venues the user owns, and their listings and bookings.
   "venues:manage",
-  // Manage every venue regardless of owner. Lets admins pass the ownership
-  // checks in policies.ts without those checks naming a role.
+  // Every venue regardless of owner; lets admins pass policies.ts's ownership
+  // checks without naming a role.
   "venues:manage-all",
-  // Choose which venue owner a venue belongs to, when adding it or later.
-  // Without this, whoever adds a venue owns it.
+  // Choose a venue's owner. Without it, whoever adds a venue owns it.
   "venues:assign-owner",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-// A Record over every role, so adding a role to the database enum is a
-// compile error here until someone decides what it may do.
+// A Record over every role, so a new database role is a compile error until
+// it's given permissions.
 const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
   user: [],
   venue_owner: ["dashboard:access", "venues:create", "venues:manage"],
   admin: ["dashboard:access", "venues:create", "venues:manage", "venues:manage-all", "venues:assign-owner"],
 };
 
-// The smallest shape these checks need, so callers can pass a session user,
-// a database row or a test fixture alike.
+// The minimum shape needed, so a session user, database row or test fixture all
+// work.
 export type RoleHolder = { role: UserRole };
 
-// null/undefined means signed out, which is never allowed anything here.
+// null/undefined (signed out) is never allowed anything.
 export function can(user: RoleHolder | null | undefined, permission: Permission): boolean {
   if (!user) return false;
   return ROLE_PERMISSIONS[user.role].includes(permission);

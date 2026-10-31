@@ -5,10 +5,8 @@ import { requirePermission } from "@/lib/auth-guards";
 import { can } from "@/lib/authz/permissions";
 import { listManagedVenues } from "@/lib/dashboard/venues";
 
-// Every venue this user manages: their own as an owner, all of them (with
-// owners) as an admin. Each venue's name is the link to its page, where its
-// listings are managed and "Edit venue" changes its settings - one clear
-// action per row.
+// Venues this user manages (all, with owners, for an admin). Each name links to
+// the venue's page.
 export default async function DashboardVenuesPage() {
   const session = await requirePermission("dashboard:access");
   const venues = await listManagedVenues();

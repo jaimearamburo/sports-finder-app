@@ -2,16 +2,13 @@ import type Stripe from "stripe";
 import { completeOrderPayment } from "@/lib/bookings";
 import { getStripe, PAYMENT_ENV } from "@/lib/stripe";
 
-// Stripe's server-to-server notifications about payments. The browser
-// normally completes a booking itself right after the card is authorized
-// (confirmHoldPayment), but it can't be relied on: the tab can close, the
-// network can drop, the server action can fail half-way. This route
-// finishes the same work from Stripe's side, through the same
-// completeOrderPayment, which is idempotent - whichever arrives first does
-// the work and the other finds it done.
+// Stripe's payment notifications. The browser normally completes a booking
+// right after authorization (confirmHoldPayment), but the tab can close or the
+// request can fail; this finishes the same work through the idempotent
+// completeOrderPayment. Whichever arrives first does the work.
 //
-// Outside the auth proxy (it matches no /api routes) because Stripe has no
-// session; the signature check below is what proves a request is Stripe's.
+// Outside the auth proxy (no session); the signature check proves the request
+// is from Stripe.
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) {
@@ -19,8 +16,7 @@ export async function POST(request: Request) {
     return new Response("Webhook not configured", { status: 500 });
   }
 
-  // The signature covers the exact raw body, so it must be read as text -
-  // parsing it as JSON first would change the bytes and fail verification.
+  // The signature covers the raw body, so it's read as text.
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
   if (!signature) return new Response("Missing signature", { status: 400 });
@@ -33,20 +29,18 @@ export async function POST(request: Request) {
   }
 
   switch (event.type) {
-    // The card is authorized: the browser normally completes the booking
-    // first, so this is the backup for when it doesn't.
+    // Card authorized: the backup for when the browser didn't complete the
+    // booking.
     case "payment_intent.amount_capturable_updated":
-    // The capture went through: confirms bookings left "pending" if the
-    // capture settled after the browser's request had already returned.
+    // Capture settled: confirms bookings left pending when the capture finished
+    // after the browser's request returned.
     case "payment_intent.succeeded": {
-      // Re-fetched rather than trusting the event's copy, which is a
-      // snapshot that may be out of date by the time it arrives (events
-      // aren't guaranteed to arrive in order).
+      // Re-fetched: the event's copy can be stale, and events can arrive out of
+      // order.
       const paymentIntent = await getStripe().paymentIntents.retrieve(event.data.object.id);
-      // Another environment's payment (e.g. local development, which
-      // shares this Stripe test account but not this database): its own
-      // environment completes it. Payments made before this tag existed
-      // carry no env and are handled as before.
+      // Another environment's payment (development shares this Stripe account,
+      // not this database); that environment completes it. Untagged payments
+      // are handled here.
       const paymentEnv = paymentIntent.metadata.env;
       if (paymentEnv && paymentEnv !== PAYMENT_ENV) break;
       const result = await completeOrderPayment(paymentIntent);
@@ -55,9 +49,7 @@ export async function POST(request: Request) {
     }
   }
 
-  // 200 for every verified event, including ones not handled above and
-  // payments that couldn't be applied (already released, nothing to
-  // retry). Only a thrown error - a database or Stripe outage - becomes a
-  // 500, which makes Stripe retry the event later.
+  // 200 for every verified event, handled or not. Only a thrown error (database
+  // or Stripe outage) returns 500, so Stripe retries.
   return new Response(null, { status: 200 });
 }

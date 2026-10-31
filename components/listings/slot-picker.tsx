@@ -14,10 +14,8 @@ import { getTotalPrice, getBreakdownLine } from "@/lib/booking-price";
 import type { OccupiedInterval } from "@/lib/availability";
 import type { PickerListing, SelectedSlots } from "./picker-types";
 
-// Picks the mechanic-specific picker and owns the one piece of state every
-// mechanic eventually produces: one or more concrete startsAt/endsAt
-// spans, plus submitting that selection to createBookingHoldAction and
-// moving on to the checkout page once a hold is secured.
+// Renders the mechanic's picker, owns the selected slots and quantity, and
+// submits them to createBookingHoldAction, then opens checkout.
 export function SlotPicker({
   listingId,
   listing,
@@ -29,12 +27,11 @@ export function SlotPicker({
   listingId: string;
   listing: PickerListing;
   bookableDates: Date[];
-  // fixed_session only - see getSpotsRemaining in lib/availability.ts.
-  // Undefined for the other two mechanics, which have no such concept.
+  // fixed_session only (getSpotsRemaining).
   spotsRemaining?: Map<number, number | null>;
-  // time_range only - see getOccupiedIntervals in lib/availability.ts.
+  // time_range only (getOccupiedIntervals).
   occupiedIntervals?: Map<number, OccupiedInterval[]>;
-  // date_range only - see getFullyBookedDates in lib/availability.ts.
+  // date_range only (getFullyBookedDates).
   fullyBookedDates?: Date[];
 }) {
   const router = useRouter();
@@ -44,11 +41,8 @@ export function SlotPicker({
   const [needsLogin, setNeedsLogin] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  // Resets quantity back to 1 whenever the slot selection itself changes,
-  // using React's documented "adjust state during render" pattern rather
-  // than a useEffect - a fresh selection might not even support the
-  // previous quantity (a different occurrence could have fewer spots
-  // left), so the stale value is dropped rather than re-validated.
+  // Reset quantity to 1 when the selection changes ("adjust state during
+  // render", not an effect): the new slot may have fewer spots left.
   const [prevSlots, setPrevSlots] = useState(slots);
   if (slots !== prevSlots) {
     setPrevSlots(slots);
@@ -59,20 +53,12 @@ export function SlotPicker({
     return <p className="text-sm text-muted-foreground">No upcoming availability right now.</p>;
   }
 
-  // A capacity-1 listing (the typical exclusive-use court) has no room for
-  // a group booking at all, so the stepper doesn't even render for it -
-  // null (unlimited) and any capacity above 1 both get one.
+  // No stepper for capacity 1; shown for unlimited or capacity above 1.
   const showQuantityStepper = listing.capacity === null || listing.capacity > 1;
 
-  // For fixed_session, also cap at the actually-selected occurrence's real
-  // remaining spots, not just the listing's general limits - otherwise the
-  // stepper would let someone pick a quantity that looks valid against
-  // capacity/maxBookingsPerTransaction alone but exceeds what's actually
-  // left for the specific class they picked (a class with 3 of 20 spots
-  // open shouldn't let a 5-person request through just because the
-  // listing's overall cap is 5). spotsRemaining is keyed by the
-  // occurrence's calendar date, same convention as bookableDates, so the
-  // selected slot's startsAt needs normalizing back to that same key.
+  // Classes are also capped by the selected occurrence's remaining spots.
+  // spotsRemaining is keyed by calendar day, so the slot's start is normalised
+  // to its UTC day.
   const selectedOccurrenceSpotsLeft =
     listing.bookingMechanic === "fixed_session" && slots && spotsRemaining
       ? spotsRemaining.get(startOfUTCDay(slots[0].startsAt).getTime())
@@ -129,10 +115,7 @@ export function SlotPicker({
         />
       )}
 
-      {/* Always rendered, never conditionally hidden - a running total of
-          $0.00 before a selection reads as "nothing to pay yet," which is
-          more checkout-like than a placeholder that disappears the moment
-          something is picked. */}
+      {/* Always shown: $0.00 before a selection reads as "nothing to pay yet". */}
       <div className="flex items-center justify-between border-t pt-4">
         <p className="text-sm text-muted-foreground">{breakdownWithQuantity ?? "Total"}</p>
         <div className="flex items-center gap-4">
@@ -169,9 +152,8 @@ export function SlotPicker({
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {/* Signed out: a link to log in that comes straight back to this
-          listing (the login page honours callbackUrl). The picked slot
-          isn't kept - nothing is held until Book Now succeeds. */}
+      {/* Signed out: log in and return to this listing. The picked slot isn't
+          kept; nothing is held until Book Now succeeds. */}
       {needsLogin && (
         <p className="text-sm text-destructive">
           You must{" "}

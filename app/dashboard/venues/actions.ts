@@ -5,9 +5,8 @@ import type { VenueInput } from "@/lib/validation/venue";
 
 export type { SaveVenueResult } from "@/lib/dashboard/venues";
 
-// Thin on purpose, like app/listings/[id]/actions.ts: the permission and
-// ownership checks, validation and writes all live in the data layer
-// (lib/dashboard/venues.ts), so nothing calling these can skip them.
+// Thin: permission, ownership, validation and writes live in
+// lib/dashboard/venues.ts, so no caller can skip them.
 export async function createVenueAction(input: VenueInput) {
   return createVenue(input);
 }

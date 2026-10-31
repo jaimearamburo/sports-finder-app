@@ -11,9 +11,8 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-// Wordmark-only display face for the "PlayBook" logo (see SiteHeader and
-// SiteFooter). Not a variable font, so the weights it renders have to be
-// requested explicitly. 400 renders "Play", 700 renders "Book".
+// Display face for the "PlayBook" wordmark only. Not variable, so weights are
+// listed: 400 for "Play", 700 for "Book".
 const oleoScript = Oleo_Script({
   weight: ["400", "700"],
   subsets: ["latin"],
@@ -33,9 +32,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.className} ${oleoScript.variable} h-full antialiased`}>
       <body className="min-h-screen flex flex-col">
-        {/* Skip link: the first thing a keyboard user tabs to, so they can
-            jump past the header to the page content instead of tabbing
-            through it on every page. Hidden until focused. */}
+        {/* Skip link: the first tab stop, jumping past the header. Hidden until
+            focused. */}
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
@@ -43,15 +41,12 @@ export default function RootLayout({
           Skip to content
         </a>
         <RefreshOnHistoryNavigation />
-        {/* Around the header and the page, not just the browse page: the
-            header search takes part in browse navigation too (see
-            BrowseNavigationProvider). */}
+        {/* Wraps the header too: the header search takes part in browse
+            navigation. */}
         <BrowseNavigationProvider>
           <SiteHeader />
-          {/* flex flex-col here, not just flex-1, so pages that rely on
-              being a flex-column child themselves, such as login and
-              signup's centered card layout, keep working. tabIndex={-1}
-              lets the skip link above move focus here, not just scroll. */}
+          {/* flex-col so pages laid out as flex-column children (login, signup)
+              work. tabIndex={-1} lets the skip link move focus here. */}
           <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col outline-none">
             {children}
           </main>

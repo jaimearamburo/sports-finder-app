@@ -7,9 +7,9 @@ import type { DemoAccount } from "@/lib/demo-login";
 
 type State = { message?: string } | undefined;
 
-// The login page's "Try the demo" box: one click signs in as a sample venue
-// owner or regular user (see lib/demo-login.ts). The buttons only say which
-// demo to use - no email or password is in the page.
+// The login page's "Try the demo" box: one click signs in as the sample venue
+// owner or regular user (lib/demo-login.ts). No email or password is in the
+// page.
 export function DemoLoginButtons({ callbackUrl }: { callbackUrl: string }) {
   const [state, formAction, pending] = useActionState(
     async (_prev: State, formData: FormData): Promise<State> =>
@@ -18,8 +18,8 @@ export function DemoLoginButtons({ callbackUrl }: { callbackUrl: string }) {
   );
 
   return (
-    // Pale pastel yellow so the demo stands apart from the real login above -
-    // softer than the amber kept for hold warnings (see CLAUDE.md).
+    // Pale yellow to set the demo apart from the real login; softer than the
+    // amber reserved for hold warnings.
     <section aria-labelledby="demo-heading" className="rounded-lg bg-yellow-100 p-4">
       <h2 id="demo-heading" className="text-sm font-semibold">
         Try the demo

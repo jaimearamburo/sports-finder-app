@@ -2,12 +2,10 @@ import { test, expect, type Page } from "@playwright/test";
 import { authFile, fixtureIds } from "./fixtures";
 import { expectNoViolations } from "./helpers";
 
-// Automated accessibility checks of every dashboard page with axe-core, at
-// phone and desktop widths - the same bar as the rest of the site (see
-// e2e/helpers.ts). Dialogs and the listing form's different kinds are checked
-// open, since axe only sees what's on the page. Automated checks catch a
-// good share of problems, not all of them: a real screen reader pass is
-// still worth doing by hand.
+// axe-core checks of every dashboard page at phone and desktop widths, to the
+// same standard as the rest of the site (e2e/helpers.ts). Dialogs and each
+// listing kind are checked open, since axe only sees what's rendered. Automated
+// checks don't replace a manual screen reader pass.
 
 const WIDTHS = [
   { name: "phone", width: 375, height: 812 },
@@ -16,8 +14,7 @@ const WIDTHS = [
 
 async function chooseActivity(page: Page, name: string) {
   await page.locator("#activityId").click();
-  // Exact accessible name ("Tennis", not "Table Tennis"); the emoji in each
-  // option is aria-hidden, so it isn't part of the name.
+  // Exact name ("Tennis", not "Table Tennis"); option emojis are aria-hidden.
   await page.getByRole("option", { name, exact: true }).click();
 }
 

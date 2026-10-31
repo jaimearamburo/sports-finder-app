@@ -2,11 +2,9 @@ import { test, expect, type Page } from "@playwright/test";
 import { query } from "./db";
 import { tamperNextAction } from "./helpers";
 
-// One-click demo logins on the login page (lib/demo-login.ts). Unlike the
-// other specs these use the accounts configured in .env (DEMO_OWNER_EMAIL,
-// DEMO_USER_EMAIL), since that configuration is what's under test; they're
-// skipped when demo logins are off or those accounts don't exist in this
-// database.
+// Demo logins (lib/demo-login.ts). Uses the demo accounts configured in .env,
+// since that configuration is under test; skipped when demo logins are off or
+// the accounts don't exist.
 
 const enabled = process.env.DEMO_LOGIN_ENABLED === "true";
 
@@ -56,8 +54,8 @@ test.describe("demo logins", () => {
 
   test("a crafted request for any other account is refused", async ({ page }) => {
     const box = await demoBox(page);
-    // The form sends account=owner; rewrite it to something that isn't a
-    // demo account. Nothing is signed in, and the page says so.
+    // Rewrite account=owner to a non-demo value: nothing is signed in, and the
+    // page says so.
     await tamperNextAction(page, "owner", "admin", () =>
       box.getByRole("button", { name: "Log in as venue owner" }).click()
     );

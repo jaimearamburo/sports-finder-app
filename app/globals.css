@@ -10,8 +10,8 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
-  /* Wordmark-only face. See the font-display utility used on the
-     PlayBook logo in SiteHeader and SiteFooter. Never used for body copy. */
+  /* Wordmark-only face for the PlayBook logo (font-display utility); never for
+     body copy. */
   --font-display: var(--font-oleo-script);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -58,19 +58,15 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  /* PlayBook's brand color, "court blue", replaces shadcn's default
-     grayscale primary and ring values. Picked from the sport itself
-     (hard-court blue). Button and Input focus states derive from --ring,
-     so they pick up this color automatically without a second token. */
+  /* PlayBook's brand colour, "court blue", replacing shadcn's grayscale
+     primary and ring. Focus states derive from --ring. */
   --primary: #1857c4;
   --primary-foreground: #ffffff;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  /* 0.52, darker than shadcn's default 0.556 (#737373): that measured
-     4.4:1 on the page background, just under WCAG AA's 4.5:1 for body
-     text. 0.52 (#696969) is ~5.1:1 on the page background and ~5.5:1 on
-     white, with margin for tinted surfaces. */
+  /* Darker than shadcn's 0.556, which is 4.4:1 on the page background (under
+     WCAG AA's 4.5:1). 0.52 (#696969) is ~5.1:1 there and ~5.5:1 on white. */
   --muted-foreground: oklch(0.52 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
@@ -84,7 +80,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  /* Tightened from shadcn's 0.625rem default */
+  /* Tighter than shadcn's 0.625rem default. */
   --radius: 0.375rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -103,9 +99,7 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  /* Lighter court-blue for dark surfaces. Same brand hue, tuned for
-     contrast against a dark background. Foreground flips to dark ink
-     since this tint is too light for white text. */
+  /* Lighter court blue for dark surfaces, with dark foreground text. */
   --primary: #6d9bf5;
   --primary-foreground: #0b1220;
   --secondary: oklch(0.269 0 0);
@@ -142,33 +136,21 @@
   }
   html {
     @apply font-sans;
-    /* Reserves the vertical scrollbar's width permanently, whether or
-       not the page currently needs to scroll - without this, a page
-       crossing the "needs scrolling" height threshold (e.g. a filter
-       narrowing results from many to few) shifts the entire layout
-       horizontally by the scrollbar's width, including the header, since
-       the scrollbar is a property of the viewport, not scoped to any one
-       section. */
+    /* Always reserves the scrollbar's width, so the layout doesn't shift
+       sideways when a page starts or stops needing to scroll. */
     scrollbar-gutter: stable;
   }
-  /* Set default button cursor to pointer. `:not(:disabled)` keeps disabled
-     buttons showing the normal arrow instead of a pointer. */
+  /* Pointer cursor on enabled buttons only. */
   button:not(:disabled) {
     cursor: pointer;
   }
 }
 
-/* A thin, theme-aware scrollbar on every scrollable element, in place of
-   each browser's own default. A fixed size on purpose, not resized on
-   hover: growing ::-webkit-scrollbar's width/height on hover grows the
-   scrollbar itself, which adds to the scrolling element's own rendered
-   size - a horizontal scrollbar growing taller on hover, for example,
-   grows the height of the row it belongs to, shifting whatever is below
-   it. Chromium supports both scrollbar-width/color AND the
-   ::-webkit-scrollbar pseudo-elements below; setting both on the same
-   element makes it fall back to the standards-based renderer, so the
-   @supports guard keeps scrollbar-width/color for browsers with no
-   ::-webkit-scrollbar support at all (Firefox). */
+/* A thin, theme-aware scrollbar everywhere, at a fixed size: growing it on
+   hover would resize its element and shift content. Chromium falls back to the
+   standard renderer when scrollbar-width/color and ::-webkit-scrollbar are
+   both set, so the standard properties are only used where ::-webkit-scrollbar
+   isn't supported (Firefox). */
 @supports not selector(::-webkit-scrollbar) {
   * {
     scrollbar-width: thin;
@@ -183,9 +165,8 @@
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  /* Halfway between --border (too light on its own) and --muted-foreground
-     (too dark on its own), computed from the existing tokens instead of a
-     new hardcoded color so it stays theme-aware in light and dark mode. */
+  /* Between --border and --muted-foreground, derived from the tokens so it
+     follows the theme. */
   background-color: color-mix(in oklch, var(--border), var(--muted-foreground));
   border-radius: 5px;
 }

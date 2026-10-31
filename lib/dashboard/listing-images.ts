@@ -9,15 +9,13 @@ const VENUE_NOT_FOUND = "This venue doesn't exist, or it isn't one you manage.";
 
 export type UploadPermissionResult = { ok: true } | { ok: false; error: string };
 
-// Whether this user may upload a listing photo to `pathname` for this
-// venue: the same permission and ownership check as editing the venue's
-// listings, and only to that venue's own folder (see listing-images.ts).
-// The upload route gives out a one-time upload permission only when this
-// says yes; the Blob token itself is never sent to the browser.
+// Whether this user may upload a listing photo to `pathname` for this venue:
+// the same check as managing the venue's listings, and only into that venue's
+// folder. The upload route issues a one-time permission only on success; the
+// Blob token never reaches the browser.
 //
-// By venue rather than listing, because a new listing's photo is uploaded
-// before the listing exists. Owning the venue is what owning any of its
-// listings means anyway (canManageListing).
+// Checked by venue, not listing, because a new listing's photo is uploaded
+// before the listing exists.
 export const authorizeListingImageUpload = withPermission(
   "venues:manage",
   async (session, venueId: unknown, pathname: unknown): Promise<UploadPermissionResult> => {
@@ -33,12 +31,9 @@ export const authorizeListingImageUpload = withPermission(
   }
 );
 
-// Checks an image URL a listing save wants to store, for a venue the
-// caller has already been checked against: it must be a photo in that
-// venue's folder in our store, and the file must really be there with an
-// allowed type (a crafted URL in the right folder that was never uploaded
-// would otherwise show as a broken image). Returns an error for the form,
-// or null when it's fine.
+// Checks a photo URL before a listing stores it (the caller has already checked
+// the venue): it must be in that venue's folder in our store, and the file must
+// exist with an allowed type. Returns a form error, or null.
 export async function checkVenueImageUrl(url: string, venueId: string): Promise<string | null> {
   const PROBLEM = "That photo couldn't be found. Upload it again.";
   if (!isVenueImageUrl(url, venueId)) return PROBLEM;
@@ -50,12 +45,9 @@ export async function checkVenueImageUrl(url: string, venueId: string): Promise<
   }
 }
 
-// Deletes a listing photo that a save has just replaced or removed. Best
-// effort, after the listing is saved: a failure leaves an unused file in
-// the store, never a listing pointing at a missing one, so it's logged
-// rather than shown. Kept if any listing still uses it (only possible if
-// one was saved with another's URL, which the folder check limits to the
-// same venue).
+// Deletes a photo that a save replaced or removed. Best effort, after saving,
+// so a failure leaves an unused file rather than a broken listing. Kept if
+// another listing still uses it.
 export async function deleteReplacedListingImage(url: string): Promise<void> {
   try {
     const stillUsed = await prisma.listing.count({ where: { imageUrl: url } });

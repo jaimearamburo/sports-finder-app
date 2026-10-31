@@ -16,8 +16,7 @@ import { sanitizeCallbackUrl } from "./utils";
 export default async function LoginPage({
   searchParams,
 }: {
-  // Next.js passes searchParams as a Promise, not a plain object, in
-  // this version. See node_modules/next/dist/docs/.../page.md.
+  // searchParams is a Promise in this Next version.
   searchParams: Promise<{ callbackUrl?: string }>;
 }) {
   const { callbackUrl } = await searchParams;
@@ -41,9 +40,8 @@ export default async function LoginPage({
             <span className="h-px flex-1 bg-border" />
           </div>
 
-          {/* Google collapses "sign up" and "log in" into one click, same
-              as on the signup page: whichever page a visitor lands on,
-              this button does the same thing. */}
+          {/* Google sign-in and sign-up are the same action, as on the signup
+              page. */}
           <form
             action={async () => {
               "use server";
@@ -62,8 +60,7 @@ export default async function LoginPage({
             </Link>
           </p>
 
-          {/* Only when demo logins are switched on (DEMO_LOGIN_ENABLED) -
-              see lib/demo-login.ts. */}
+          {/* Only when DEMO_LOGIN_ENABLED is on (lib/demo-login.ts). */}
           {isDemoLoginEnabled() && <DemoLoginButtons callbackUrl={redirectTarget} />}
         </CardContent>
       </Card>

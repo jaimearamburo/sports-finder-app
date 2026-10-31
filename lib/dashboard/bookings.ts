@@ -10,8 +10,8 @@ import type { Prisma } from "@/generated/prisma/client";
 
 export type ManagerBookingSlot = { id: string; startsAt: Date; endsAt: Date; quantity: number };
 
-// One order (every Booking row sharing an orderId - a multi-day pass is
-// several rows), the unit the bookings page lists, like My Bookings.
+// One order (all Booking rows sharing an orderId), the unit the bookings page
+// lists.
 export type ManagerBookingOrder = {
   orderId: string;
   reference: string;
@@ -26,8 +26,7 @@ export type ManagerBookingOrder = {
   attendeeName: string;
   attendeeEmail: string;
   attendeePhone: string | null;
-  // The account that made the booking, when it isn't the attendee (someone
-  // booking on another person's behalf). null when they're the same.
+  // The booking account's email when it isn't the attendee's; otherwise null.
   bookedByEmail: string | null;
   totalAmount: number;
   // "pending": the card is authorized but the capture hasn't settled.
@@ -43,9 +42,8 @@ export type ManagerBookingsPage = {
   total: number;
   page: number;
   pageCount: number;
-  // The filters actually applied: a venue or listing in the URL that this
-  // user may not see (or that doesn't belong to the chosen venue) is
-  // dropped, so the page never shows a filter that isn't really in effect.
+  // The filters actually applied: a venue or listing this user may not see (or
+  // outside the chosen venue) is dropped.
   filters: BookingFilters;
   venues: FilterVenueOption[];
 };
@@ -69,8 +67,8 @@ const CANDIDATE_SELECT = {
   },
 } as const;
 
-// Search by booking reference (the start of the order id, shown uppercased
-// - see getBookingReference) or by the attendee's name or email.
+// Matches the booking reference (start of the order id) or the attendee's name
+// or email.
 function searchWhere(q: string | undefined): Prisma.BookingWhereInput {
   if (!q) return {};
   const conditions: Prisma.BookingWhereInput[] = [
@@ -81,17 +79,13 @@ function searchWhere(q: string | undefined): Prisma.BookingWhereInput {
   return { OR: conditions };
 }
 
-// Every booking for the venues this user manages (their own as an owner,
-// all as an admin), as orders, filtered and paged for the bookings page.
+// Orders at the venues this user manages (all venues for an admin), filtered
+// and paged.
 //
-// "Upcoming" and dates are decided per venue, in code: a court is upcoming
-// until its end time, a pass or stay until its last day ends on the
-// venue's clock, and a date matches on the venue's calendar (see
-// lib/dashboard/booking-days.ts) - things one database query can't express
-// across venues in different timezones. So the orders that match are found
-// precisely in code over a naturally limited set (upcoming bookings are
-// limited by the booking window; a date range by its own length), and the
-// database pages through the rest.
+// "Upcoming" and date matching are decided per venue in code
+// (lib/dashboard/booking-days.ts), since one query can't apply each venue's
+// timezone. That runs over a bounded set (upcoming bookings are limited by the
+// booking window, a date range by its length); the database pages the rest.
 export const listManagerBookings = withPermission(
   "dashboard:access",
   async (session, requested: BookingFilters): Promise<ManagerBookingsPage> => {
@@ -129,8 +123,8 @@ export const listManagerBookings = withPermission(
     const now = new Date();
 
     // Orders with a booking on a day in the chosen range, on that venue's
-    // calendar. The query takes a day of slack either side (timezones), and
-    // bookingDays decides exactly.
+    // calendar. The query adds a day of slack either side; bookingDays decides
+    // exactly.
     let inDateRange: Set<string> | null = null;
     if (filters.from || filters.to) {
       const from = filters.from ?? "0000-01-01";
@@ -154,8 +148,7 @@ export const listManagerBookings = withPermission(
     }
     const dateWhere: Prisma.BookingWhereInput = inDateRange ? { orderId: { in: [...inDateRange] } } : {};
 
-    // Upcoming orders, with the start of each one's next booking (for
-    // ordering: soonest first).
+    // Upcoming orders with each one's next start, for soonest-first ordering.
     const upcomingRows: CandidateRow[] = await prisma.booking.findMany({
       where: { ...base, ...dateWhere, endsAt: { gt: upcomingQueryCutoff(now) } },
       select: CANDIDATE_SELECT,

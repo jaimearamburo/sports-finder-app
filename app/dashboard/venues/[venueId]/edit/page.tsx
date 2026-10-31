@@ -14,14 +14,13 @@ export default async function EditVenuePage({ params }: { params: Promise<{ venu
     // Admins can move a venue to a different owner.
     can(session.user, "venues:assign-owner") ? getOwnerOptions() : undefined,
   ]);
-  // Missing, or someone else's: the same not-found either way, so another
-  // owner's venue is never confirmed to exist.
+  // Missing or someone else's: the same not-found, so other owners' venues are
+  // never confirmed.
   if (!venue || "ok" in venue) notFound();
 
   const { id, ...values } = venue;
-  // If the current owner isn't someone who can own venues (e.g. a venue
-  // made before owners had to be chosen), start the Owner field empty so
-  // the admin is asked to pick one, rather than showing an unlisted id.
+  // If the current owner can't own venues, the Owner field starts empty so the
+  // admin picks one.
   const owners = Array.isArray(ownerOptions) ? ownerOptions : undefined;
   const ownerListed = owners?.some((owner) => owner.id === values.ownerId) ?? true;
   const initialValues = ownerListed ? values : { ...values, ownerId: "" };

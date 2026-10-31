@@ -8,13 +8,12 @@ import { searchAction } from "@/app/search/actions";
 import { clearAllParams } from "@/components/browse/search-interpretation";
 import { useBrowseFilters, useBrowseNavigation } from "@/contexts/browse-navigation";
 
-// The header search box's id, so other controls can focus it (the floating
-// search button on browse, components/browse/floating-buttons.tsx).
+// Lets other controls focus the search box (e.g. browse's floating search
+// button).
 export const SITE_SEARCH_ID = "site-search";
 
-// Example queries shown in rotation, to signal that the search box takes
-// plain language rather than exact names. Each uses an activity and city
-// that actually exist in the data.
+// Rotating example queries showing the box takes plain language. Each uses an
+// activity and city that exist in the data.
 const EXAMPLES = [
   "tennis in Sydney this weekend",
   "yoga class on Saturday morning",
@@ -25,46 +24,31 @@ const EXAMPLES = [
 
 const ROTATE_MS = 3500;
 
-// The viewer's own calendar day as yyyy-mm-dd - browse resolves dates in
-// local time (see the "This weekend" pill), so search does too.
+// The viewer's calendar day as yyyy-mm-dd; browse resolves dates in local time.
 function localToday(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-// Shared by the real search box and its Suspense fallback, so the header
-// doesn't shift when the real one takes over.
+// Shared with the Suspense fallback so the header doesn't shift.
 const WRAPPER_CLASS = "relative w-full max-w-160 min-w-0";
 const ICON_CLASS = "pointer-events-none absolute top-1/2 left-3 size-4.5 -translate-y-1/2";
-// Typed text keeps the shared Input's 16px on phones - iPhone Safari zooms
-// the page in on focus for anything smaller - and only the placeholder is
-// 14px, so more of each example fits; text-ellipsis ends anything that
-// still doesn't fit in "…". pr-10 leaves room for the clear button. The
-// last class hides the browser's own clear "x" (Chrome and Safari add one
-// to type="search" inputs): it only emptied the box and left the search in
-// place, and Firefox has none, so ClearButton replaces it everywhere.
+// Typed text stays 16px on phones (iOS zooms smaller inputs on focus); only the
+// placeholder is 14px so examples fit, ending in "…". pr-10 leaves room for the
+// clear button. The last class hides the browser's own clear "x", which only
+// emptied the box; ClearButton replaces it everywhere.
 const INPUT_CLASS =
   "h-11 rounded-xl bg-muted/40 pr-10 pl-10 text-ellipsis placeholder:text-sm [&::-webkit-search-cancel-button]:appearance-none";
 
 const GRADIENT_ID = "ai-sparkles-gradient";
 
-// The sparkles (the common "AI" signal) in an indigo-purple-pink gradient
-// instead of one flat colour: a separate SVG gradient definition that the
-// sparkles' fill (and the spinner's stroke) points at. userSpaceOnUse (the
-// icons' shared 24x24 grid), not the default per-shape bounding box, so the
-// gradient runs across both stars as one, rather than restarting in each,
-// and still works on the spinner's thin arc.
-// While a search runs, the sparkles swap for a spinner in the same gradient:
-// a pulse was too subtle to notice in a ~1s search, while a spinner shows
-// motion immediately. It keeps spinning, more slowly, for reduced-motion
-// users: it's the only sign the search is working, not decoration, and with
-// "reduce motion" on (e.g. Windows' "Animation effects" off) a still icon
-// gave no feedback at all.
-// Two four-point stars with sharp, needle-like tips: each side is a curve
-// bowing in towards the centre, meeting the next at a point. Drawn here
-// rather than taken from lucide, whose sparkles are a stroked outline with
-// rounded joins (soft tips). Filled only, no stroke, so nothing rounds the
-// points off. 24x24 grid, like the icon set, so the gradient lines up.
+// Two sharp four-point stars (lucide's sparkles have rounded tips), filled with
+// an indigo-purple-pink gradient. The gradient uses userSpaceOnUse on the
+// shared 24x24 grid, so it spans both stars and the spinner's arc as one.
+//
+// While a search runs the sparkles become a spinner in the same gradient. It
+// still spins (slower) with reduced motion, since it's the only sign the search
+// is working.
 function SharpSparkles({ className }: { className: string }) {
   const star = (cx: number, cy: number, r: number, bow: number) =>
     `M${cx} ${cy - r}` +
@@ -118,17 +102,16 @@ export function HeaderSearch() {
   const [focused, setFocused] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  // Resync the box when the URL's query changes (a new search, "Clear
-  // search", or browser back/forward) - React's "adjust state during
-  // render" pattern rather than an effect.
+  // Resync the box when the URL query changes (new search, clear,
+  // back/forward), during render rather than in an effect.
   const [prevQ, setPrevQ] = useState(q);
   if (q !== prevQ) {
     setPrevQ(q);
     setText(q);
   }
 
-  // Paused while the box is focused, so the hint doesn't change under
-  // someone who has just clicked in to read or type.
+  // Paused while focused, so the hint doesn't change under someone reading or
+  // typing.
   useEffect(() => {
     if (focused) return;
     const id = setInterval(() => setIndex((i) => (i + 1) % EXAMPLES.length), ROTATE_MS);
@@ -138,29 +121,24 @@ export function HeaderSearch() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const query = text.trim();
-    // One search at a time: Enter is ignored while a search is running.
-    // Without this, every press queued another AI call (Next runs Server
-    // Actions one after another), each costing money and time, followed by
-    // the same navigation again and again. A guard rather than a debounce,
-    // which would only delay the first search.
+    // One search at a time: Enter is ignored while one runs. Server Actions run
+    // sequentially, so repeated presses would queue paid AI calls and repeat
+    // the navigation.
     if (!query || isPending) return;
     startTransition(async () => {
-      // Dims the browse results for the whole search, including the second
-      // or so the AI takes to interpret the query, not just the navigation.
+      // Dims the browse results for the whole search, including the AI's
+      // interpretation time.
       markPending();
       const result = await searchAction({ query, today: localToday() });
-      // Updates after an await aren't part of the transition any more, so
-      // the navigation is wrapped again (React's documented pattern). It
-      // joins this search's transition, which keeps the spinner up until
-      // the results arrive.
+      // Updates after an await are outside the transition, so the navigation is
+      // wrapped again; it joins this search's transition and keeps the spinner
+      // up until results arrive.
       if (result.ok) startTransition(() => pushBrowse(result.query));
     });
   }
 
-  // Empties the box and, if a search is showing, clears it too - the same
-  // as "Clear search" under the header, since a search you've wiped from
-  // the box shouldn't keep filtering the results. With no search showing
-  // (e.g. on a listing page), it only empties the box.
+  // Empties the box and, if a search is showing, clears it too (like "Clear
+  // search"). Elsewhere, e.g. a listing page, it only empties the box.
   function handleClear() {
     setText("");
     inputRef.current?.focus();
@@ -168,14 +146,13 @@ export function HeaderSearch() {
   }
 
   return (
-    // max-w-160 (640px): from md up the header gives the search a flexible
-    // column, so the cap moves here to keep the box its usual width.
+    // max-w-160 (640px) keeps the box its usual width in the header's flexible
+    // column.
     <form role="search" aria-label="Search activities" onSubmit={handleSubmit} className={WRAPPER_CLASS}>
-      {/* The icon becomes a spinner while a search runs; aria-busy on the input
-          carries the same state for screen readers. */}
+      {/* A spinner while searching; aria-busy on the input tells screen
+          readers. */}
       <AiSparkles loading={isPending} />
-      {/* aria-label, not the placeholder, names the field: a placeholder
-          isn't a reliable label, and this one changes every few seconds. */}
+      {/* Named by aria-label: the placeholder changes every few seconds. */}
       <Input
         ref={inputRef}
         id={SITE_SEARCH_ID}
@@ -192,16 +169,14 @@ export function HeaderSearch() {
         onBlur={() => setFocused(false)}
         className={INPUT_CLASS}
       />
-      {/* Hidden while a search runs: clearing then would be undone a moment
-          later when the search's results arrive. */}
+      {/* Hidden while searching: the incoming results would undo a clear. */}
       {text !== "" && !isPending && <ClearButton onClick={handleClear} />}
     </form>
   );
 }
 
-// Inside the box's right edge, mirroring the icon on the left. type="button"
-// so it never submits the form. A 24px circle keeps the tap target at the
-// accessibility minimum without crowding the input.
+// type="button" so it never submits. A 24px circle meets the minimum target
+// size.
 function ClearButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -215,8 +190,8 @@ function ClearButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-// Shown while HeaderSearch waits on useSearchParams (which needs a
-// Suspense boundary) - same box, first example, not yet interactive.
+// Shown while HeaderSearch waits on useSearchParams: the same box, not yet
+// interactive.
 export function HeaderSearchFallback() {
   return (
     <div className={WRAPPER_CLASS}>

@@ -14,18 +14,15 @@ import {
 } from "@/lib/listing-images";
 
 const ACCEPT = Object.keys(LISTING_IMAGE_TYPES).join(",");
-// The photo is cropped to fill the browse card's image area, so the form
-// shows it in a frame of a similar shape.
+// The photo is cropped to fill the card's image area, so the form frames it in
+// a similar shape.
 const FRAME_CLASS = "relative aspect-[16/9] w-full max-w-md overflow-hidden rounded-lg";
 
-// The listing form's photo field. Choosing (or dropping) a file uploads it
-// straight to Vercel Blob - see lib/listing-images.ts for how the upload
-// is authorised - and hands its URL to the form, which stores it when the
-// listing is saved. Replace and Remove only change the form; the old file
-// is deleted by the server once the save goes through.
-//
-// Files are checked here first (type, size) so a wrong one fails at once
-// with a clear message, but the upload permission enforces the same limits.
+// The listing form's photo field. A chosen or dropped file uploads straight to
+// Vercel Blob (see lib/listing-images.ts) and its URL goes to the form, stored
+// on save. Replace and Remove only change the form; the server deletes the old
+// file after saving. Type and size are checked here first; the upload
+// permission enforces the same limits.
 export function ListingImageField({
   venueId,
   value,
@@ -37,9 +34,9 @@ export function ListingImageField({
   venueId: string;
   value: string | null;
   onChange: (url: string | null) => void;
-  // The form can't be saved mid-upload: it would save without the photo.
+  // The form can't save mid-upload.
   onUploadingChange: (uploading: boolean) => void;
-  // From the server's check on save (e.g. the file is gone).
+  // From the server's check on save (e.g. the file is missing).
   error?: string;
   describedBy?: string;
 }) {
@@ -48,7 +45,7 @@ export function ListingImageField({
   const [progress, setProgress] = useState<number | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
-  // What a screen reader hears as an upload starts, ends or fails.
+  // Announced to screen readers when an upload starts, ends or fails.
   const [status, setStatus] = useState("");
 
   const uploading = progress !== null;
@@ -82,8 +79,8 @@ export function ListingImageField({
       if (controller.signal.aborted) {
         setStatus("Upload cancelled.");
       } else {
-        // The Blob client doesn't pass on the server's reason, so one
-        // message covers a refused permission and a failed transfer.
+        // The Blob client doesn't pass on the server's reason, so one message
+        // covers both failures.
         setLocalError("The photo couldn't be uploaded. Check your connection and try again.");
         setStatus("");
       }
@@ -116,11 +113,11 @@ export function ListingImageField({
   };
 
   return (
-    // Named by the field's label (Field with labelFor={null}). The main
-    // button carries the field's id, so an error on save moves focus to it.
+    // Named by the field's label. The main button carries the field's id, so a
+    // save error focuses it.
     <div role="group" aria-labelledby="imageUrl-label" className="flex flex-col gap-3">
-      {/* Not shown; the buttons open it. Reset after each pick so choosing
-          the same file again still fires a change. */}
+      {/* Hidden; the buttons open it. Reset after each pick so re-choosing the
+          same file fires a change. */}
       <input
         ref={inputRef}
         type="file"
@@ -161,7 +158,7 @@ export function ListingImageField({
           ) : (
             <>
               <ImagePlus aria-hidden className="size-7 text-muted-foreground" />
-              {/* Dragging is a desktop thing; phones just get the button. */}
+              {/* Drag and drop on desktop only. */}
               <p className="hidden text-sm text-muted-foreground sm:block">Drag a photo here, or</p>
               <Button
                 id="imageUrl"

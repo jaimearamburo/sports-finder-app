@@ -14,8 +14,7 @@ const CHIP_UNSELECTED = "border-border bg-card text-muted-foreground hover:borde
 const CHIP_SELECTED = "border-primary bg-primary text-primary-foreground";
 const CHIP_DISABLED = "cursor-not-allowed border-border bg-card text-muted-foreground opacity-40";
 
-// en-US, not this file's usual en-AU, for month-day-year ordering with a
-// comma ("October 6, 2026") rather than en-AU's day-first "6 October 2026".
+// en-US for "October 6, 2026" ordering.
 function formatFullDate(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
@@ -26,10 +25,8 @@ function minutesToTimeString(minutes: number): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
-// Order matters: date, then duration, then start time - duration decides
-// which start times even fit before closing, so picking it first lets the
-// time grid only ever show valid options instead of letting someone pick
-// a time and then discover their duration doesn't fit there.
+// Pick date, then length, then start time: the length decides which start times
+// fit before closing.
 export function TimeRangePicker({
   listing,
   bookableDates,
@@ -38,24 +35,16 @@ export function TimeRangePicker({
 }: {
   listing: PickerListing;
   bookableDates: Date[];
-  // Per-date occupied ranges from existing Bookings/BookingHolds - see
-  // getOccupiedIntervals in lib/availability.ts. Undefined means "nothing
-  // fetched" and is treated as "nothing occupied," never as "unknown."
+  // Occupied ranges per date (getOccupiedIntervals). Undefined is treated as
+  // none.
   occupiedIntervals?: Map<number, OccupiedInterval[]>;
   onSelect: (slots: SelectedSlots | null) => void;
 }) {
-  // Defaults to the earliest bookable date (ordinarily today, unless an
-  // override blocks it) rather than requiring an explicit first click.
+  // Defaults to the earliest bookable date.
   const [selectedDate, setSelectedDate] = useState<Date | null>(bookableDates[0] ?? null);
   const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
   const [selectedStartMinutes, setSelectedStartMinutes] = useState<number | null>(null);
 
-  // A time_range listing is bookable (almost always) every day, so an
-  // always-visible calendar - the same pattern DateRangePicker already
-  // uses - reads better here than a horizontally-scrolling pill row: no
-  // second UI to keep in sync with the calendar, no auto-scroll-to-
-  // selection to build, and one less thing that can drift out of
-  // agreement with itself.
   const bookableSet = useMemo(() => new Set(bookableDates.map((d) => d.getTime())), [bookableDates]);
   const isDateDisabled = (date: Date) => !bookableSet.has(localDateToUTCDay(date).getTime());
 
@@ -70,13 +59,9 @@ export function TimeRangePicker({
     }
   }
 
-  // Every increment-aligned start time across the whole operating window,
-  // independent of which duration is currently selected - this list's
-  // length/order never changes when duration changes, only each button's
-  // own fits-the-current-duration state does (see fitsDuration below). A
-  // duration-dependent list would shrink or grow the grid on every
-  // duration change, shifting every other button's position and forcing
-  // the user to re-find whichever one they were about to click.
+  // Every step-aligned start time across opening hours, independent of the
+  // selected length, so the grid keeps its layout when the length changes;
+  // fitsDuration decides each button's state.
   const allStartMinutes: number[] = [];
   if (listing.operatingHoursStart && listing.operatingHoursEnd && listing.incrementMinutes) {
     const openMinutes = minutesSinceMidnight(listing.operatingHoursStart);
@@ -91,18 +76,10 @@ export function TimeRangePicker({
     return startMinutes + selectedDuration <= minutesSinceMidnight(listing.operatingHoursEnd);
   }
 
-  // Whether an existing Booking/BookingHold already claims enough of this
-  // listing's capacity, somewhere in [startMinutes, startMinutes +
-  // selectedDuration), that this start time can't actually be booked - the
-  // picker's own mirror of the overlap-sum check createBookingHold enforces
-  // server-side. capacity: null (unlimited) skips the check entirely, same
-  // as the server does. Every seeded time_range listing is capacity: 1, so
-  // "used >= capacity" (rather than factoring in a not-yet-chosen quantity,
-  // which this component has no access to - SlotPicker's quantity stepper
-  // only appears after a slot is picked) is exactly right for the
-  // exclusive-use case this app actually has; a future capacity > 1
-  // time_range listing would still be correctly blocked server-side even
-  // if this client-side check under-blocks it slightly.
+  // Whether bookings and holds already use the listing's capacity anywhere in
+  // [start, start + length): the picker's mirror of createBookingHold's check.
+  // Unlimited capacity skips it. Quantity isn't known yet, so this blocks only
+  // when capacity is fully used; the server still enforces quantity.
   function hasConflict(startMinutes: number): boolean {
     if (!selectedDate || !selectedDuration || listing.capacity === null) return false;
     const dayIntervals = occupiedIntervals?.get(selectedDate.getTime()) ?? [];
@@ -113,11 +90,8 @@ export function TimeRangePicker({
     return used >= listing.capacity;
   }
 
-  // A start time on today's date that's already passed (measured against
-  // the venue's own clock, not the browser's) is never selectable, even
-  // if it would otherwise fit. The server re-derives this same rule
-  // independently in isRequestedSlotValid - this is purely so the picker
-  // doesn't offer something it already knows will be rejected.
+  // Start times that have passed today (venue clock) aren't selectable; the
+  // server applies the same rule.
   function isSelectable(startMinutes: number): boolean {
     if (!fitsDuration(startMinutes)) return false;
     if (selectedDate && isPastToday(selectedDate, startMinutes, listing.venueTimezone)) return false;
@@ -126,14 +100,8 @@ export function TimeRangePicker({
   }
 
   function pickDate(date: Date) {
-    // localDateToUTCDay, not startOfUTCDay: the Calendar hands back a Date
-    // built from the browser's LOCAL midnight for the clicked day.
-    // startOfUTCDay would reinterpret that instant through UTC's clock
-    // (wrong tool here - see its own comment in lib/dates.ts), silently
-    // shifting the day back by one for anyone east of UTC (e.g.
-    // Australia). Without the right conversion, selectedDate could
-    // disagree with bookableDates' own UTC-midnight entries by a day,
-    // corrupting the startsAt pickStartTime builds below.
+    // localDateToUTCDay: the calendar returns local midnight, and startOfUTCDay
+    // would shift it back a day east of UTC.
     setSelectedDate(localDateToUTCDay(date));
     setSelectedDuration(null);
     setSelectedStartMinutes(null);
@@ -149,9 +117,7 @@ export function TimeRangePicker({
   function pickStartTime(startMinutes: number) {
     if (!selectedDate || !selectedDuration || !isSelectable(startMinutes)) return;
     setSelectedStartMinutes(startMinutes);
-    // zonedOccurrenceStart, not Date.UTC directly - the chosen time is a
-    // wall-clock time at the venue, not at UTC (see its own comment in
-    // lib/time-of-day.ts).
+    // The chosen time is venue wall-clock time, not UTC.
     const startsAt = zonedOccurrenceStart(selectedDate, minutesToTimeString(startMinutes), listing.venueTimezone);
     onSelect([{ startsAt, endsAt: new Date(startsAt.getTime() + selectedDuration * 60000) }]);
   }

@@ -1,8 +1,7 @@
 "use client";
 
-// Alternate TagFilterChips using a true squircle clip path instead of
-// rounded-[20%]. Not imported anywhere; kept as a visual reference and
-// manually mirrored whenever tag-filter-chips.tsx changes.
+// Alternative TagFilterChips using a true squircle clip path. Not imported
+// anywhere; a visual reference only.
 import { startTransition, useOptimistic } from "react";
 import { getSvgPath } from "figma-squircle";
 import { cn } from "@/lib/utils";
@@ -11,11 +10,8 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 type BrowseTag = { id: string; name: string; emoji: string; color: string };
 
-// A true continuous-curve squircle (the Figma "corner smoothing"
-// curve), not rounded-[20%]'s ellipse-based approximation. Computed once
-// at module scope since every chip icon is the same fixed size.
-// ICON_SIZE is the single source of truth: it sizes both the clip path
-// and the icon span below, so the two can't drift out of sync.
+// A continuous-curve squircle (Figma's corner smoothing), computed once.
+// ICON_SIZE sizes both the clip path and the icon.
 const ICON_SIZE = 80;
 const SQUIRCLE_CLIP_PATH = `path('${getSvgPath({
   width: ICON_SIZE,
@@ -24,10 +20,8 @@ const SQUIRCLE_CLIP_PATH = `path('${getSvgPath({
   cornerSmoothing: 1,
 })}')`;
 
-// Renders the actual chips with no knowledge of URLs or routing. TagFilters
-// owns the URL logic and passes a plain callback down; this component owns
-// the optimistic display and pending state and calls that callback inside
-// its own transition.
+// Renders the chips without URL logic; TagFilters passes a callback. Owns the
+// optimistic display and pending state.
 export function TagFilterChips({
   tags,
   selected,
@@ -37,18 +31,14 @@ export function TagFilterChips({
   selected: Set<string>;
   changeAction: (next: Set<string>) => void;
 }) {
-  // One optimistic value for what is displayed as selected right now, one
-  // purely as a pending flag. Both apply on the current frame even inside
-  // a transition, which makes a clicked chip highlight instantly
-  // regardless of how long the resulting navigation takes.
+  // Optimistic selection and pending flag, applied on the current frame so a
+  // clicked chip highlights immediately.
   const [optimisticSelected, setOptimisticSelected] = useOptimistic(selected);
   const [isPending, setIsPending] = useOptimistic(false);
 
   function handleClick(name: string) {
     const slug = name.toLowerCase();
-    // Computed from this component's own optimistic state, not the
-    // selected prop, so a second click before the first navigation
-    // resolves still toggles correctly instead of reading a stale value.
+    // From the optimistic state, so a second quick click toggles correctly.
     const next = new Set(optimisticSelected);
     if (next.has(slug)) {
       next.delete(slug);
@@ -64,16 +54,12 @@ export function TagFilterChips({
   }
 
   return (
-    // ScrollArea's own Viewport does the scrolling/clipping instead of a
-    // plain overflow-x-auto div, so its custom thumb (see
-    // components/ui/scroll-area.tsx)
+    // ScrollArea's Viewport scrolls the row, for its custom thumb
+    // (components/ui/scroll-area.tsx).
     <ScrollArea
       className="-mt-2 -mr-2 -ml-2 mb-2 sm:mb-5"
-      // mask-image fades the visible edge to transparent as a hint that
-      // the row scrolls. It has to live on the Viewport, not the scrolled
-      // content: the content's own width is the full row (~17 chips), so
-      // a mask on it would fade a fixed point near the end of all content
-      // instead of the edge of what's actually visible right now.
+      // The edge fade hints the row scrolls. On the Viewport, not the content,
+      // so it fades the visible edge.
       viewportClassName="mask-[linear-gradient(to_right,black_calc(100%-56px),transparent_100%)]"
     >
       <div
@@ -90,48 +76,24 @@ export function TagFilterChips({
                 onClick={() => handleClick(tag.name)}
                 aria-pressed={isSelected}
                 aria-label={tag.name}
-                // Named group ("chip"). Tailwind's group-hover selector
-                // matches any ancestor with a group class of the same name,
-                // not only the nearest one. app/page.tsx has its own group
-                // ("browse") for a separate dimming effect, and this needs a
-                // distinct name so the two do not trigger each other. Only
-                // the icon lives inside the button, so hover/click apply to
-                // it alone, not the label below.
-                //
-                // active:scale-95 gives tap feedback: a brief scale-down
-                // while the pointer or touch is down, independent of which
-                // way the click toggles selection, with no JS state needed.
+                // Named group ("chip") so group-hover doesn't react to other
+                // groups on the page. Only the icon is inside the button.
+                // active:scale-95 gives tap feedback.
                 className="group/chip transition-transform duration-150 active:scale-95"
               >
-                {/* drop-shadow lives on a wrapper outside the clipped element:
-                    filter and clip-path on the same element would compute the
-                    shadow first and clip-path would then cut it off at the
-                    shape's own boundary. drop-shadow-md (not the bare
-                    drop-shadow utility, a ~1px/2px blur at 10% opacity) -
-                    too faint to read reliably against this near-white
-                    bg-[#fcfcfc] card on some mobile displays; the stronger
-                    default still reads as a soft shadow, not a harsh one.
-                    transform-[translateZ(0)] forces this wrapper onto its
-                    own GPU compositing layer - without it, WebKit (every
-                    browser on iOS is WebKit under the hood, Chrome
-                    included - Apple requires it) has a known bug where a
-                    filter on an element wrapping a clip-path'd child
-                    doesn't paint at all rather than just rendering
-                    wrong. */}
+                {/* drop-shadow on a wrapper: on the clipped element itself,
+                    clip-path would cut the shadow off. drop-shadow-md stays
+                    visible on the near-white tile. translateZ(0) works around a
+                    WebKit bug where a filter around a clip-path'd child doesn't
+                    paint. */}
                 <span className="drop-shadow-md transform-[translateZ(0)]">
-                  {/* Color comes from the database via inline style, since
-                      tags are editable data with no fixed palette to
-                      pre-write classes for. The clip-path shape already
-                      clips its own contents, so no overflow-hidden is
-                      needed. Width/height come from ICON_SIZE, not a size-*
-                      class, so the box always matches the clip path. */}
+                  {/* Tag colours are data, so they come from an inline style.
+                      The clip path clips the contents; width and height come
+                      from ICON_SIZE so the box matches it. */}
                   <span
                     className={cn(
                       "relative flex items-center justify-center",
-                      // Grayscale hex (equal R/G/B) instead of a bg-gray-* step,
-                      // since the palette's lightest step (gray-50, #fafafa) is
-                      // as light as its numbered scale goes. Nudge the repeated
-                      // hex pair toward ff (lighter) or fa (darker) to retune.
+                      // Off-white, lighter than the lightest gray-* step.
                       !isSelected && "bg-[#fcfcfc]"
                     )}
                     style={{

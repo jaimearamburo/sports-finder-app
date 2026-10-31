@@ -1,10 +1,9 @@
-# Checks every pull request and every push to main/dev: typecheck, lint and
-# unit tests, plus the booking database tests against a throwaway Postgres
-# that exists only for the run. Needs no secrets and never touches a real
-# database.
+# Runs on every pull request and every push to main/dev: typecheck, lint, unit
+# tests, and the booking database tests against a throwaway Postgres. No
+# secrets, no real database.
 #
-# The end-to-end tests aren't here: they need a running app with Stripe
-# test keys and a Blob store, so they're run locally (pnpm test:e2e).
+# End-to-end tests run locally (pnpm test:e2e): they need the running app with
+# Stripe test keys and a Blob store.
 name: CI
 
 on:
@@ -15,7 +14,7 @@ on:
 permissions:
   contents: read
 
-# A newer push to the same branch or PR makes the older run pointless.
+# A newer push to the same ref cancels the older run.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -25,9 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      # prisma.config.ts reads this, and `prisma generate` (run by
-      # postinstall) loads that config. Generating the client never
-      # connects, so a placeholder URL is enough.
+      # `prisma generate` (postinstall) loads prisma.config.ts, which reads
+      # this. Generating never connects, so a placeholder is enough.
       POSTGRES_URL_NON_POOLING: postgresql://ci:ci@localhost:5432/ci
     steps:
       - uses: actions/checkout@v4
@@ -41,8 +39,7 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # --frozen-lockfile: fail if package.json and pnpm-lock.yaml disagree,
-      # instead of quietly resolving different versions than Vercel builds.
+      # --frozen-lockfile fails if package.json and pnpm-lock.yaml disagree.
       - name: Install
         run: pnpm install --frozen-lockfile
 
@@ -55,9 +52,9 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
-  # The booking core against a real Postgres (pnpm test:db): row locks,
-  # capacity sums and payment completion. An empty database, built from the
-  # migrations, which also proves they apply cleanly from scratch.
+  # The booking core against a real Postgres: row locks, capacity sums and
+  # payment completion. The database is built from the migrations, which proves
+  # they apply from scratch.
   database:
     runs-on: ubuntu-latest
     timeout-minutes: 15

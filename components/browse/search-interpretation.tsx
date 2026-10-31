@@ -12,26 +12,24 @@ function formatDay(param: string): string {
   return new Date(y, m - 1, d).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
 }
 
-// Removes one value from a comma-separated param (tags, city), dropping
-// the param entirely once it's empty.
+// Removes one value from a comma-separated param (tags, city), dropping the
+// param once empty.
 function removeFromList(params: URLSearchParams, key: string, value: string) {
   const rest = (params.get(key) ?? "").split(",").filter((v) => v && v !== value);
   if (rest.length > 0) params.set(key, rest.join(","));
   else params.delete(key);
 }
 
-// Empties every browse param - what "Clear search" leaves behind.
+// Removes every browse param ("Clear search").
 export function clearAllParams(params: URLSearchParams) {
   for (const key of [...params.keys()]) params.delete(key);
 }
 
-// One chip per filter currently in the URL. Derived from the URL rather
-// than from what the search originally returned, so chips stay accurate if
-// the person then adjusts the sidebar or quick filters too.
+// One chip per filter in the URL, so chips stay accurate after the sidebar or
+// quick filters change them.
 function chipsFor(params: URLSearchParams): Chip[] {
   const chips: Chip[] = [];
-  // Tags are lowercase in the URL (the tag tiles' convention), so they're
-  // title-cased back for display: "table tennis" -> "Table Tennis".
+  // Tags are lowercase in the URL; title-case them for display.
   for (const tag of (params.get("tags") ?? "").split(",").filter(Boolean)) {
     const label = tag.replace(/\b\w/g, (c) => c.toUpperCase());
     chips.push({ key: `tag-${tag}`, label, remove: (p) => removeFromList(p, "tags", tag) });
@@ -71,12 +69,10 @@ function chipsFor(params: URLSearchParams): Chip[] {
   return chips;
 }
 
-// How a natural-language search was understood (see searchAction), shown
-// above the results while a search is active (`q` in the URL). Each chip
-// can be removed to undo one part of the interpretation, which is the
-// quick fix when the model reads a query differently than intended.
-// Goes through useBrowseFilters like every other filter control, so a
-// removed chip disappears straight away and the results dim while they load.
+// How a natural-language search was understood (searchAction), shown while `q`
+// is in the URL. Removing a chip undoes that part of the interpretation. Goes
+// through useBrowseFilters, so removal is immediate and results dim while
+// loading.
 export function SearchInterpretation() {
   const { params, update } = useBrowseFilters();
   const q = params.get("q");
@@ -88,8 +84,8 @@ export function SearchInterpretation() {
     update(chip.remove);
   }
 
-  // Same as the header search box's clear button: the search and every
-  // filter it set go, leaving plain browse.
+  // Like the header search's clear button: removes the search and every filter
+  // it set.
   function clearSearch() {
     update(clearAllParams);
   }

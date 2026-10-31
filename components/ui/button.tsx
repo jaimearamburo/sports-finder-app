@@ -15,17 +15,15 @@ const buttonVariantClasses = cva(
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
-        // Text darkened 30% toward black in light mode: plain
-        // text-destructive on its own 10% tint measured ~3.8:1, under
-        // WCAG AA's 4.5:1 for button text.
+        // Text darkened 30% toward black in light mode: plain text-destructive
+        // on its 10% tint is ~3.8:1, under WCAG AA's 4.5:1.
         destructive:
           "bg-destructive/10 text-[color-mix(in_srgb,var(--destructive)_70%,black)] dark:text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
       },
-      // Text sizes are taller on phones (below sm): fingers need bigger
-      // targets than a pointer (Apple suggests 44px), so default is 44px,
-      // sm 40px and lg - the main action, e.g. Book Now and Pay - 48px,
-      // back to the compact desktop heights from sm up.
+      // Taller on phones (below sm) for finger targets: default 44px, sm 40px,
+      // lg (the main action, e.g. Book Now and Pay) 48px; compact desktop
+      // heights from sm up.
       size: {
         default:
           "h-11 sm:h-9 gap-1.5 px-2.5 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
@@ -47,13 +45,9 @@ const buttonVariantClasses = cva(
   }
 )
 
-// The class list for a button-styled element, merged with tailwind-merge
-// (cn). The base classes include `border-transparent` and variants like
-// "outline" add their own border colour; without merging, both reach the
-// page and the base one can win, which silently removed the border from
-// every link styled as an outline button (<Link className={buttonVariants(...)}>).
-// Merging here means every caller - Button itself and plain links alike -
-// gets the classes the variant intends.
+// Variant classes merged with tailwind-merge (cn): the base
+// `border-transparent` would otherwise beat a variant's border colour, e.g. on
+// <Link className={buttonVariants({ variant: "outline" })}>.
 function buttonVariants(props?: Parameters<typeof buttonVariantClasses>[0]): string {
   return cn(buttonVariantClasses(props))
 }

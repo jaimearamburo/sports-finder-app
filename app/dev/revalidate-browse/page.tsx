@@ -3,12 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RevalidateForm } from "./revalidate-form";
 
 /**
- * TEMPORARY DEV-ONLY TOOL. Delete this whole directory once an admin UI
- * manages tags and venues and revalidates on save instead. See
- * actions.ts for why this is safe to keep around only in non-production:
- * `notFound()` here is defense in depth, hiding the page even if someone
- * guesses the URL on a deployed build, while the actual enforcement is
- * the `NODE_ENV` check in the server action itself.
+ * Development-only tool (see actions.ts). notFound() hides the page on deployed
+ * builds; the action's NODE_ENV check is the real safeguard.
  */
 export default function DevRevalidateBrowsePage() {
   if (process.env.NODE_ENV === "production") {

@@ -2,8 +2,7 @@ import Link from "next/link";
 import { Logo } from "@/components/layout/logo";
 import { GITHUB_URL, LINKEDIN_URL } from "@/lib/site-links";
 
-// Brand marks drawn inline: lucide-react, used elsewhere in this app, has no
-// brand icons. Paths from Simple Icons (CC0).
+// Inline brand icons (lucide has none). Paths from Simple Icons (CC0).
 function GitHubIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="size-4">
@@ -32,18 +31,14 @@ const SOCIAL_LINKS = [
   { href: LINKEDIN_URL, label: "LinkedIn", icon: <LinkedInIcon /> },
 ];
 
-// Compact on purpose: only what's useful, in two short bands. Top band:
-// the logo and the social icons share a row on phones (logo left, icons
-// right) with the links on the row below; from md up all three sit on one
-// row - logo left, links centre, icons right. Bottom bar: the copyright and
-// the credit, split left and right (stacking only on the narrowest
-// phones). Tap targets are 40px on phones.
+// Two compact bands. Top: logo and social icons on one row with links below on
+// phones; logo, links and icons in one row from md up. Bottom: copyright and
+// credit. 40px tap targets on phones.
 export function SiteFooter() {
   return (
     <footer className="border-t bg-card">
-      {/* Same max-w as site-header.tsx, kept in sync so the header/footer
-          bars and the page content between them all line up at the same
-          edges regardless of viewport width. */}
+      {/* Same max-w as site-header.tsx, so header, footer and content share
+          edges. */}
       <div className="mx-auto grid max-w-[1800px] grid-cols-[1fr_auto] items-center gap-x-6 gap-y-2 px-4 py-4 sm:px-6 md:grid-cols-[1fr_auto_1fr] md:py-5 lg:px-8">
         <Logo size="sm" />
 

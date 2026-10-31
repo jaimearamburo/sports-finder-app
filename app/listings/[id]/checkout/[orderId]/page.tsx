@@ -15,12 +15,9 @@ export default async function CheckoutPage({
   const { id: listingId, orderId } = await params;
   const session = await auth();
 
-  // Fetches every hold in this order - a non-accommodation date_range
-  // "pass" (several individually-picked days) creates one BookingHold per
-  // day, all sharing this orderId, and this page checks out the whole
-  // order at once under one shared countdown. Scoped to the current user
-  // and this listing - ownership isn't trusted from the URL, since an
-  // orderId is just a plain string a visitor could edit by hand.
+  // Every hold in this order (a pass has one per day), checked out together
+  // under one countdown. Scoped to the current user and listing: the orderId in
+  // the URL proves nothing.
   const holds = session
     ? await prisma.bookingHold.findMany({
         where: { orderId, userId: session.user.id, listingId },
@@ -30,23 +27,20 @@ export default async function CheckoutPage({
   const stillActive = holds.length > 0 && holds.every((h) => h.expiresAt > new Date());
 
   if (!session || !stillActive) {
-    // Covers a nonexistent or someone else's orderId as well as a genuinely
-    // expired one - a visitor can't tell them apart and doesn't need to;
-    // either way the only next step is picking a slot again.
+    // Nonexistent, someone else's or expired: the visitor's next step is the
+    // same either way.
     return <HoldExpiredNotice listingId={listingId} />;
   }
 
-  // Fetches just enough to show a summary and compute the total - the
-  // hold itself is already the source of truth for which slots and how
-  // much quantity were reserved.
+  // Enough for the summary and total; the holds define the slots and quantity.
   const listing = await prisma.listing.findUnique({
     where: { id: listingId },
     select: {
       name: true,
       pricePerUnit: true,
       venue: { select: { name: true, city: { select: { name: true, timezone: true } } } },
-      // tags: only for the category label's colour - the first tag, the same
-      // one app/listings/[id]/page.tsx takes its accent colour from.
+      // The first tag, for the category label's colour (as on the listing
+      // page).
       activity: {
         select: { name: true, bookingMechanic: true, isAccommodation: true, tags: { select: { tag: { select: { color: true } } } } },
       },
@@ -63,9 +57,8 @@ export default async function CheckoutPage({
   const quantity = holds[0].quantity;
   const total = getTotalPrice(priceInfo, slots) * quantity;
   const breakdown = getBreakdownLine(priceInfo, slots);
-  // One line per slot - a multi-day pass checks out several at once, and
-  // each needs its own line rather than one range that would wrongly
-  // imply the days in between are included too.
+  // One line per slot: a pass shows each day, not a range implying the days
+  // between.
   const scheduleLines = slots.map((slot) =>
     formatBookingTime(slot.startsAt, slot.endsAt, listing.venue.city.timezone, listing.activity)
   );

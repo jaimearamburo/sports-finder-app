@@ -5,16 +5,11 @@ import { PRICE_MIN, PRICE_MAX } from "@/lib/price-range";
 import { DateFilterPopover } from "@/components/browse/date-filter-popover";
 
 export type QuickFilterValues = {
-  // "" (no date filter), "yyyy-mm-dd" (one specific day), or
-  // "yyyy-mm-dd,yyyy-mm-dd" (the "This weekend" pill's Saturday+Sunday).
-  // Kept as the raw URL-shaped string, not pre-parsed into Dates, so each
-  // pill below only parses the slice it actually cares about.
+  // "" (no date filter), "yyyy-mm-dd" (one day) or "yyyy-mm-dd,yyyy-mm-dd" (the
+  // weekend pair), as in the URL.
   date: string;
-  // Both bounds, not just priceMax - if the sidebar's own price slider
-  // already raised priceMin above 0, setting priceMax alone to 0 would
-  // produce an impossible range (gte priceMin, lte 0) and silently return
-  // zero results. Free owns the whole price range when active rather than
-  // layering a delta on top of whatever the sidebar left behind.
+  // Both bounds: Free sets the whole range, so a raised priceMin can't leave an
+  // impossible range.
   priceMin: number;
   priceMax: number;
 };
@@ -24,12 +19,8 @@ const PILL_CLASS =
 const PILL_ACTIVE_CLASS =
   "border-foreground bg-foreground text-background hover:border-foreground hover:text-background";
 
-// Reads yyyy-mm-dd off the Date's own local year/month/day, not
-// toISOString() (which converts through UTC first and would shift the
-// date backwards for anyone east of UTC, e.g. Australia). ListingSection
-// parses this string as a UTC calendar day on its own terms, matching
-// lib/availability.ts's UTC-day convention - the two interpretations
-// never need to agree on timezone, only on the same digits.
+// yyyy-mm-dd from the Date's local y/m/d (toISOString would shift the day east
+// of UTC). ListingSection reads it as a calendar day.
 function toDateParam(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -37,20 +28,16 @@ function toDateParam(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-// The inverse of toDateParam. Builds from local y/m/d rather than parsing
-// the string as a UTC instant, so the Calendar's local-time day
-// comparisons highlight the right date regardless of the browser's
-// timezone offset from UTC.
+// Inverse of toDateParam, built from local y/m/d so the calendar highlights the
+// right day in any timezone.
 function parseDateParam(value: string): Date {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);
 }
 
-// The nearest Saturday and Sunday on or after the viewer's own local
-// today. There is no single venue to anchor "today" to here, since the
-// browse grid spans many venues and timezones at once. On a Sunday this
-// resolves to {today, next Saturday} rather than jumping a full week
-// ahead for both, since "this weekend" still means the one ending today.
+// The nearest Saturday and Sunday on or after the viewer's local today (browse
+// spans many timezones, so there's no venue to anchor to). On a Sunday: today
+// and next Saturday.
 function nextWeekendDates(): [Date, Date] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -67,11 +54,9 @@ function weekendDateParam(): string {
   return `${toDateParam(saturday)},${toDateParam(sunday)}`;
 }
 
-// Renders the pills with no knowledge of URLs. The values it receives
-// already include a change that's still loading (see useBrowseFilters), so
-// a click shows straight away. "This weekend" and the specific-date popover
-// can never conflict: they read and write the same `date` key, so picking
-// one always overwrites the other.
+// Renders the pills without URL logic. Values include a change still loading
+// (useBrowseFilters). "This weekend" and the date popover share the `date` key,
+// so one always replaces the other.
 export function QuickFiltersPanel({
   date,
   priceMin,
@@ -80,10 +65,8 @@ export function QuickFiltersPanel({
 }: QuickFilterValues & { changeAction: (next: QuickFilterValues) => void }) {
   const current: QuickFilterValues = { date, priceMin, priceMax };
 
-  // A two-date value (the weekend pair) has no single day to highlight on
-  // the specific-date popover's own calendar - it shows its resting "Any
-  // date" state instead, and picking a day from it overwrites the pair,
-  // same as picking a day always overwrites whatever was there before.
+  // The weekend pair has no single day to highlight, so the popover shows "Any
+  // date".
   const selectedDate = current.date && !current.date.includes(",") ? parseDateParam(current.date) : undefined;
   const isWeekendActive = current.date === weekendDateParam();
   const isFreeActive = current.priceMax === 0;

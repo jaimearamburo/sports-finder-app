@@ -3,10 +3,8 @@
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-// A browser back-navigation, not a fixed link to "/" - so it returns
-// to whatever exact browse URL (filters, tags, price range, all still in
-// the query string) the visitor came from; className/
-// children let each site keep its own visual treatment.
+// Browser back navigation rather than a link, so it returns to the exact browse
+// URL with its filters.
 export function BackButton({ className, children }: { className?: string; children: ReactNode }) {
   const router = useRouter();
   return (

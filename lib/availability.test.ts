@@ -3,9 +3,8 @@ import type { AvailabilityOverride } from "../generated/prisma/client";
 import { addDays } from "@/lib/dates";
 import { zonedOccurrenceStart } from "@/lib/time-of-day";
 
-// getBookableDates reads overrides from the database; here the query is
-// replaced with whatever rows a test supplies, so these tests cover the
-// date rules, not the query's own WHERE clause.
+// The override query is mocked with each test's rows, so these tests cover the
+// date rules, not the query.
 const { findMany } = vi.hoisted(() => ({ findMany: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: { availabilityOverride: { findMany } } }));
 
@@ -223,8 +222,8 @@ describe("isRequestedSlotValid", () => {
     });
 
     it("accepts today at a venue behind UTC (days are calendar days, not instants)", () => {
-      // 01:00 UTC is the evening before in New York. A UTC-midnight day
-      // viewed through New York's clock used to land on the previous day.
+      // 01:00 UTC is the previous evening in New York; a UTC-midnight day must
+      // not be read on New York's clock.
       const ny = listing({ mechanic: "date_range", timeZone: "America/New_York", minDurationDays: 1, maxDurationDays: 3 });
       expect(isRequestedSlotValid(ny, day(-1), TODAY, [day(-1)])).toBe(true);
     });

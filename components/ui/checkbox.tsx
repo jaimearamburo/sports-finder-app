@@ -4,9 +4,8 @@ import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox"
 import { cn } from "@/lib/utils"
 import { CheckIcon } from "lucide-react"
 
-// Unchecked: a white box with a dark (muted-foreground) border. shadcn's
-// default border-input was too faint to notice, and under the 3:1 contrast
-// WCAG asks of a control's outline.
+// Unchecked: a white box with a muted-foreground border. border-input is too
+// faint and under WCAG's 3:1 for a control's outline.
 function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
   return (
     <CheckboxPrimitive.Root

@@ -3,10 +3,9 @@ import { SearchX } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { NoticePage } from "@/components/notice-page";
 
-// For a dashboard record that doesn't exist or isn't the user's to manage
-// (e.g. another owner's venue) - deliberately the same message for both, so
-// the dashboard never confirms that someone else's record exists. Renders
-// inside the dashboard layout, so the nav stays available.
+// For a dashboard record that doesn't exist or isn't the user's: one message
+// for both, so other owners' records are never confirmed. Renders inside the
+// dashboard nav.
 export default function DashboardNotFound() {
   return (
     <NoticePage

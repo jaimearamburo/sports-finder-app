@@ -1,22 +1,14 @@
 import { z } from "zod";
 import { emailField, NAME_MAX_LENGTH } from "./common";
 
-// Runtime shapes for the booking Server Actions' inputs. Their TypeScript
-// argument types are compile-time only - a hand-crafted POST can send a
-// string where a Date belongs, an object as listingId, "2" as quantity -
-// and without these, that reached .getTime()/.trim() deep in lib/bookings.ts
-// and surfaced as a 500 instead of a clean { ok: false } result. Parsed at
-// the top of each DAL function (inside withAuth), not in the thin
-// actions.ts, so no caller can reach the logic without passing through
-// them. Business rules that need the database (capacity, operating hours,
-// maxBookingsPerTransaction, hold ownership/expiry) deliberately stay in
-// lib/bookings.ts and lib/availability.ts - these only check shape.
-// A plain module, not server-only, so CheckoutForm can reuse the attendee
-// rules for instant feedback.
+// Runtime shapes for the booking Server Actions' inputs: TypeScript types don't
+// stop a crafted POST sending a string as a Date or "2" as quantity. Parsed at
+// the top of each DAL function in lib/bookings.ts, so no caller skips them.
+// Shape only; rules that need the database stay in lib/bookings.ts and
+// lib/availability.ts. Not server-only, so CheckoutForm reuses the attendee
+// rules.
 
-// Loose on purpose: digits, spaces, "+", "-", "()" and a sane length.
-// Phone formats vary too much by country to validate strictly, and the
-// field is optional - this only stops obvious junk.
+// Loose on purpose: phone formats vary by country, and the field is optional.
 const PHONE_PATTERN = /^[+\d\s()-]{6,20}$/;
 
 export const attendeeSchema = z.object({
@@ -26,8 +18,7 @@ export const attendeeSchema = z.object({
     .min(1, { error: "Enter the attendee's full name." })
     .max(NAME_MAX_LENGTH, { error: `Name must be ${NAME_MAX_LENGTH} characters or fewer.` }),
   attendeeEmail: emailField,
-  // "" and missing both mean "no phone given," normalised to undefined so
-  // the DAL stores null either way.
+  // "" and missing both become undefined, stored as null.
   attendeePhone: z
     .string()
     .trim()
@@ -38,26 +29,21 @@ export const attendeeSchema = z.object({
 
 export const createHoldSchema = z.object({
   listingId: z.string().min(1),
-  // Server Actions serialise Date natively, so a genuine client always
-  // sends real Dates here - anything else is a crafted request. The max is
-  // just a ceiling on how big an array the per-slot loop will ever accept:
-  // a legitimate multi-day pass can never exceed the bookable window
-  // (capped at 90 days past today by MAX_OPEN_EXTENSION_DAYS in
-  // lib/availability.ts, not imported here to keep this module
-  // client-safe), so 100 never rejects a real request.
+  // Real Dates only (Server Actions serialise Dates natively). The max bounds
+  // the per-slot loop; a real pass can't exceed the bookable window
+  // (MAX_OPEN_EXTENSION_DAYS), so 100 never rejects a genuine request.
   slots: z
     .array(z.object({ startsAt: z.date(), endsAt: z.date() }))
     .min(1)
     .max(100),
-  // A crafted 0 or negative quantity would otherwise dodge the capacity
-  // check and permanently corrupt the listing's remaining-capacity math,
-  // since quantity is summed into every later overlap query.
+  // A zero or negative quantity would dodge the capacity check and skew every
+  // later capacity sum.
   quantity: z.number().int().min(1).optional(),
 });
 
-// Starting payment is the point where the attendee details are final:
-// they travel with the PaymentIntent (as metadata), so the payment webhook
-// can complete the booking even if the browser never comes back.
+// The attendee details are final at payment start: they travel in the
+// PaymentIntent's metadata so the webhook can complete the booking without the
+// browser.
 export const startPaymentSchema = attendeeSchema.extend({
   orderId: z.uuid(),
 });

@@ -11,13 +11,8 @@ function formatPillLabel(date: Date): string {
   return date.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
 }
 
-// Purely presentational - mirrors PriceRangeFilter's relationship to
-// BrowseSidebarPanel. selectedDate is already the live optimistic value
-// (QuickFiltersPanel owns that, plus the pending flag for the whole quick-
-// filters row), so this only needs its own popover open/closed state. A
-// calendar click is a single discrete action with no analogue to a
-// slider's in-progress drag position, so there's no local "live value" to
-// track here beyond that.
+// Presentational: QuickFiltersPanel owns the optimistic date and pending state;
+// this only owns whether the popover is open.
 export function DateFilterPopover({
   selectedDate,
   onCommit,

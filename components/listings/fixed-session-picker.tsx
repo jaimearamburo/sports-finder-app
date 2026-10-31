@@ -5,13 +5,8 @@ import { cn } from "@/lib/utils";
 import { formatTimeOfDay, addMinutesToTime, zonedOccurrenceStart, minutesSinceMidnight, isPastToday } from "@/lib/time-of-day";
 import type { PickerListing, SelectedSlots } from "./picker-types";
 
-// Two variants of the same date so the button can show the full wording on
-// a wide screen and swap to the abbreviated one on a phone, via Tailwind's
-// hidden/inline breakpoint classes rather than any JS media-query logic -
-// no such logic exists anywhere else in this app, so this stays consistent
-// with that. Abbreviating both the weekday and the month together, since
-// shortening only one alone doesn't free up enough width to matter once a
-// button also carries an end time and a spots-left count.
+// Long and short date formats, swapped by breakpoint classes: weekday and month
+// are both abbreviated on phones to fit the end time and spots count.
 function formatOccurrenceDateLong(date: Date): string {
   return date.toLocaleDateString("en-AU", {
     weekday: "long",
@@ -30,17 +25,15 @@ function formatOccurrenceDateShort(date: Date): string {
   });
 }
 
-// null/undefined (unlimited capacity, or spotsRemaining not supplied) means
-// nothing to report - the duration/date is the whole story for that button.
+// null/undefined means unlimited or unknown: no spots text.
 function getSpotsText(spotsLeft: number | null | undefined): string | null {
   if (spotsLeft === null || spotsLeft === undefined) return null;
   if (spotsLeft <= 0) return "Fully booked";
   return `${spotsLeft} spot${spotsLeft === 1 ? "" : "s"} left`;
 }
 
-// No calendar here on purpose - the day-of-week and time are already
-// fixed by the listing itself, so a grid of mostly-irrelevant days would
-// just be noise. The only real decision is which upcoming week.
+// No calendar: the weekday and time are fixed, so the only choice is which
+// week.
 export function FixedSessionPicker({
   listing,
   bookableDates,
@@ -59,24 +52,18 @@ export function FixedSessionPicker({
   }
 
   const sessionDurationMinutes = listing.sessionDurationMinutes;
-  // Same for every occurrence - only the date differs - so this is derived
-  // once rather than inside the map below.
+  // The same for every occurrence.
   const endTime = addMinutesToTime(listing.recurrenceStartTime, sessionDurationMinutes);
 
-  // Today's occurrence drops off the list entirely once its start time has
-  // passed (measured against the venue's own clock), rather than showing
-  // disabled - a class that already started isn't a real option, same
-  // "only show what's actually bookable" rule the browse page's date
-  // filter already applies elsewhere. The server independently re-derives
-  // this same rule in isRequestedSlotValid.
+  // Today's occurrence is hidden once it has started (venue clock). The server
+  // applies the same rule in isRequestedSlotValid.
   const visibleDates = bookableDates.filter(
     (date) => !isPastToday(date, minutesSinceMidnight(listing.recurrenceStartTime!), listing.venueTimezone)
   );
 
   function pick(date: Date) {
     setSelected(date.getTime());
-    // zonedOccurrenceStart, not Date.UTC directly - the recurrence time is
-    // a wall-clock time at the venue, not at UTC.
+    // The recurrence time is venue wall-clock time, not UTC.
     const startsAt = zonedOccurrenceStart(date, listing.recurrenceStartTime!, listing.venueTimezone);
     onSelect([{ startsAt, endsAt: new Date(startsAt.getTime() + sessionDurationMinutes * 60000) }]);
   }

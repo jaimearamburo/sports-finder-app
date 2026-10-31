@@ -5,9 +5,8 @@ import type { ListingFormInput } from "@/lib/validation/listing";
 
 export type { ArchiveListingResult, SaveListingResult } from "@/lib/dashboard/listings";
 
-// Thin on purpose: the permission and ownership checks, validation and
-// writes live in the data layer (lib/dashboard/listings.ts), so nothing
-// calling these can skip them.
+// Thin: permission, ownership, validation and writes live in
+// lib/dashboard/listings.ts, so no caller can skip them.
 export async function setListingArchivedAction(listingId: string, archived: boolean) {
   return setListingArchived(listingId, archived);
 }

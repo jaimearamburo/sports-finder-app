@@ -11,11 +11,7 @@ import { getBookableDates, getSpotsRemaining, hasAvailableSlotOnDate } from "@/l
 import { browseParamsSchema } from "@/lib/validation/browse";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-// All URL search params ListingSection's query can filter on. Every
-// value is a raw string (or absent) since it comes straight off the URL;
-// parsing and validation happen inside ListingSection itself. Shared with
-// app/page.tsx so the two stay in sync as filters are added, rather than
-// each redeclaring the same shape.
+// Raw browse URL params; ListingSection parses them. Shared with app/page.tsx.
 export type BrowseSearchParams = {
   category?: string;
   tags?: string;
@@ -25,9 +21,8 @@ export type BrowseSearchParams = {
   date?: string;
 };
 
-// The slow part of the browse page, isolated into its own component so
-// app/page.tsx can wrap only this in Suspense. The sidebar and chip row
-// render immediately regardless of how long this query takes.
+// The browse results, separate so app/page.tsx can wrap only the slow query in
+// Suspense.
 export async function ListingSection({ searchParams }: { searchParams: BrowseSearchParams }) {
   const {
     category: rawCategory,
@@ -39,13 +34,9 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
   } = searchParams;
 
   const category: CategoryId = rawCategory && isCategoryId(rawCategory) ? rawCategory : "all";
-  // Price, date and tag params are parsed (and bounded) by
-  // browseParamsSchema - see lib/validation/browse.ts. Dates are one day
-  // (a specific day picked from the calendar) or two (the "This weekend"
-  // pill's Saturday+Sunday), resolved to concrete calendar days entirely
-  // client-side (see components/browse/date-filter-popover.tsx and
-  // quick-filters-panel.tsx), so this never needs to know which pill
-  // produced them or whose timezone defined "today".
+  // Price, date and tag params are parsed and bounded by browseParamsSchema.
+  // Dates are one day or the weekend pair, already resolved to calendar days on
+  // the client.
   const {
     priceMin,
     priceMax,
@@ -60,13 +51,9 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     cities: rawCity,
   });
 
-  // Category is the booking-mechanic axis (see lib/category-filters.ts).
-  // Its id is the literal BookingMechanic value, so it needs no lookup
-  // table, just a direct field condition. Tags are a separate,
-  // freely-combinable condition, AND'd with category rather than merged
-  // into it: both go into an AND array rather than being spread into one
-  // flat object, since two spreads that both set a key on Activity would
-  // let the second silently overwrite the first.
+  // Category is a BookingMechanic value, so it filters directly. Tags are a
+  // separate condition; both go in an AND array so neither overwrites the
+  // other.
   const activityConditions = [];
   if (category !== "all") activityConditions.push({ bookingMechanic: category });
   if (selectedTags.length > 0) {
@@ -75,23 +62,18 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     });
   }
 
-  // Fetches every non-archived listing matching the category, tag, city,
-  // and price filters, with the activity/tag and venue/city data each
-  // card below needs to render.
-  // Read alongside the listings query rather than after it: only needed
-  // to decide which cards get the edit shortcut, so a failure here just
-  // means no shortcuts, never a broken page.
+  // The session is only needed for edit shortcuts and is read in parallel with
+  // the listings; a failure just means no shortcuts.
   const sessionPromise = auth().catch(() => null);
   const listings = await prisma.listing.findMany({
     where: {
-      // Retired listings (see Listing.archivedAt) are kept for their
-      // booking history but should never show up as bookable again.
+      // Archived listings never show in browse.
       archivedAt: null,
       activity: activityConditions.length > 0 ? { AND: activityConditions } : undefined,
-      // One city or several (see lib/city-filter.ts) - "any of these".
+      // One or more cities (lib/city-filter.ts), matched as "any of".
       venue: cities.length > 0 ? { city: { name: { in: cities } } } : undefined,
-      // PRICE_MAX is an open-ended "$100+" bound, so only the lower end
-      // is enforced once the range reaches it.
+      // PRICE_MAX is open-ended ("$100+"), so only the lower bound applies once
+      // the range reaches it.
       pricePerUnit: {
         gte: priceMin > PRICE_MIN ? priceMin : undefined,
         lte: priceMax < PRICE_MAX ? priceMax : undefined,
@@ -108,22 +90,15 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     return <NoResults />;
   }
 
-  // A date filter narrows results to listings actually bookable on at
-  // least one of `dates`, across every mechanic - not just an annotation
-  // on fixed_session cards. Deliberately opt-in: this runs one (sometimes
-  // two) queries per listing, same shape as the per-listing checks the
-  // detail page already makes, but only when the user has explicitly
-  // picked a date (or "This weekend") rather than on every default page
-  // load, which is what made the browse page slow before this was gated.
+  // A date filter keeps only listings bookable on at least one of `dates`, for
+  // every mechanic. It costs a query or two per listing, so it only runs when a
+  // date is chosen.
   let filteredListings: ListingCardData[] = listings;
   if (dates.length > 0) {
     type DateCheckResult = { id: string; ok: boolean; spotsLeft?: number | null };
     const results: DateCheckResult[] = await Promise.all(
       listings.map(async (listing): Promise<DateCheckResult> => {
-        // getBookableDates already answers "is this day open at all" for
-        // every mechanic (window, overrides, and - for fixed_session - the
-        // recurrence weekday) - reused as-is rather than re-deriving any
-        // of that here.
+        // getBookableDates covers the window, overrides and a class's weekday.
         const bookableDates = await getBookableDates(listing);
         const matchingDates = dates.filter((d) => bookableDates.some((bd) => bd.getTime() === d.getTime()));
         if (matchingDates.length === 0) return { id: listing.id, ok: false };
@@ -131,10 +106,8 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
         const timeZone = listing.venue.city.timezone;
 
         if (listing.activity.bookingMechanic === "time_range") {
-          // Being an "open" day isn't enough on its own - every increment
-          // could already be booked out. Checked per matching date,
-          // stopping at the first one that clears - a single-date filter
-          // still costs exactly one check, "This weekend" at most two.
+          // An open day isn't enough if every slot is booked. Stops at the
+          // first date with a free slot.
           for (const d of matchingDates) {
             if (await hasAvailableSlotOnDate(listing, d, timeZone)) {
               return { id: listing.id, ok: true };
@@ -143,21 +116,15 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
           return { id: listing.id, ok: false };
         }
         if (listing.activity.bookingMechanic === "fixed_session") {
-          // A fixed_session listing recurs on exactly one weekday (enforced
-          // by getBookableDates itself), so matchingDates can only ever
-          // hold zero or one entry here regardless of how many candidate
-          // dates were passed in - no ambiguity about which date's
-          // spots-left to show.
+          // A class occurs on one weekday, so matchingDates holds at most one
+          // date.
           const spotsMap = await getSpotsRemaining(listing, matchingDates, timeZone);
           const spotsLeft = spotsMap.get(matchingDates[0].getTime()) ?? null;
-          // A class that's full on this date isn't actually bookable this
-          // date either - same "only show what's bookable" rule
-          // time_range already gets via hasAvailableSlotOnDate above, not
-          // just an annotation on an otherwise-still-shown card.
+          // A full class isn't bookable on this date.
           return { id: listing.id, ok: spotsLeft === null || spotsLeft > 0, spotsLeft };
         }
-        // date_range: the day-level check above is the whole story here -
-        // not additionally checking per-day capacity exhaustion for stays.
+        // date_range: the day-level check is enough; per-day capacity isn't
+        // checked here.
         return { id: listing.id, ok: true };
       })
     );
@@ -175,27 +142,17 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     return <NoResults />;
   }
 
-  // Top-level grouping is by booking mechanic rather than tag: it's the
-  // bigger structural difference between listings (a court you book by
-  // time range books completely differently from a class you book into a
-  // fixed session), so it makes a better first cut than the cross-cutting
-  // tag grouping used within each mechanic below. MECHANIC_CATEGORIES
-  // fixes the section order; a mechanic with no results in this query
-  // just doesn't get a section of its own. The heading always renders,
-  // even when only one mechanic is present (e.g. the sidebar's category
-  // filter narrows to a single one) - a long single-mechanic result list
-  // still needs a visible label once it's long enough to scroll past
-  // whatever filter the user picked to get there.
-  // Which of these listings this visitor may edit: the same ownership
-  // policy the dashboard enforces (admins: all; a venue owner: their own
-  // venues' listings; everyone else: none), checked against the venue
-  // already loaded with each listing, so it costs no extra queries. Those
-  // cards get a gear linking to the edit page (ListingCard's EditShortcut).
+  // Which listings this visitor may edit, using the dashboard's ownership
+  // policy against the venue already loaded with each listing (no extra
+  // queries). Those cards get the edit gear.
   const session = await sessionPromise;
   const editableIds = new Set(
     filteredListings.filter((listing) => canManageListing(session?.user, listing)).map((listing) => listing.id)
   );
 
+  // Grouped by booking mechanic first (the biggest difference in how
+  // listings are booked), then by tag within each. MECHANIC_CATEGORIES sets
+  // the section order; headings show even when only one mechanic remains.
   const byMechanic = new Map<string, ListingCardData[]>();
   for (const listing of filteredListings) {
     const mechanic = listing.activity.bookingMechanic;
@@ -212,14 +169,9 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
     <div className="mt-5 flex flex-col gap-10">
       {mechanicGroups.map((type) => (
         <section key={type.id}>
-          {/* Painted full-width - on mobile (where main is the only
-              column) that means bleeding past the page's own gutter
-              (BrowsePageShell's px-4/sm:px-6) out to the true screen edge,
-              via a negative margin that exactly cancels it, with matching
-              padding added back so the text itself still sits at the same
-              inset the gutter would have given it. md:mx-0 drops the
-              bleed once the sidebar returns and `main` is no longer the
-              full page width. */}
+          {/* Full-width band: on phones a negative margin cancels the page
+              gutter (with padding added back); md:mx-0 removes it once the
+              sidebar is shown. */}
           <h2 className="-mx-4 mb-4 flex items-center border-primary bg-foreground/5 px-4 py-1 text-lg font-extralight sm:-mx-6 sm:px-6 md:mx-0 md:p-1 md:pl-2 md:rounded-sm">
             {type.label}
             <Popover>
@@ -234,7 +186,7 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
               </PopoverContent>
             </Popover>
           </h2>
-          {/* Only the very first grid on the page starts with eager photos. */}
+          {/* Only the first grid on the page loads photos eagerly. */}
           <TagGroups
             listings={byMechanic.get(type.id)!}
             eager={type.id === mechanicGroups[0].id}
@@ -246,10 +198,8 @@ export async function ListingSection({ searchParams }: { searchParams: BrowseSea
   );
 }
 
-// Groups a set of listings by primary tag, one h3-headed section per tag.
-// Section order comes from each tag's own displayOrder column, fetched
-// alongside the listing's activity.tags.tag relation. Listings with no
-// tag sort last under "Other".
+// One h3 section per primary tag, ordered by Tag.displayOrder; untagged
+// listings go last under "Other".
 function TagGroups({
   listings,
   eager,
@@ -292,9 +242,7 @@ function TagGroups({
   );
 }
 
-// Shown when the filters leave nothing to list. "Clear filters" goes to the
-// bare browse URL - every filter lives in the query string, so dropping it
-// resets them all at once.
+// "Clear filters" links to bare browse: every filter lives in the query string.
 function NoResults() {
   return (
     <div className="mt-16 flex flex-col items-center gap-3 text-center">

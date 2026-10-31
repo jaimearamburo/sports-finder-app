@@ -1,10 +1,7 @@
 import { type DefaultSession } from "next-auth";
 import { UserRole } from "../generated/prisma/enums";
 
-// Auth.js's default User/Session types only know about id/name/email/image.
-// This augments them with our own `role` field so it type-checks through
-// `authorize()` in auth.ts and back out via `session.user.role` wherever a
-// server component or action calls `auth()`.
+// Adds `role` to Auth.js's User and Session types.
 declare module "next-auth" {
   interface User {
     role: UserRole;

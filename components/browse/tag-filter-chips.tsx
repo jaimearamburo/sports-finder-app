@@ -6,11 +6,9 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 type BrowseTag = { id: string; name: string; emoji: string; color: string };
 
-// Renders the actual chips with no knowledge of URLs or routing. TagFilters
-// owns the URL logic and passes a plain callback down. `selected` already
-// includes a change that's still loading (see useBrowseFilters), so a
-// clicked chip highlights straight away, and a second quick click builds on
-// the first.
+// Renders the chips without URL logic; TagFilters passes a callback. `selected`
+// includes a change still loading (useBrowseFilters), so clicks highlight
+// immediately and quick clicks build on each other.
 export function TagFilterChips({
   tags,
   selected,
@@ -33,25 +31,15 @@ export function TagFilterChips({
   }
 
   return (
-    // relative wrapper, not ScrollArea's own className (which lands
-    // inside its Viewport and would scroll away with the content) - the
-    // selected-count badge below needs to stay pinned to this row's own
-    // corner regardless of how far the chips underneath have scrolled,
-    // which is exactly the problem it exists to solve: a selection made
-    // far enough to one side that scrolling back the other way hides it
-    // completely, with nothing on screen hinting it's still there.
+    // Positioning wrapper outside ScrollArea, so the selected-count badge stays
+    // pinned to the row's corner however far the chips scroll.
     <div className="relative">
-      {/* ScrollArea's own Viewport does the scrolling/clipping instead of
-          a plain overflow-x-auto div, so its custom thumb (see
-          components/ui/scroll-area.tsx) */}
+      {/* ScrollArea's Viewport scrolls the row, for its custom thumb
+          (components/ui/scroll-area.tsx). */}
       <ScrollArea
         className="-mt-2 -mr-2 -ml-2 mb-2 sm:mb-5"
-        // mask-image fades the visible edge to transparent as a hint that
-        // the row scrolls. It has to live on the Viewport, not the
-        // scrolled content: the content's own width is the full row (~17
-        // chips), so a mask on it would fade a fixed point near the end
-        // of all content instead of the edge of what's actually visible
-        // right now.
+        // The edge fade hints the row scrolls. On the Viewport, not the
+        // content, so it fades the visible edge.
         viewportClassName="mask-[linear-gradient(to_right,black_calc(100%-56px),transparent_100%)]"
       >
         <div
@@ -67,21 +55,13 @@ export function TagFilterChips({
                   onClick={() => handleClick(tag.name)}
                   aria-pressed={isSelected}
                   aria-label={tag.name}
-                  // Named group ("chip"). Tailwind's group-hover selector
-                  // matches any ancestor with a group class of the same name,
-                  // not only the nearest one, so a distinct name keeps it
-                  // from reacting to some other group further up the page.
-                  // Only the icon lives inside the button, so hover/click
-                  // apply to it alone, not the label below.
-                  //
-                  // active:scale-95 gives tap feedback: a brief scale-down
-                  // while the pointer or touch is down, independent of which
-                  // way the click toggles selection, with no JS state needed.
+                  // Named group ("chip") so group-hover doesn't react to other
+                  // groups on the page. Only the icon is inside the button.
+                  // active:scale-95 gives tap feedback.
                   className="group/chip transition-transform duration-150 active:scale-95"
                 >
-                  {/* Selected tiles are near-black, the same as a selected
-                      quick-filter pill, rather than each tag's own colour
-                      (Tag.color still drives the listing cards' top accent). */}
+                  {/* Selected tiles are near-black like a selected quick-filter
+                      pill; Tag.color only drives the cards' top accent. */}
                   <span
                     className={cn(
                       "relative flex size-20 items-center justify-center overflow-hidden rounded-full shadow-sm",
@@ -103,15 +83,10 @@ export function TagFilterChips({
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
-      {/* Selected-count badge, pinned to this row's own top-right corner
-          regardless of scroll position - the only thing on screen that
-          still signals a selection exists once the chip itself has been
-          scrolled out of view. Always rendered (opacity/scale toggle,
-          not a conditional mount) for a smooth transition in and out
-          rather than a pop; aria-hidden since each chip's own
-          aria-pressed already carries this information for assistive
-          tech, which doesn't have a "scrolled off-screen" problem to
-          begin with. */}
+      {/* Selected-count badge pinned to the row's top-right, so a selection
+          scrolled out of view is still signalled. Always rendered
+          (opacity/scale) for a smooth transition. aria-hidden: each chip's
+          aria-pressed already conveys selection. */}
       <span
         aria-hidden="true"
         className={cn(

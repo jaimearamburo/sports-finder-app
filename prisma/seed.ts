@@ -1,23 +1,11 @@
 /**
- * prisma/seed.ts
+ * Seeds a baseline dataset for local development and demos.
  *
- * Populates the database with a realistic baseline dataset for local
- * development, demos, and manual testing of the booking flows.
- *
- * Seeding order is not arbitrary — later steps depend on records created
- * by earlier ones (a Venue needs an owning User to exist first; a Listing
- * needs both a Venue and an Activity to exist first). The `main()` function
- * at the bottom reflects that dependency chain explicitly.
- *
- * Re-run safety: Activity, User, Tag, and City rows are looked up by a
- * unique field (name/email) via `upsert`, so re-running this script won't
- * duplicate them. Venue and Listing have no natural unique field to key
- * off, so main() instead deletes every Venue before recreating them -
- * that cascades to Listing and AvailabilityOverride too (both
- * onDelete: Cascade on their venue/listing relations) - making a
- * standalone `pnpm prisma db seed` re-run safe without first needing
- * `prisma migrate reset`. Booking/BookingHold are deliberately never
- * touched by this reset.
+ * Steps run in foreign-key order (see main()). Tags, activities, countries,
+ * cities and users are upserted on a unique field. Venues and listings have no
+ * natural key, so main() deletes every venue first (cascading to listings and
+ * overrides) and recreates them. That delete fails if any seeded listing has
+ * bookings (Booking.listing is Restrict); bookings and holds are never touched.
  */
 
 import "dotenv/config";
@@ -25,22 +13,17 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 
 /**
- * Quick-filter tags shown in the browse UI (e.g. a "Tennis" or "Classes"
- * button). Tags are intentionally decoupled from Activities via a
- * many-to-many join table (ActivityTag) — a single Activity like "Tennis
- * Class" needs to appear under both the "Tennis" filter and the "Classes"
- * filter simultaneously, which a simple one-to-many category field
- * couldn't express.
+ * Browse quick-filter tags, linked to activities many-to-many (ActivityTag) so
+ * one activity can sit under several tags.
  */
 async function seedTags() {
-  // displayOrder is the curated browse order (Tennis first), not
-  // alphabetical.
+  // Curated browse order, not alphabetical.
   const tagDefinitions = [
     { name: "Tennis", emoji: "🎾", color: "#2f9e52", displayOrder: 0 },
     { name: "Classes", emoji: "👥", color: "#7a5cc9", displayOrder: 1 },
     { name: "Fitness", emoji: "💪", color: "#d6455f", displayOrder: 2 },
     { name: "Football", emoji: "⚽", color: "#e2662d", displayOrder: 3 },
-    // 🏸 rather than 🏓: Table Tennis below claims 🏓 as its literal emoji.
+    // Table Tennis uses 🏓.
     { name: "Padel", emoji: "🏸", color: "#2c7fd1", displayOrder: 4 },
     { name: "Camping", emoji: "⛺", color: "#5c7a35", displayOrder: 5 },
     { name: "Basketball", emoji: "🏀", color: "#e8792c", displayOrder: 6 },
@@ -60,35 +43,25 @@ async function seedTags() {
     tagDefinitions.map((tag) =>
       prisma.tag.upsert({
         where: { name: tag.name },
-        // Unlike Activity and User above, this upsert also refreshes
-        // existing rows on update, since these fields are meant to be
-        // editable rather than set once at creation.
+        // Refreshes display fields on every run, unlike the create-only
+        // upserts.
         update: { emoji: tag.emoji, color: tag.color, displayOrder: tag.displayOrder },
         create: tag,
       })
     )
   );
 
-  // Return as a lookup map keyed by name, so later code can reference
-  // e.g. tagsByName.Tennis.id instead of searching the array each time.
+  // Keyed by name, e.g. tagsByName.Tennis.id.
   return Object.fromEntries(tags.map((tag) => [tag.name, tag])) as Record<string, (typeof tags)[number]>;
 }
 
 /**
- * Activity = a bookable category (Tennis, Padel, Camping, a Gym Class...).
- * `bookingMechanic` determines which booking UI and conflict-check logic
- * every Listing under this Activity uses — see schema.prisma for the full
- * explanation of each mechanic.
- *
- * Deliberately includes "Tennis Class" as a separate Activity from plain
- * "Tennis": the former is an instructor-led, capacity-limited session
- * (fixed_session), the latter is booking a court for your own use
- * (time_range). Same sport, genuinely different product and booking logic.
+ * Bookable categories. bookingMechanic decides how every Listing under each one
+ * is booked (see schema.prisma). "Tennis Class" (an instructor-led class,
+ * fixed_session) is separate from "Tennis" (court hire, time_range).
  */
 async function seedActivities() {
-  // isAccommodation only matters for date_range activities (Camping,
-  // Gym Day Pass) - see the field's own comment in schema.prisma for why
-  // it's a boolean here and not something richer.
+  // isAccommodation only matters for date_range activities.
   const definitions: {
     name: string;
     bookingMechanic: "time_range" | "date_range" | "fixed_session";
@@ -118,9 +91,7 @@ async function seedActivities() {
     definitions.map((activity) =>
       prisma.activity.upsert({
         where: { name: activity.name },
-        // Updates isAccommodation on every run (not just creation) so the
-        // existing live Camping/Gym Day Pass rows actually pick up the
-        // field now that it's been added, not just future-reset databases.
+        // Also set on update, so existing rows stay in sync with this list.
         update: { isAccommodation: activity.isAccommodation ?? false },
         create: activity,
       })
@@ -131,14 +102,8 @@ async function seedActivities() {
 }
 
 /**
- * Wires up which tags apply to which activities. This is where the
- * many-to-many relationship actually gets populated — everything above
- * this point just creates the two sides independently.
- *
- * `createMany` with `skipDuplicates` is used instead of individual
- * `upsert` calls per pair: it's a single round trip to the database, and
- * silently no-ops on rows that already exist rather than erroring, which
- * is desired "safe to re-run" behavior we want in a seed script.
+ * Links activities to tags. createMany with skipDuplicates: one round trip, and
+ * safe to re-run.
  */
 async function linkActivityTags(
   activities: Awaited<ReturnType<typeof seedActivities>>,
@@ -152,9 +117,7 @@ async function linkActivityTags(
       { activityId: activities["Indoor Football"].id, tagId: tags["Football"].id },
       { activityId: activities["Camping"].id, tagId: tags["Camping"].id },
 
-      // "Tennis Class" intentionally carries two tags — this is the case
-      // the whole Tag/ActivityTag design exists to support. A user
-      // filtering by either "Tennis" or "Classes" should find it.
+      // Tagged twice: found under both "Tennis" and "Classes".
       { activityId: activities["Tennis Class"].id, tagId: tags["Tennis"].id },
       { activityId: activities["Tennis Class"].id, tagId: tags["Classes"].id },
 
@@ -185,12 +148,7 @@ async function linkActivityTags(
   });
 }
 
-/**
- * Platform-curated countries a City belongs to (see Country in
- * schema.prisma for why this is a table rather than a free-text field on
- * City). Only the countries the seeded cities actually need - this isn't
- * trying to be an exhaustive world list.
- */
+/** Countries the seeded cities need. */
 async function seedCountries() {
   const countryDefinitions = [
     { name: "Australia", code: "AU" },
@@ -212,11 +170,8 @@ async function seedCountries() {
 }
 
 /**
- * Platform-curated cities a Venue can belong to (see City in schema.prisma
- * for why this is a table rather than a free-text field). Covers every
- * state/territory so a venue can be seeded anywhere in the country with a
- * correct timezone - ACT and most of NSW/VIC/TAS share Sydney's zone, but
- * WA, SA, QLD, and NT each observe different UTC offsets and DST rules.
+ * Cities venues can belong to: every Australian state and territory (several
+ * UTC offsets and DST rules), plus three overseas cities.
  */
 async function seedCities(countries: Awaited<ReturnType<typeof seedCountries>>) {
   const cityDefinitions = [
@@ -234,11 +189,7 @@ async function seedCities(countries: Awaited<ReturnType<typeof seedCountries>>) 
     { name: "Wollongong", region: "NSW", timezone: "Australia/Sydney", country: "Australia" },
     { name: "Cairns", region: "QLD", timezone: "Australia/Brisbane", country: "Australia" },
     { name: "Geelong", region: "VIC", timezone: "Australia/Melbourne", country: "Australia" },
-    // Three non-Australian cities, each in a genuinely different timezone,
-    // specifically to exercise venue-timezone-aware booking logic (see
-    // lib/dates.ts's todayInTimezone and lib/time-of-day.ts's
-    // zonedOccurrenceStart) against something other than every other
-    // seeded venue's shared Australian offset.
+    // Overseas cities in distinct timezones, to exercise venue-timezone logic.
     { name: "Los Angeles", region: "CA", timezone: "America/Los_Angeles", country: "United States" },
     { name: "Manhattan", region: "NY", timezone: "America/New_York", country: "United States" },
     { name: "London", region: null, timezone: "Europe/London", country: "United Kingdom" },
@@ -263,32 +214,22 @@ async function seedCities(countries: Awaited<ReturnType<typeof seedCountries>>) 
 }
 
 /**
- * Seeds two venue-owner accounts and one regular end-user account.
+ * Two venue owners (Alex owns venues in several cities, showing one account
+ * owning many venues) and one regular user.
  *
- * Alex is deliberately given two venues in different cities further down
- * in seedVenues() — this proves out the platform's "one account, many
- * venues" ownership model (Venue.ownerId) rather than just asserting it
- * works in theory.
- *
- * Passwords come from the SEED_USER_PASSWORD environment variable, never
- * from this file: a password written here would be public in the
- * repository, and anyone could sign in as a venue owner wherever this seed
- * ran. When it's set, all three accounts get that password, so you can
- * sign in as an owner (to use the venue dashboard) or as the regular user.
- * When it isn't, the accounts are left without one, and existing
- * passwords aren't touched. Set it for local development only, never when
- * seeding a public deployment.
+ * Passwords come from SEED_USER_PASSWORD, never this file. When set, all three
+ * accounts get it; when unset, they get none and existing passwords are left
+ * alone. Local development only.
  */
 async function seedUsers() {
   const password = process.env.SEED_USER_PASSWORD;
-  // Same cost factor as signup (app/signup/actions.ts).
+  // Same bcrypt cost as signup.
   const passwordHash = password ? await bcrypt.hash(password, 10) : undefined;
   if (!password) {
     console.log("SEED_USER_PASSWORD not set: seeded accounts have no password (sign in won't work for them).");
   }
 
-  // `update` only sets the password when one was provided, so re-running
-  // the seed without it never wipes a password set earlier.
+  // Only set when provided, so a re-run without it keeps existing passwords.
   const passwordUpdate = passwordHash ? { passwordHash } : {};
 
   const alex = await prisma.user.upsert({
@@ -309,9 +250,9 @@ async function seedUsers() {
     create: { name: "Jamie Rogers", email: "jamie.user@example.com", role: "user", passwordHash },
   });
 
-  // The account behind the login page's "Log in as regular user" button
-  // (DEMO_USER_EMAIL, lib/demo-login.ts). No password, ever: it's only
-  // reachable through that button. Emma above is the demo venue owner.
+  // The demo regular user behind the login page's "Log in as regular user"
+  // button (DEMO_USER_EMAIL). Never has a password. Emma is the demo venue
+  // owner.
   await prisma.user.upsert({
     where: { email: "demo-user@example.com" },
     update: {},
@@ -322,13 +263,9 @@ async function seedUsers() {
 }
 
 /**
- * Seeds nine venues across seven cities, split between the two owners
- * created in seedUsers(). Alex owns four (Riverside, Bondi Padel, Coogee
- * Run Club, Adelaide Recreation Centre); Emma owns five (Green Valley,
- * FitZone, Bayside Recreation, Perth Sports Hub, Canberra Court Club) —
- * entirely separate from Alex's. Perth/Adelaide/Canberra exist mainly to
- * spread the extra court-type listings below across more than one venue
- * per activity, rather than stacking five basketball courts at one club.
+ * Nine venues across seven cities: Alex owns four (Riverside, Bondi Padel,
+ * Coogee Run Club, Adelaide Recreation Centre), Emma five (Green Valley,
+ * FitZone, Bayside Recreation, Perth Sports Hub, Canberra Court Club).
  */
 async function seedVenues(
   alexId: string,
@@ -396,8 +333,7 @@ async function seedVenues(
     },
   });
 
-  // Three venues in genuinely different, non-Australian timezones - see
-  // seedListings below for the one listing each exercises.
+  // Overseas venues, one listing each (see seedListings).
   const losAngelesCourts = await prisma.venue.create({
     data: {
       ownerId: alexId,
@@ -442,16 +378,14 @@ async function seedVenues(
 }
 
 /**
- * Seeds the actual bookable Listings, one per Activity/Venue combination.
- * Grouped by booking mechanic below to make clear that each group requires
- * a different set of availability fields on Listing — see schema.prisma
- * for why each field group only applies to its corresponding mechanic.
+ * Bookable listings, grouped by booking mechanic; each group sets that
+ * mechanic's fields on Listing.
  */
 async function seedListings(
   activities: Awaited<ReturnType<typeof seedActivities>>,
   venues: Awaited<ReturnType<typeof seedVenues>>
 ) {
-  // --- time_range: user chooses a start time + duration within bounds ---
+  // --- time_range: start time and length within opening hours ---
 
   const court1 = await prisma.listing.create({
     data: {
@@ -1113,14 +1047,14 @@ async function seedListings(
     },
   });
 
-  // --- date_range: user chooses a start date + end date ---
+  // --- date_range: picked days or nights ---
 
   await prisma.listing.create({
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Camping"].id,
-      // operatingHoursEnd doubles as the check-in deadline - same-day stays
-      // close an hour before it (see isSameDayBookingClosed).
+      // operatingHoursEnd is the check-in deadline; same-day stays close an
+      // hour before it (isSameDayBookingClosed).
       operatingHoursStart: "08:00",
       operatingHoursEnd: "20:00",
       name: "Campsite A",
@@ -1135,8 +1069,8 @@ async function seedListings(
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Camping"].id,
-      // operatingHoursEnd doubles as the check-in deadline - same-day stays
-      // close an hour before it (see isSameDayBookingClosed).
+      // operatingHoursEnd is the check-in deadline; same-day stays close an
+      // hour before it (isSameDayBookingClosed).
       operatingHoursStart: "08:00",
       operatingHoursEnd: "20:00",
       name: "Campsite B",
@@ -1151,8 +1085,8 @@ async function seedListings(
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Camping"].id,
-      // operatingHoursEnd doubles as the check-in deadline - same-day stays
-      // close an hour before it (see isSameDayBookingClosed).
+      // operatingHoursEnd is the check-in deadline; same-day stays close an
+      // hour before it (isSameDayBookingClosed).
       operatingHoursStart: "08:00",
       operatingHoursEnd: "20:00",
       name: "Campsite C",
@@ -1167,8 +1101,8 @@ async function seedListings(
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Camping"].id,
-      // operatingHoursEnd doubles as the check-in deadline - same-day stays
-      // close an hour before it (see isSameDayBookingClosed).
+      // operatingHoursEnd is the check-in deadline; same-day stays close an
+      // hour before it (isSameDayBookingClosed).
       operatingHoursStart: "08:00",
       operatingHoursEnd: "20:00",
       name: "Campsite D",
@@ -1183,8 +1117,8 @@ async function seedListings(
     data: {
       venueId: venues.greenValley.id,
       activityId: activities["Camping"].id,
-      // operatingHoursEnd doubles as the check-in deadline - same-day stays
-      // close an hour before it (see isSameDayBookingClosed).
+      // operatingHoursEnd is the check-in deadline; same-day stays close an
+      // hour before it (isSameDayBookingClosed).
       operatingHoursStart: "08:00",
       operatingHoursEnd: "20:00",
       name: "Campsite E",
@@ -1199,8 +1133,8 @@ async function seedListings(
     data: {
       venueId: venues.fitZone.id,
       activityId: activities["Gym Day Pass"].id,
-      // Opening hours - same-day passes stop selling an hour before
-      // closing (see isSameDayBookingClosed).
+      // Same-day passes stop selling an hour before closing
+      // (isSameDayBookingClosed).
       operatingHoursStart: "06:00",
       operatingHoursEnd: "22:00",
       name: "Day Pass",
@@ -1211,7 +1145,7 @@ async function seedListings(
     },
   });
 
-  // --- fixed_session: user books into one specific scheduled occurrence ---
+  // --- fixed_session: one scheduled weekly occurrence ---
 
   await prisma.listing.create({
     data: {
@@ -1447,10 +1381,8 @@ async function seedListings(
     },
   });
 
-  // --- Three non-Australian venues, one per mechanic, specifically to
-  // exercise venue-timezone-aware booking logic end to end (see
-  // seedCities above and seedVenues' losAngelesCourts/manhattanFitness/
-  // londonStudio) ---
+  // --- Overseas venues, one per mechanic, to exercise venue-timezone logic end
+  // to end ---
 
   await prisma.listing.create({
     data: {
@@ -1471,16 +1403,14 @@ async function seedListings(
     data: {
       venueId: venues.manhattanFitness.id,
       activityId: activities["Gym Day Pass"].id,
-      // Opening hours - same-day passes stop selling an hour before
-      // closing (see isSameDayBookingClosed).
+      // Same-day passes stop selling an hour before closing
+      // (isSameDayBookingClosed).
       operatingHoursStart: "06:00",
       operatingHoursEnd: "22:00",
       name: "Multi-Day Pass",
       capacity: 50,
       pricePerUnit: 35,
-      // 1-5 days (not exactly one) - deliberately exercises the pass
-      // picker's min/max range rather than the single-day case Day Pass
-      // above already covers.
+      // 1-5 days, to exercise the pass picker's range.
       minDurationDays: 1,
       maxDurationDays: 5,
     },
@@ -1512,12 +1442,9 @@ function nextWeekdayOnOrAfter(date: Date, weekday: number): Date {
   return new Date(date.getTime() + diff * 24 * 60 * 60 * 1000);
 }
 
-// Two sample rows so lib/availability.ts's override resolution actually
-// has something to resolve - there's no admin UI to create these yet, so
-// without seed data this whole code path would be untested. Dates are
-// computed relative to "now" rather than hardcoded, so they stay
-// meaningful (block still upcoming, open still past the 30-day window)
-// no matter when the seed script runs.
+// Two sample overrides, since there's no admin UI to create them. Dates are
+// relative to now so the block stays upcoming and the open date stays beyond
+// the 30-day window.
 async function seedAvailabilityOverrides(listings: Awaited<ReturnType<typeof seedListings>>) {
   await prisma.availabilityOverride.create({
     data: {
@@ -1541,30 +1468,17 @@ async function seedAvailabilityOverrides(listings: Awaited<ReturnType<typeof see
 async function main() {
   console.log("Seeding database...");
 
-  // Order reflects real foreign-key dependencies: Tags, Activities, and
-  // Countries have none, so they go first; linking activities to tags
-  // requires both to already exist; Cities require a Country; Venues
-  // require Users and a City; Listings require both Venues and Activities.
+  // Foreign-key order: tags, activities and countries first; then activity
+  // tags, cities, users, venues, listings.
   const tags = await seedTags();
   const activities = await seedActivities();
   await linkActivityTags(activities, tags);
   const countries = await seedCountries();
   const cities = await seedCities(countries);
 
-  // Tags/Activities/Users above all upsert on a natural key, so re-running
-  // this script is already safe for them - Venue has no such key (its
-  // name isn't unique across cities) and seedVenues/seedListings/
-  // seedAvailabilityOverrides below just prisma.create() plain rows, so
-  // without this reset, every standalone `pnpm prisma db seed` run (i.e.
-  // one not preceded by `migrate reset`) would pile on another full copy.
-  // Deleting Venue cascades to Listing and AvailabilityOverride (both
-  // onDelete: Cascade on their venue/listing relations), so this one call
-  // is enough to clear all three. Booking/BookingHold are left completely
-  // alone - real booking history must never be wiped by a reseed - which
-  // is safe here only because nothing above touches them; if that ever
-  // changes, this still can't violate Booking.listing's onDelete:
-  // Restrict unless Bookings against seed listings exist, in which case
-  // this would correctly fail loudly rather than silently orphan them.
+  // Deletes every venue so re-running doesn't duplicate them; cascades to
+  // listings and overrides. Bookings are never deleted: if any exist on these
+  // listings, this fails (Booking.listing is Restrict).
   await prisma.venue.deleteMany();
 
   const { alex, emma } = await seedUsers();

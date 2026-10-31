@@ -5,18 +5,16 @@ import { blobExists, putTestImage } from "./blob";
 import { expectNoViolations, tamperNextAction } from "./helpers";
 import { LISTING_IMAGE_HOST } from "../lib/listing-images";
 
-// Listing photos: who may get an upload permission, that a save only
-// accepts a photo from the listing's own venue, and the real flow - upload,
-// replace, remove - including that replaced and removed files are deleted
-// from the store (GitHub #91); and that a photo shows wherever the listing
-// does, with the emoji kept for listings without one (#92). The upload tests write to the
-// project's Blob store, under the test venue's own folder; teardown
-// removes whatever is left there (e2e/blob.ts).
+// Listing photos: who gets an upload permission; saves only accept a photo from
+// the listing's own venue; the real upload, replace and remove flow, including
+// deleting replaced and removed files (GitHub #91); and photos shown wherever
+// the listing is, with the emoji otherwise (#92). Uploads go to the test
+// venue's folder in the dev Blob store; teardown removes them (e2e/blob.ts).
 
 const ids = () => fixtureIds();
 const ROUTE = "/api/dashboard/listing-images";
 
-// A valid 1x1 PNG: enough for Blob, next/image and the browser.
+// A valid 1x1 PNG.
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
   "base64"
@@ -35,9 +33,8 @@ async function storedImage(listingId: string): Promise<string | null> {
 }
 
 async function chooseFile(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
-  // Wait for the page's scripts first: a file chosen before React has
-  // attached its change handler is silently lost. The dev server is slow
-  // enough to hide this; a production build isn't.
+  // Wait for the page's scripts: a file chosen before React attaches its change
+  // handler is lost.
   await page.waitForLoadState("networkidle");
   await page.locator('input[type="file"]').setInputFiles(file);
 }
@@ -124,8 +121,8 @@ test.describe("listing photo", () => {
 
     await test.step("upload", async () => {
       await page.goto(editor);
-      // Served by the image optimizer from the store - proves next.config
-      // allows the uploaded file's address, not just that an <img> exists.
+      // Served by the image optimiser, proving next.config allows the uploaded
+      // file's URL.
       const optimized = page.waitForResponse(
         (response) => response.url().includes("/_next/image") && response.url().includes(encodeURIComponent(`/listings/${venueA}/`))
       );
@@ -178,7 +175,7 @@ test.describe("photos across the app", () => {
         await page.goto("/");
         const cardA = page.locator(`a[href="/listings/${listingA}"]`);
         await cardA.scrollIntoViewIfNeeded();
-        // Decorative on the card (empty alt): the card's text names it.
+        // Decorative on the card (empty alt).
         await expect(cardA.locator("img")).toHaveAttribute("src", new RegExp(`/_next/image\\?url=.*${encodedFolder}`));
         await expect(cardA.locator("img")).toHaveAttribute("alt", "");
         await expect(page.locator(`a[href="/listings/${listingB}"] img`)).toHaveCount(0);
@@ -196,7 +193,7 @@ test.describe("photos across the app", () => {
         await expect(page.locator("table img").first()).toHaveAttribute("src", new RegExp(encodedFolder));
       });
     } finally {
-      // The file itself goes with the test venue's folder at teardown.
+      // The file is removed with the test venue's folder at teardown.
       await query("update listings set image_url = null where id = $1", [listingA]);
     }
   });

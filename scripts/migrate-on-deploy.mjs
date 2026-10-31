@@ -1,12 +1,10 @@
-// Runs before `next build` (see the "build" script in package.json).
+// Runs before `next build` (package.json "build").
 //
-// Local development and production use separate databases, so migrations
-// no longer reach production just by running them locally. This applies any
-// pending ones (`prisma migrate deploy`: only migrations already in the
-// repo, never generates new ones or resets data) on Vercel production
-// builds only - not on preview builds of `dev`, so an unmerged migration
-// can't touch the production database, and not on local builds.
-// A failed migration fails the deploy, so the old version stays live.
+// Applies pending migrations (`prisma migrate deploy`: only committed
+// migrations; never generates or resets) on Vercel production builds only.
+// Preview builds of `dev` and local builds skip it, so an unmerged migration
+// can't touch production. A failed migration fails the deploy, leaving the old
+// version live.
 import { execSync } from "node:child_process";
 
 if (process.env.VERCEL_ENV === "production") {

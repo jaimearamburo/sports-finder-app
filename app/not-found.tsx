@@ -3,13 +3,10 @@ import { SearchX } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { NoticePage } from "@/components/notice-page";
 
-// Site-wide 404: any unknown URL, plus any notFound() call that has no
-// closer not-found.tsx - currently the booking confirmation page, for an
-// orderId that doesn't exist or belongs to someone else (deliberately the
-// same response for both, so a guessed orderId reveals nothing). Listing
-// and checkout pages have their own, more specific
-// app/listings/[id]/not-found.tsx. A fixed link home rather than browser
-// back, since a visitor landing on a dead URL may have no history at all.
+// Site-wide 404: unknown URLs and notFound() calls without a closer
+// not-found.tsx (e.g. a confirmation page for a missing or someone else's
+// order, which look the same). Links home rather than back: the visitor may
+// have no history.
 export default function NotFound() {
   return (
     <NoticePage

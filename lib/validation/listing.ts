@@ -2,26 +2,22 @@ import { z } from "zod";
 import { NAME_MAX_LENGTH } from "./common";
 import { LISTING_IMAGE_URL_MAX_LENGTH } from "@/lib/listing-images";
 
-// The listing form's rules, one set per kind of listing, shared by the form
-// (instant inline errors) and the server (the real check: createListing and
-// updateListing parse their input regardless of what the browser did).
+// The listing form's rules per kind, shared by the form (inline errors) and the
+// server (createListing/updateListing always parse).
 //
-// The rules exist to keep every saved listing bookable. They mirror what the
-// booking code assumes (lib/availability.ts isRequestedSlotValid, the
-// pickers in components/listings/):
-// - Courts: the time picker offers start times by stepping from opening
-//   time, and the server only accepts starts that sit exactly on the step
-//   counted from midnight - so opening and closing times, and the shortest
-//   and longest booking, must all fall on the step, or some advertised times
-//   could never be booked.
-// - Passes need opening hours (shown on the listing, and closing time drives
-//   the same-day cut-off); stays need a check-in deadline for the same reason.
-// - Classes need a weekday, start time and length to place each session.
+// They keep every saved listing bookable, matching what the booking code
+// assumes:
+// - Courts: the picker steps from opening time while the server accepts starts
+//   on the step from midnight, so opening and closing times and the shortest
+//   and longest booking must all fall on the step.
+// - Passes need opening hours and stays a check-in deadline; closing time
+//   drives the same-day cut-off.
+// - Classes need a weekday, start time and length.
 
 export type ListingKind = "court" | "pass" | "stay" | "class";
 
-// Which form a listing gets is decided by its activity: the activity's
-// booking mechanic, plus, for multi-day activities, whether it's a stay.
+// The activity decides the form: its booking mechanic and, for multi-day
+// activities, whether it's a stay.
 export function listingKindFor(activity: {
   bookingMechanic: "time_range" | "date_range" | "fixed_session";
   isAccommodation: boolean;
@@ -42,8 +38,7 @@ export const CAPACITY_MAX = 1000;
 export const MAX_PER_BOOKING_MAX = 50;
 export const DAYS_MAX = 30;
 export const SESSION_MINUTES = { min: 15, max: 480 } as const;
-// The longest a court booking can be: a full day's opening hours is the
-// real limit, this just keeps the duration list a sensible length.
+// Keeps the duration list a sensible length; opening hours are the real limit.
 export const COURT_DURATION_MAX_MINUTES = 8 * 60;
 
 const DESCRIPTION_MAX_LENGTH = 1000;
@@ -85,30 +80,26 @@ const baseFields = {
     .trim()
     .max(DESCRIPTION_MAX_LENGTH, { error: `Description must be ${DESCRIPTION_MAX_LENGTH} characters or fewer.` })
     .transform((value) => value || null),
-  // The uploaded photo's URL, or null for none. Shape only here: that it's
-  // a real photo in this venue's folder is checked by the server on save
-  // (checkVenueImageUrl), since that needs the venue and the store.
+  // Shape only; the server checks it's a real photo in this venue's folder on
+  // save (checkVenueImageUrl).
   imageUrl: z.string().max(LISTING_IMAGE_URL_MAX_LENGTH).nullable(),
   price: z
     .number({ error: "Enter a price, or 0 for free." })
     .min(0, { error: "The price can't be negative." })
     .max(PRICE_MAX, { error: `The price must be $${PRICE_MAX.toLocaleString("en-AU")} or less.` })
-    // Whole cents only: prices are stored to two decimal places and charged
-    // in cents, so $10.005 would be rounded silently otherwise.
+    // Whole cents only, since prices are charged in cents.
     .refine((value) => Math.abs(Math.round(value * 100) - value * 100) < 1e-6, {
       error: "Use at most two decimal places.",
     }),
-  // null: unlimited (only offered for classes and passes - see the form).
+  // null: unlimited (classes and passes only).
   capacity: wholeNumber("capacity", 1, CAPACITY_MAX).nullable(),
-  // How many places one booking can take. Only asked for when a listing
-  // takes more than one person; otherwise it's 1 by definition.
+  // Places one booking can take; 1 when the listing takes one person.
   maxPerBooking: wholeNumber("the limit per booking", 1, MAX_PER_BOOKING_MAX),
 };
 
 type Issue = { path: string; message: string };
 
-// Rules that compare fields. Each returns the problems found, attached to
-// the field a person would fix.
+// Cross-field rules. Each returns issues attached to the field to fix.
 function capacityIssues(data: { capacity: number | null; maxPerBooking: number }): Issue[] {
   if (data.capacity !== null && data.maxPerBooking > data.capacity) {
     return [{ path: "maxPerBooking", message: "Can't be more than the capacity." }];
@@ -172,7 +163,7 @@ const staySchema = z
   .object({
     ...baseFields,
     capacity: wholeNumber("capacity", 1, CAPACITY_MAX),
-    // The latest someone can check in. Also when same-day bookings close.
+    // Latest check-in time; also when same-day bookings close.
     closingTime: time("a check-in deadline"),
     ...dayRange,
   })
@@ -203,8 +194,7 @@ export type PassInput = z.input<typeof passSchema>;
 export type StayInput = z.input<typeof staySchema>;
 export type ClassInput = z.input<typeof classSchema>;
 
-// Everything the form can send. Each kind's schema reads only its own
-// fields, so the rest are simply ignored.
+// Everything the form can send; each kind's schema reads only its own fields.
 export type ListingFormInput = {
   activityId: string;
   name: string;
@@ -233,8 +223,8 @@ export type ParsedListing =
   | ({ kind: "stay" } & z.output<typeof staySchema>)
   | ({ kind: "class" } & z.output<typeof classSchema>);
 
-// The one entry point: validates input against its kind's rules and returns
-// either the cleaned values or one message per field.
+// Validates input against its kind's rules; returns clean values or one message
+// per field.
 export function parseListing(
   kind: ListingKind,
   input: ListingFormInput
@@ -251,10 +241,8 @@ export function parseListing(
   return { ok: true, data: { kind, ...result.data } as ParsedListing };
 }
 
-// What a new listing's form starts with once its activity is chosen - the
-// common case for each kind, so a manager usually only adjusts a few
-// fields. Also fills in the fields a kind doesn't use, so the form always
-// has a complete set to switch between kinds without losing typed values.
+// A new listing's starting values once its activity is chosen. Covers every
+// field, so switching kinds never meets an empty value.
 export const NEW_LISTING_DEFAULTS: Omit<ListingFormInput, "activityId" | "name" | "description" | "imageUrl" | "price"> = {
   capacity: 1,
   maxPerBooking: 1,
@@ -270,9 +258,8 @@ export const NEW_LISTING_DEFAULTS: Omit<ListingFormInput, "activityId" | "name" 
   sessionMinutes: 60,
 };
 
-// Per-kind adjustments on top of NEW_LISTING_DEFAULTS, applied when a new
-// listing's activity is chosen: classes and passes are usually shared
-// (several people per session or day), courts and stays exclusive.
+// Per-kind adjustments: classes and passes are shared (several people per
+// session or day); courts and stays exclusive.
 export const KIND_DEFAULTS: Record<ListingKind, Partial<ListingFormInput>> = {
   court: { capacity: 1, maxPerBooking: 1 },
   pass: { capacity: 50, maxPerBooking: 5, openingTime: "06:00", closingTime: "22:00", minDays: 1, maxDays: 1 },

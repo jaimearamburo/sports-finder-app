@@ -3,14 +3,9 @@ import { can } from "@/lib/authz/permissions";
 
 export type AccountLink = { label: string; href: string };
 
-// The account links the header shows a signed-in user, decided by
-// permission rather than by naming roles (see lib/authz/permissions.ts).
-// Anyone who can open the venue dashboard gets it first, plus My Bookings:
-// venue managers and admins can book like anyone else. Everyone else gets
-// their account area, whose side nav holds My Bookings.
-//
-// Takes a plain role rather than the session so AccountMenu (a Client
-// Component) can call it with the plain values it's given.
+// The header's account links, decided by permission. Anyone with dashboard
+// access gets Dashboard plus My Bookings (managers book too); everyone else
+// gets My Account. Takes a plain role so the client AccountMenu can call it.
 export function getAccountLinks(role: UserRole): AccountLink[] {
   if (can({ role }, "dashboard:access")) {
     return [
@@ -21,9 +16,7 @@ export function getAccountLinks(role: UserRole): AccountLink[] {
   return [{ label: "My Account", href: "/account" }];
 }
 
-// The badge shown next to a signed-in user's name, so it's always clear
-// which kind of account is in use. Regular users get none: it's the
-// default, and a badge on every customer's header would be noise.
+// Role badge next to the name. None for regular users, the default.
 const ROLE_BADGES: Record<UserRole, string | null> = {
   user: null,
   venue_owner: "Venue owner",

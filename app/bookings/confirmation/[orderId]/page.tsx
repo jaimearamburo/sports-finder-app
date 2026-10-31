@@ -9,15 +9,9 @@ import { getBookingReference } from "@/lib/booking-reference";
 import { NoticePage } from "@/components/notice-page";
 import { RefreshWhilePending } from "@/components/listings/refresh-while-pending";
 
-// Minimal confirmation page, not a full "My Bookings" dashboard - that's
-// its own later phase. Keyed by orderId rather than individual booking
-// ids, since a multi-day pass finalizes into several Booking rows that
-// all share one orderId, and this page shows all of them together.
-//
-// Also the page a payment lands on, so it covers the two in-between payment
-// states as well (see completeOrderPayment in lib/bookings.ts): "pending"
-// bookings whose card capture hasn't settled yet, which the webhook
-// confirms shortly, and "cancelled" ones whose payment failed at capture.
+// Booking confirmation for an order (all its rows: a pass has one per day).
+// Also where payment lands, so it covers "pending" (capture still settling; the
+// webhook confirms it) and "cancelled" (capture failed).
 export default async function BookingConfirmationPage({
   params,
 }: {
@@ -26,8 +20,8 @@ export default async function BookingConfirmationPage({
   const { orderId } = await params;
   const session = await auth();
 
-  // Scoped to the current user - an orderId in the URL isn't trusted as
-  // proof of ownership on its own.
+  // Scoped to the current user: the orderId in the URL isn't proof of
+  // ownership.
   const bookings = session
     ? await prisma.booking.findMany({
         where: { orderId, userId: session.user.id },
@@ -74,10 +68,7 @@ export default async function BookingConfirmationPage({
         <p className="text-muted-foreground">
           {bookings[0].attendeeName}, your {bookings.length > 1 ? "bookings are" : "booking is"} all set.
         </p>
-        {/* A short, display-only code derived from orderId - the full
-            orderId (already in this page's own URL) stays the real lookup
-            key everywhere else; this is purely something a visitor can
-            read aloud or write down. */}
+        {/* Short display code; the full orderId in the URL is the real key. */}
         <p className="mt-2 text-sm text-muted-foreground">
           Booking reference: <span className="font-mono font-semibold text-foreground">{getBookingReference(orderId)}</span>
         </p>
@@ -90,8 +81,7 @@ export default async function BookingConfirmationPage({
             <p className="text-sm text-muted-foreground">
               {booking.listing.venue.name}, {booking.listing.venue.city.name}
             </p>
-            {/* "× n" when the booking covers several people/passes - see
-                the same label in My Bookings' detail dialog. */}
+            {/* "× n" when the booking covers several people, as in My Bookings. */}
             <p className="mt-2 flex justify-between gap-3 text-sm">
               <span>
                 {formatBookingTime(

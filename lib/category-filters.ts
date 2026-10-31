@@ -1,15 +1,9 @@
-// Sidebar categories map directly onto Activity.bookingMechanic (see
-// schema.prisma), not a hand-picked tag grouping. Each id is the literal
-// BookingMechanic value, so no lookup table is needed to turn a selection
-// into a Prisma query condition (see ListingSection). Tags stay a fully
-// separate, freely combinable filter (for example "Classes" plus "Tennis"
-// together narrows to Tennis classes specifically), even though "Classes"
-// also exists as a tag.
+// Sidebar categories map directly onto Activity.bookingMechanic: each id is the
+// BookingMechanic value, so it filters with no lookup. Tags remain a separate,
+// combinable filter ("Classes" + "Tennis" narrows to tennis classes).
 //
-// description is the plain-language blurb shown in the info popover next
-// to each mechanic's section heading on the browse page (see
-// listing-section.tsx). It lives here, next to each category's id and
-// label, so there is one place that defines what a mechanic means.
+// `description` is the blurb in the info popover beside each section heading,
+// defined here with the id and label.
 export const CATEGORIES = [
   {
     id: "all",
@@ -30,9 +24,7 @@ export const CATEGORIES = [
   {
     id: "date_range",
     label: "Multi-day",
-    // Not just stays - date_range covers any activity booked across a
-    // span of days, a campsite reservation and a multi-day gym pass
-    // alike, so the description can't be campsite-specific wording.
+    // date_range covers campsites and multi-day passes alike.
     description:
       "Booked by the day for however long you need it, like a campsite stay or a multi-day gym pass. Pick your desired dates.",
   },
@@ -40,18 +32,12 @@ export const CATEGORIES = [
 
 export type CategoryId = (typeof CATEGORIES)[number]["id"];
 
-// A real runtime check, not just a type assertion. The category query
-// param comes straight from the URL, which anyone can hand-edit to any
-// string.
+// A runtime check: the category param comes from the URL.
 export function isCategoryId(value: string): value is CategoryId {
   return CATEGORIES.some((category) => category.id === value);
 }
 
-// The three real mechanics, in display order, with no "all" entry. Used
-// wherever a mechanic-specific list is needed (ListingSection's grouping
-// headers) rather than the full sidebar list. This file never imports the
-// Prisma client, since BrowseSidebarPanel (a Client Component) imports
-// from it, and the Prisma client pulls in Node-only code Turbopack cannot
-// bundle for the browser. That is why ids are plain string literals
-// instead of the generated BookingMechanic enum.
+// The three mechanics in display order, without "all". Ids are plain strings
+// rather than the generated enum because a Client Component imports this file,
+// and the Prisma client can't be bundled for the browser.
 export const MECHANIC_CATEGORIES = CATEGORIES.filter((category) => category.id !== "all");

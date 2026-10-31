@@ -26,13 +26,10 @@ export type SidebarFilterValues = {
   priceMax: number;
 };
 
-// Renders every sidebar filter (category, city, price) with no knowledge of
-// URLs or routing. BrowseSidebar owns the URL logic and passes a plain
-// callback down. The values it receives already include a change that's
-// still loading (see useBrowseFilters), so a click shows straight away
-// without any optimistic state here. Category is the only control for the
-// booking-mechanic axis (see lib/category-filters.ts); there is no
-// separate booking-type control.
+// Renders the sidebar filters (category, city, price) without any URL logic;
+// BrowseSidebar passes a callback. Values already include a change still
+// loading (useBrowseFilters), so clicks show immediately. Category is the only
+// booking-mechanic control (lib/category-filters.ts).
 export function BrowseSidebarPanel({
   cities,
   category,
@@ -74,10 +71,8 @@ export function BrowseSidebarPanel({
             City
           </h2>
           <Select
-            // Flat list for value resolution (the trigger needs to look up
-            // a selected city's label without walking the grouped JSX
-            // below) - the grouping itself is purely a SelectContent
-            // rendering concern.
+            // Flat list so the trigger can look up the selected city's label;
+            // grouping is only for rendering.
             items={[
               { label: "All cities", value: "all" },
               { label: MULTIPLE_CITIES_LABEL, value: MULTIPLE_CITIES_VALUE },
@@ -89,9 +84,8 @@ export function BrowseSidebarPanel({
               changeAction({ ...current, city: !value || value === "all" ? "" : value });
             }}
           >
-            {/* aria-label: the visible "City" heading above isn't tied to
-                this control, so without it a screen reader announced an
-                unnamed combobox. The selected value is announced as well. */}
+            {/* The "City" heading isn't tied to this control, so it's named
+                here. */}
             <SelectTrigger className="w-full" aria-label="City">
               <SelectValue />
             </SelectTrigger>
@@ -146,14 +140,9 @@ function PriceRangeFilter({
   );
 }
 
-// The value-display + slider only, with no heading or wrapper of its own -
-// factored out so MobileFilterBar's price popover can reuse the exact same
-// drag-tracking behavior inside its own container instead of duplicating
-// it. The slider fires onValueChange continuously while dragging and
-// onValueCommitted once when the drag ends. Tracking the dragged position
-// in local state and only calling commit() on release keeps every
-// intermediate pointer position from becoming its own URL update and
-// browser history entry.
+// The price readout and slider, shared with MobileFilterBar's price popover.
+// The dragged position stays local and is committed on release, so a drag
+// creates one URL update and history entry, not one per pointer move.
 export function PriceRangeSlider({
   priceMin,
   priceMax,
@@ -165,10 +154,8 @@ export function PriceRangeSlider({
 }) {
   const [liveValue, setLiveValue] = useState<[number, number]>([priceMin, priceMax]);
 
-  // Resets the dragged position whenever the committed value changes from
-  // outside this component (a URL navigation, or an optimistic revert),
-  // adjusted during render rather than in an effect so it takes effect in
-  // the same commit instead of causing an extra one.
+  // Reset the dragged position when the committed value changes from outside
+  // (navigation or optimistic revert), during render rather than in an effect.
   const [prevCommitted, setPrevCommitted] = useState<[number, number]>([priceMin, priceMax]);
   if (prevCommitted[0] !== priceMin || prevCommitted[1] !== priceMax) {
     setPrevCommitted([priceMin, priceMax]);

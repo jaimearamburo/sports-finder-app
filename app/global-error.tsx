@@ -3,15 +3,10 @@
 import { useEffect } from "react";
 import "./globals.css";
 
-// Last-resort boundary for errors thrown by the root layout itself, which
-// app/error.tsx can't catch (an error.tsx never wraps the layout of its own
-// segment). The realistic trigger is SiteHeader, which calls auth() on
-// every page - if that fails (e.g. the database is unreachable), this
-// replaces the whole document. That's why it renders its own <html> and
-// <body> and imports globals.css directly: the root layout, with its
-// header, footer and fonts, is exactly the part that failed. Kept
-// deliberately plain for the same reason - nothing here should depend on
-// anything that might itself be what broke.
+// Catches errors from the root layout itself, e.g. SiteHeader's auth() when the
+// database is unreachable. Replaces the whole document, so it renders its own
+// <html> and <body>, imports globals.css directly, and depends on nothing that
+// might have failed.
 export default function GlobalError({
   error,
   unstable_retry,

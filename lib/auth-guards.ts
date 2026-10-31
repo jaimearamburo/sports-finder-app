@@ -4,32 +4,26 @@ import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { can, type Permission } from "@/lib/authz/permissions";
 
-// `signedOut` lets a caller tell "log in first" apart from every other
-// refusal without matching on the message - e.g. Book Now, which offers a
-// log-in link back to the listing instead of a bare error.
+// `signedOut` lets callers tell "log in first" apart from other refusals
+// without matching on the message.
 export type AuthResult = { ok: false; error: string; signedOut?: true };
 
-// Wraps a Data Access Layer function so it can only ever run with a real
-// session. There is no path to a `session` argument except through this
-// check, so a wrapped function cannot forget it the way a plain
-// `if (!session) ...` inside the function body could.
+// Wraps a Data Access Layer function so it only runs with a session. The
+// `session` argument can only come from this check, so a wrapped function can't
+// skip it.
 export function withAuth<Args extends unknown[], Result>(
   fn: (session: Session, ...args: Args) => Promise<Result>
 ): (...args: Args) => Promise<Result | AuthResult> {
   return async (...args: Args) => {
-    // Reads the current session from the request cookie.
     const session = await auth();
     if (!session) return { ok: false, error: "You must be logged in.", signedOut: true };
     return fn(session, ...args);
   };
 }
 
-// Same guarantee as withAuth, plus a permission check (see
-// lib/authz/permissions.ts for which roles hold which permissions). The
-// role-level check only - a function acting on one venue or listing must
-// still load it and ask the matching policy in lib/authz/policies.ts
-// (e.g. canManageVenue), since holding "venues:manage" doesn't mean owning
-// that particular venue.
+// withAuth plus a role-level permission check (lib/authz/permissions.ts).
+// Functions acting on a specific venue or listing must still check ownership
+// with the matching policy (lib/authz/policies.ts).
 export function withPermission<Args extends unknown[], Result>(
   permission: Permission,
   fn: (session: Session, ...args: Args) => Promise<Result>
@@ -42,16 +36,12 @@ export function withPermission<Args extends unknown[], Result>(
   });
 }
 
-// The page-level counterpart of withPermission: the first line of every
-// protected page, returning the session for the page to use. Pages check
-// for themselves rather than relying on a shared layout, because layouts
-// don't re-render on client-side navigation (Next.js's authentication
-// guide warns about exactly this).
+// The first line of every protected page; returns the session. Pages check for
+// themselves because layouts don't re-render on client-side navigation.
 //
-// Not allowed renders the not-found page rather than a 403, so the area
-// doesn't confirm it exists to someone who can't use it. Signed-out
-// visitors are normally sent to /login by proxy.ts before reaching here;
-// the redirect below covers any route the proxy doesn't match.
+// Refusal renders not-found rather than a 403, so the area isn't confirmed to
+// exist. Signed-out visitors are normally redirected by proxy.ts; the redirect
+// here covers routes it doesn't match.
 export async function requirePermission(permission: Permission): Promise<Session> {
   const session = await auth();
   if (!session) redirect("/login");

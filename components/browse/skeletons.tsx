@@ -10,19 +10,13 @@ import {
   CARD_META_TEXT_CLASS,
 } from "@/components/browse/listing-card";
 
-// BrowseSidebarSkeleton and TagFiltersSkeleton satisfy Next.js's
-// requirement that any component calling useSearchParams() sits inside a
-// Suspense boundary. They render almost instantly since there is no real
-// data fetch behind them. ListingGridSkeleton covers actual query time.
+// The sidebar and tag skeletons satisfy Next.js's Suspense requirement for
+// useSearchParams and render almost instantly; ListingGridSkeleton covers the
+// real query.
 
-// Sizes a text placeholder relative to the font size it is given instead
-// of a fixed pixel height, so it tracks whatever text class is passed in.
-// The outer span carries the text class with no display override, so its
-// height comes from normal line-box layout (governed by line-height),
-// matching real text exactly. The inner bone is inline-block with
-// align-middle so it participates in that same line box instead of
-// forming its own flex layout, which would size itself independently of
-// line-height and end up shorter than the real text it stands in for.
+// A text placeholder sized by the given text class's line box: the outer span
+// takes its height from line-height, and the inline-block bone sits in that
+// line, so it's as tall as real text.
 function TextBone({
   as: Tag = "span",
   textClass,
@@ -44,9 +38,8 @@ function TextBone({
   );
 }
 
-// Pill-shaped bones (city, 4 categories, price) matching MobileFilterBar's
-// own row shape, so the loading placeholder doesn't visibly resize once
-// the real pills (which vary in width by label) take its place.
+// Pill bones matching MobileFilterBar's row, so nothing resizes when the real
+// pills arrive.
 export function MobileFilterBarSkeleton() {
   return (
     <div className="-mt-2 -mr-2 -ml-2 mb-3 flex gap-1.5 overflow-hidden px-2 py-1">
@@ -63,19 +56,15 @@ export function BrowseSidebarSkeleton() {
     <div>
       <div className="flex flex-col">
         {Array.from({ length: 4 }).map((_, i) => (
-          // A button, not a div. Browsers apply default box model properties
-          // to buttons that a CSS reset does not always fully zero out, so a
-          // div with matching classes can still render a slightly different
-          // height than the real button it stands in for.
+          // A button, not a div: browser button defaults can change its height,
+          // so the bone matches the real button exactly.
           <button
             key={i}
             type="button"
             disabled
             className={cn("border-l-2 border-transparent px-2.5 py-2 text-left", CATEGORY_LABEL_TEXT_CLASS)}
           >
-            {/* text-sm font-medium on the button itself, not just the
-                bone inside it, so its line box uses that line-height
-                rather than a taller default one. */}
+            {/* Text classes on the button so its line box matches. */}
             <TextBone textClass={CATEGORY_LABEL_TEXT_CLASS} className="w-28" />
           </button>
         ))}
@@ -84,12 +73,8 @@ export function BrowseSidebarSkeleton() {
   );
 }
 
-// Mirrors tag-filter-chips.tsx's own two-level structure (an outer
-// negative-margin wrapper around an inner padded row) rather than one
-// flattened div with approximate spacing - the real component's negative
-// margin on the outer edge and padding on the inner row only cancel out
-// to the right net position together, so matching just one of the two
-// still leaves a visible jump when the real row swaps in.
+// Mirrors TagFilterChips' outer negative-margin wrapper and padded inner row;
+// both are needed for the row to land in the same place.
 export function TagFiltersSkeleton() {
   return (
     <div className="-mt-2 -mr-2 -ml-2 mb-2 sm:mb-5">
@@ -125,18 +110,15 @@ function ListingCardSkeleton() {
   );
 }
 
-// Two grouped sections, matching the shape of the browse view
-// (ListingGrid), which wraps into as many rows as fit.
+// Two grouped sections, like ListingGrid.
 export function ListingGridSkeleton() {
   return (
     <div className="mt-6 flex flex-col gap-8">
       {[0, 1].map((section) => (
         <div key={section}>
           <TextBone textClass="text-lg font-semibold" className="mb-3 w-24" />
-          {/* Same track as ListingGrid (2 stretchy columns on mobile,
-              then a flat per-breakpoint auto-fill track) - keeps the
-              loading placeholder the same shape and size as the real
-              card that replaces it at every width. */}
+          {/* Same tracks as ListingGrid, so placeholders match the real cards
+              at every width. */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,180px)] sm:gap-4 md:grid-cols-[repeat(auto-fill,220px)]">
             {Array.from({ length: 4 }).map((_, i) => (
               <ListingCardSkeleton key={i} />

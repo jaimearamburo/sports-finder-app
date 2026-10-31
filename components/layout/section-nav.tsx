@@ -4,15 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-// The section nav shared by the account area and the venue dashboard,
-// in its two shapes: a sidebar on desktop and a pill row on phones (see
-// SectionPageShell, which shows one or the other). Each area passes its own
-// links, so the markup and styling live here once.
+// Section nav for the account area and the dashboard: a sidebar on desktop and
+// a pill row on phones (SectionPageShell shows one or the other). Each area
+// passes its own links.
 export type SectionNavLink = {
   label: string;
   href: string;
-  // Only highlight on this exact path. For an area's home ("/dashboard"),
-  // which would otherwise also match every page under it.
+  // Highlight only on this exact path (an area's home would otherwise match
+  // every page under it).
   exact?: boolean;
 };
 
@@ -28,9 +27,8 @@ export function SectionSidebarNav({ label, links }: { label: string; links: Sect
       {links.map((link) => {
         const active = isActive(pathname, link);
         return (
-          // Same selected style as the browse sidebar's categories
-          // (BrowseSidebarPanel) - blue left edge on a light tint - so the
-          // app's sidebars read as one design.
+          // Same selected style as the browse sidebar: blue left edge on a
+          // light tint.
           <Link
             key={link.href}
             href={link.href}
@@ -49,8 +47,7 @@ export function SectionSidebarNav({ label, links }: { label: string; links: Sect
   );
 }
 
-// Same links as a horizontal pill row, the pattern browse's MobileFilterBar
-// uses for its own sidebar-on-desktop / pills-on-mobile swap.
+// The same links as a pill row, like browse's MobileFilterBar.
 export function SectionMobileNav({ label, links }: { label: string; links: SectionNavLink[] }) {
   const pathname = usePathname();
   return (

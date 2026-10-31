@@ -5,16 +5,14 @@ import { prisma } from "@/lib/prisma";
 import { addDays, todayInTimezone } from "@/lib/dates";
 import { zonedOccurrenceStart } from "@/lib/time-of-day";
 
-// The booking core against a real Postgres: holds, the row locks that stop
-// double-booking, and turning a paid order into bookings. These call the
-// real DAL functions (not a re-implementation of them), with two things
-// swapped out:
-// - auth(): it needs a Next.js request. Each call runs "as" a test user
-//   through AsyncLocalStorage, so concurrent calls can be different users.
-// - Stripe: a fake client that records captures and cancellations. No
-//   network calls, no keys needed.
+// The booking core against a real Postgres: holds, the row locks that prevent
+// double-booking, and completing paid orders. These call the real DAL
+// functions, with two substitutes:
+// - auth(): needs a Next.js request. Each call runs as a test user through
+//   AsyncLocalStorage, so concurrent calls can be different users.
+// - Stripe: a fake client recording captures and cancellations.
 
-// vi.hoisted runs before the imports above, so it loads what it needs itself.
+// vi.hoisted runs before the imports, so it imports what it needs itself.
 const { sessions, stripe } = await vi.hoisted(async () => ({
   sessions: new (await import("node:async_hooks")).AsyncLocalStorage<Session>(),
   stripe: {
@@ -77,8 +75,7 @@ function paymentIntent(orderId: string, userId: string, overrides: Partial<Strip
 }
 
 beforeAll(async () => {
-  // Everything these tests touch is created here, so they don't depend on
-  // seed data and can run against an empty database (as in CI).
+  // Creates everything it uses, so it runs on an empty database (as in CI).
   const country = await prisma.country.create({ data: { name: `${PREFIX} Country`, code: PREFIX } });
   const city = await prisma.city.create({ data: { name: `${PREFIX} City`, timezone: TIME_ZONE, countryId: country.id } });
   const activity = await prisma.activity.create({ data: { name: `${PREFIX} Tennis`, bookingMechanic: "time_range" } });
@@ -118,8 +115,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  // In foreign-key order: bookings restrict their listing's deletion; the
-  // venue takes its listings (and their holds) with it.
+  // Foreign-key order: bookings restrict their listing; the venue cascades to
+  // its listings and holds.
   if (courtId) await prisma.booking.deleteMany({ where: { listingId: courtId } });
   if (fixtureIds) {
     await prisma.venue.deleteMany({ where: { id: fixtureIds.venueId } });
@@ -133,9 +130,8 @@ afterAll(async () => {
 
 describe("createBookingHold", () => {
   it("lets exactly one of several people racing for the last spot win", async () => {
-    // Five users ask for the same capacity-1 slot at once. Without the
-    // listing-row lock, several of them can read "still free" before any
-    // commits, and all of those succeed.
+    // Five users request the same capacity-1 slot at once. Without the
+    // listing-row lock, several can read "still free" before any commits.
     const results = await Promise.all(users.map((user) => holdCourt(user)));
 
     expect(results.filter((r) => r.ok)).toHaveLength(1);
@@ -216,8 +212,8 @@ describe("completeOrderPayment", () => {
     expect(bookings[0]).toMatchObject({ status: "confirmed", stripePaymentIntentId: pi.id, attendeeName: ATTENDEE.attendeeName });
     expect(Number(bookings[0].amountPaid)).toBe(20);
     expect(await prisma.bookingHold.count({ where: { orderId } })).toBe(0);
-    // Both callers may ask Stripe to capture, always under the same
-    // idempotency key, which makes Stripe capture the money once.
+    // Both callers may capture, always with the same idempotency key, so Stripe
+    // captures once.
     for (const call of stripe.paymentIntents.capture.mock.calls) {
       expect(call[0]).toBe(pi.id);
       expect(call[2]).toEqual({ idempotencyKey: `capture-${pi.id}` });
