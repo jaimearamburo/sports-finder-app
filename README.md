@@ -1,5 +1,7 @@
 # PlayBook
 
+[![CI](https://github.com/jaimearamburo/sports-finder-app/actions/workflows/ci.yml/badge.svg)](https://github.com/jaimearamburo/sports-finder-app/actions/workflows/ci.yml)
+
 Discover and book sports courts, fitness classes, day passes and campsites across multiple cities, with live availability and race-safe checkout.
 
 **Live:** [playbook-app-mauve.vercel.app](https://playbook-app-mauve.vercel.app)

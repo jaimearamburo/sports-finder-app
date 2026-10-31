@@ -1,0 +1,55 @@
+# Checks every pull request and every push to main/dev: typecheck, lint and
+# unit tests. Needs no secrets and never touches a database.
+#
+# The end-to-end tests aren't here on purpose: they write to whatever
+# database .env points at, which is production today. They can join once a
+# separate test database exists (see #107).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or PR makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # prisma.config.ts reads this, and `prisma generate` (run by
+      # postinstall) loads that config. Generating the client never
+      # connects, so a placeholder URL is enough.
+      POSTGRES_URL_NON_POOLING: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # --frozen-lockfile: fail if package.json and pnpm-lock.yaml disagree,
+      # instead of quietly resolving different versions than Vercel builds.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test
