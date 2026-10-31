@@ -35,6 +35,10 @@ async function storedImage(listingId: string): Promise<string | null> {
 }
 
 async function chooseFile(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
+  // Wait for the page's scripts first: a file chosen before React has
+  // attached its change handler is silently lost. The dev server is slow
+  // enough to hide this; a production build isn't.
+  await page.waitForLoadState("networkidle");
   await page.locator('input[type="file"]').setInputFiles(file);
 }
 

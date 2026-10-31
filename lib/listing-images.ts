@@ -10,9 +10,13 @@
 // as every other dashboard action, and only for that venue's own folder.
 // The listing then stores the file's URL when the form is saved.
 
-// This project's public Blob store. Not a secret (it's in every image URL),
-// but tied to the store: a new store means changing it here.
-export const LISTING_IMAGE_HOST = "gyxokpanddvb8lgw.public.blob.vercel-storage.com";
+// The public Blob store's hostname. Not a secret (it's in every image URL).
+// Production's store is the default; local development sets BLOB_STORE_HOST
+// to its own store (the one BLOB_READ_WRITE_TOKEN belongs to), so dev
+// uploads and deletes never touch production's photos. Read on the server
+// (upload and save checks) and by next.config.ts at startup; the browser
+// doesn't need it.
+export const LISTING_IMAGE_HOST = process.env.BLOB_STORE_HOST || "gyxokpanddvb8lgw.public.blob.vercel-storage.com";
 export const LISTING_IMAGE_FOLDER = "listings";
 
 // JPEG, PNG and WebP only: what phones and cameras produce and every

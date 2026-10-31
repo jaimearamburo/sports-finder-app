@@ -309,6 +309,15 @@ async function seedUsers() {
     create: { name: "Jamie Rogers", email: "jamie.user@example.com", role: "user", passwordHash },
   });
 
+  // The account behind the login page's "Log in as regular user" button
+  // (DEMO_USER_EMAIL, lib/demo-login.ts). No password, ever: it's only
+  // reachable through that button. Emma above is the demo venue owner.
+  await prisma.user.upsert({
+    where: { email: "demo-user@example.com" },
+    update: {},
+    create: { name: "Demo User Account", email: "demo-user@example.com", role: "user" },
+  });
+
   return { alex, emma, jamie };
 }
 

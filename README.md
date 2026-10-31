@@ -79,21 +79,22 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui
 
 ## Running locally
 
-Requires Node 20.9+, pnpm and a PostgreSQL database.
+Requires Node 20.9+, pnpm and a PostgreSQL database for development (the live site uses Supabase; development uses its own, e.g. a free Neon project - never point `.env` at production).
 
 ```bash
 pnpm install
 # .env: POSTGRES_PRISMA_URL, POSTGRES_URL_NON_POOLING, AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, LLM_API_KEY,
 #       STRIPE_SECRET_KEY, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET, BLOB_READ_WRITE_TOKEN
-# Listing photos need a public Vercel Blob store; put its hostname in LISTING_IMAGE_HOST (lib/listing-images.ts)
+# Listing photos need a public Vercel Blob store: BLOB_READ_WRITE_TOKEN is its token, BLOB_STORE_HOST its hostname
+#   (e.g. abc123.public.blob.vercel-storage.com; defaults to production's store, so use your own in development)
 # Optional one-click demo logins: DEMO_LOGIN_ENABLED=true, DEMO_OWNER_EMAIL, DEMO_USER_EMAIL (never an admin)
-pnpm exec prisma migrate deploy
+pnpm exec prisma migrate deploy   # production gets migrations automatically on deploy (scripts/migrate-on-deploy.mjs)
 SEED_USER_PASSWORD=<choose one> pnpm exec prisma db seed   # sample owner and user accounts get this password
 pnpm dev
 pnpm test   # unit tests
 
 pnpm exec playwright install chromium   # once, for the end-to-end tests
-pnpm test:e2e   # creates its own test accounts and data, and removes them afterwards
+pnpm test:e2e   # creates its own test accounts and data, and removes them afterwards; refuses the production database
 ```
 
 ## Next up
