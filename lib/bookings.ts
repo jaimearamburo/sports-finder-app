@@ -7,7 +7,7 @@ import { getBookingReference } from "@/lib/booking-reference";
 import { withAuth } from "@/lib/auth-guards";
 import type { z } from "zod";
 import type Stripe from "stripe";
-import { getStripe, PAYMENT_CURRENCY, toMinorUnits } from "@/lib/stripe";
+import { getStripe, PAYMENT_CURRENCY, toMinorUnits, PAYMENT_ENV } from "@/lib/stripe";
 import {
   confirmPaymentSchema,
   createHoldSchema,
@@ -399,6 +399,9 @@ export const startHoldPayment = withAuth(
       allowed_payment_method_types: ["card"],
       description: `${holds[0].listing.name} (booking ${getBookingReference(orderId)})`,
       metadata: {
+        // See PAYMENT_ENV (lib/stripe.ts): the webhook only completes its
+        // own environment's payments.
+        env: PAYMENT_ENV,
         orderId,
         userId: session.user.id,
         attendeeName: attendee.attendeeName,

@@ -84,7 +84,7 @@ export function TagFilterChips({
                       (Tag.color still drives the listing cards' top accent). */}
                   <span
                     className={cn(
-                      "relative flex size-20 items-center justify-center overflow-hidden rounded-[20%] shadow-sm",
+                      "relative flex size-20 items-center justify-center overflow-hidden rounded-full shadow-sm",
                       isSelected ? "bg-foreground" : "bg-gray-50"
                     )}
                   >

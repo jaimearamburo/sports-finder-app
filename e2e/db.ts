@@ -7,9 +7,10 @@ import pg from "pg";
 // the two can't share a process. These are small, fixed queries, so SQL is
 // clear enough.
 //
-// Uses the direct (non-pooled) connection, like the Prisma CLI. Supabase's
-// certificate chain isn't in Node's trust store, hence rejectUnauthorized:
-// false - acceptable for a local test run against a development database.
+// Uses the direct (non-pooled) connection, like the Prisma CLI.
+// rejectUnauthorized: false because some hosts' certificate chains aren't in
+// Node's trust store (Supabase's isn't) - acceptable for a local test run
+// against a development database (never production: see global-setup.ts).
 
 let pool: pg.Pool | null = null;
 

@@ -28,3 +28,13 @@ export const PAYMENT_CURRENCY = "aud";
 export function toMinorUnits(amount: number): number {
   return Math.round(amount * 100);
 }
+
+// Which deployment created a payment, stored in its metadata. Local
+// development and production share one Stripe test account but not a
+// database, and Stripe sends every webhook to the production URL. Without
+// this, production would receive a locally made payment, find no matching
+// order in its own database, treat it as unmatched and cancel it - breaking
+// the local checkout. The webhook skips payments from other environments.
+// Vercel sets VERCEL_ENV ("production" or "preview"); anywhere else it's
+// local development.
+export const PAYMENT_ENV = process.env.VERCEL_ENV ?? "development";

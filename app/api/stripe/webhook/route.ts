@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { completeOrderPayment } from "@/lib/bookings";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, PAYMENT_ENV } from "@/lib/stripe";
 
 // Stripe's server-to-server notifications about payments. The browser
 // normally completes a booking itself right after the card is authorized
@@ -43,6 +43,12 @@ export async function POST(request: Request) {
       // snapshot that may be out of date by the time it arrives (events
       // aren't guaranteed to arrive in order).
       const paymentIntent = await getStripe().paymentIntents.retrieve(event.data.object.id);
+      // Another environment's payment (e.g. local development, which
+      // shares this Stripe test account but not this database): its own
+      // environment completes it. Payments made before this tag existed
+      // carry no env and are handled as before.
+      const paymentEnv = paymentIntent.metadata.env;
+      if (paymentEnv && paymentEnv !== PAYMENT_ENV) break;
       const result = await completeOrderPayment(paymentIntent);
       if (!result.ok) console.warn(`Webhook ${event.id}: ${result.error}`);
       break;

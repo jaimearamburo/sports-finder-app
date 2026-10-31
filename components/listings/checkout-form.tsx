@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition, type FormEvent } from "reac
 import { useRouter } from "next/navigation";
 import { loadStripe, type Appearance } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
+import { Check, Copy, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { tagTextColor } from "@/lib/label-styles";
@@ -59,7 +60,10 @@ const STRIPE_APPEARANCE: Appearance = {
     spacingUnit: "4px",
   },
   rules: {
-    ".Input": { border: "1px solid #e5e5e5", boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)" },
+    // White fields, like the attendee inputs above (bg-card), so they stand out
+    // from the grey page. colorBackground stays the page colour: it also
+    // paints the area around the fields inside Stripe's iframe.
+    ".Input": { backgroundColor: "#ffffff", border: "1px solid #e5e5e5", boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)" },
     ".Input:focus": { borderColor: "#1857c4", boxShadow: "0 0 0 3px rgba(24, 87, 196, 0.5)" },
     ".Label": { fontWeight: "500", color: "#0a0a0a" },
   },
@@ -393,6 +397,7 @@ function CheckoutFormContent({
               <Input
                 ref={nameInputRef}
                 id="attendeeName"
+                className="bg-card"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 aria-invalid={!!fieldErrors.attendeeName}
@@ -404,6 +409,7 @@ function CheckoutFormContent({
               <Label htmlFor="attendeeEmail">Email</Label>
               <Input
                 id="attendeeEmail"
+                className="bg-card"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -416,6 +422,7 @@ function CheckoutFormContent({
               <Label htmlFor="attendeePhone">Phone (optional)</Label>
               <Input
                 id="attendeePhone"
+                className="bg-card"
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -454,14 +461,17 @@ function CheckoutFormContent({
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>{venueName}&apos;s Terms and Conditions</DialogTitle>
-                  <DialogDescription>Placeholder text</DialogDescription>
+                  <DialogDescription>Sample terms for this demo booking.</DialogDescription>
                 </DialogHeader>
-                <p className="text-sm text-foreground">
-                  This is placeholder terms and conditions text for {venueName}. Each venue will eventually be able
-                  to write and manage its own booking terms - covering things like cancellation, no-show, and
-                  conduct policies - from its own dashboard. By checking the box, you agree to whatever terms this
-                  venue ultimately sets here.
-                </p>
+                <div className="flex flex-col gap-3 text-sm text-foreground">
+                  <p>
+                    {`PlayBook is a portfolio project: ${venueName} is sample data, nothing is really reserved, and payments run in Stripe's test mode, so you're never charged.`}
+                  </p>
+                  <p>
+                    In a live version, each venue would write its own booking terms here, covering cancellations,
+                    no-shows and conduct.
+                  </p>
+                </div>
               </DialogContent>
             </Dialog>
           </span>
@@ -472,12 +482,7 @@ function CheckoutFormContent({
             <h2 className="mb-3 text-sm font-semibold">Payment</h2>
             {stripePromise ? (
               <>
-                {/* Test mode only - real cards are declined, so visitors
-                    trying the demo need to know which number to use. */}
-                <p className="mb-3 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-                  Test mode: use card <span className="font-mono text-foreground">4242 4242 4242 4242</span>, any
-                  future date and any CVC.
-                </p>
+                <TestCardHint />
                 {/* Held open while Stripe's iframe loads, so the button
                     below doesn't jump when the card fields appear. */}
                 {!paymentReady && (
@@ -508,6 +513,78 @@ function CheckoutFormContent({
           {isPending ? "Processing..." : free ? "Confirm booking" : `Pay $${total.toFixed(2)}`}
         </Button>
       </form>
+    </div>
+  );
+}
+
+const TEST_CARD_NUMBER = "4242 4242 4242 4242";
+
+// Test mode only: real cards are declined, so demo visitors need the test
+// number. A blue info box (not the amber reserved for hold warnings) so it
+// isn't missed, with a copy button. The card fields can't be filled in for
+// the visitor: they live in Stripe's own iframe, which this page can't touch
+// by design (it keeps card details away from the site).
+function TestCardHint() {
+  // The result of the last copy, shown in a bubble above the button that
+  // fades out. The button's own text never changes, so nothing around it
+  // shifts. `shown` drives the fade; the bubble unmounts after it.
+  const [result, setResult] = useState<"copied" | "failed" | null>(null);
+  const [shown, setShown] = useState(false);
+  const timers = useRef<number[]>([]);
+
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  async function copy() {
+    let next: "copied" | "failed";
+    try {
+      await navigator.clipboard.writeText(TEST_CARD_NUMBER.replaceAll(" ", ""));
+      next = "copied";
+    } catch {
+      // Clipboard blocked (permissions, older browser): the number is on
+      // screen to type instead.
+      next = "failed";
+    }
+    timers.current.forEach(clearTimeout);
+    setResult(next);
+    setShown(true);
+    // Visible for 2 seconds, then a 300ms fade, then gone.
+    timers.current = [
+      window.setTimeout(() => setShown(false), 2000),
+      window.setTimeout(() => setResult(null), 2300),
+    ];
+  }
+
+  return (
+    <div className="mb-3 flex flex-col gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 sm:flex-row sm:items-center">
+      <Info aria-hidden className="hidden size-4 shrink-0 text-blue-700 sm:block" />
+      <p className="flex-1">
+        <span className="font-semibold">Test mode, no real charges.</span> Use card{" "}
+        <span className="font-mono font-semibold whitespace-nowrap">{TEST_CARD_NUMBER}</span>, any future date and any
+        CVC.
+      </p>
+      <div className="relative shrink-0">
+        <Button type="button" variant="outline" size="sm" onClick={copy} className="w-full bg-card">
+          <Copy aria-hidden />
+          Copy card number
+        </Button>
+        {result && (
+          // Positioned over the layout, not in it, so it moves nothing.
+          // Hidden from screen readers: the status line below says the same.
+          <span
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 items-center gap-1 rounded-md bg-neutral-900 px-2.5 py-1 text-xs font-medium whitespace-nowrap text-white shadow-md transition-opacity duration-300",
+              shown ? "opacity-100" : "opacity-0"
+            )}
+          >
+            {result === "copied" && <Check className="size-3.5" />}
+            {result === "copied" ? "Copied" : "Couldn't copy"}
+          </span>
+        )}
+      </div>
+      <span role="status" className="sr-only">
+        {result === "copied" ? "Card number copied" : result === "failed" ? "Couldn't copy the card number" : ""}
+      </span>
     </div>
   );
 }

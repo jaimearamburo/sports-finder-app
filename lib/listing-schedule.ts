@@ -22,13 +22,13 @@ export function getScheduleLine(listing: ScheduleFields): string | null {
   switch (listing.activity.bookingMechanic) {
     case "time_range":
       return listing.operatingHoursStart && listing.operatingHoursEnd
-        ? `Open ${formatTimeOfDay(listing.operatingHoursStart)} – ${formatTimeOfDay(listing.operatingHoursEnd)} daily`
+        ? `Daily ${formatTimeOfDay(listing.operatingHoursStart)} – ${formatTimeOfDay(listing.operatingHoursEnd)}`
         : null;
     case "date_range":
       if (!listing.operatingHoursEnd) return null;
       if (listing.activity.isAccommodation) return `Check-in until ${formatTimeOfDay(listing.operatingHoursEnd)}`;
       return listing.operatingHoursStart
-        ? `Open ${formatTimeOfDay(listing.operatingHoursStart)} – ${formatTimeOfDay(listing.operatingHoursEnd)} daily`
+        ? `Daily ${formatTimeOfDay(listing.operatingHoursStart)} – ${formatTimeOfDay(listing.operatingHoursEnd)}`
         : null;
     case "fixed_session":
       return listing.recurrenceDayOfWeek !== null && listing.recurrenceStartTime
