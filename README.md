@@ -49,7 +49,7 @@ Clicking Book Now holds the slot for N minutes (5 by default, set per venue). Th
 | Type | Tool | What it covers |
 | --- | --- | --- |
 | Unit | Vitest | Booking rules, dates and time zones, prices, permissions, form validation |
-| Database | Vitest + Postgres | Simultaneous bookings, payments completed twice, expired holds, failed charges |
+| Database | Vitest + Postgres | Simultaneous bookings, browser and webhook finishing the same payment at once, expired holds, failed charges |
 | End to end | Playwright | A full paid booking, who can access the dashboard, accessibility (axe) |
 | AI Search | Eval script | 26 queries with typos, dates, prices and a prompt injection attempt. All pass; re-run after any prompt or model change |
 
