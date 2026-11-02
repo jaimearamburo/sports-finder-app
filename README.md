@@ -2,98 +2,108 @@
 
 [![CI](https://github.com/jaimearamburo/sports-finder-app/actions/workflows/ci.yml/badge.svg)](https://github.com/jaimearamburo/sports-finder-app/actions/workflows/ci.yml)
 
-Discover and book sports courts, fitness classes, day passes and campsites across multiple cities, with live availability and race-safe checkout.
+A booking app for sports courts, fitness classes, day passes and campsites across several cities.
 
-**Live:** [playbook-app-mauve.vercel.app](https://playbook-app-mauve.vercel.app)
+**Live:** [playbook-app-mauve.vercel.app](https://playbook-app-mauve.vercel.app). Use the demo buttons on the login page to sign in as a regular user or a venue owner. Payments are in Stripe test mode: card 4242 4242 4242 4242, any future date, any CVC.
 
-![AI search: "racquet sports this weekend in sydney" interpreted as filter chips](docs/screenshots/browse.png)
+**Stack:** Next.js 16 · React 19 · TypeScript · Tailwind CSS · Prisma · PostgreSQL · Auth.js · Stripe · Vercel Blob · Claude Haiku · Vercel
 
-<table>
-  <tr>
-    <td><img src="docs/screenshots/booking.png" alt="Picking a court time" /></td>
-    <td><img src="docs/screenshots/checkout.png" alt="Checkout with a live hold timer" /></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/my-bookings.png" alt="My Bookings" /></td>
-    <td align="center"><img src="docs/screenshots/mobile.png" alt="Mobile browse" width="240" /></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/dashboard-venue.png" alt="Venue manager dashboard: a venue's listings" /></td>
-    <td><img src="docs/screenshots/dashboard-listing-editor.png" alt="Listing editor with a photo and a live preview" /></td>
-  </tr>
-</table>
+![Search for "racquet sports this weekend in sydney", turned into filters](docs/screenshots/browse.png)
 
-## What's implemented
+## Highlights
 
-- AI-powered natural-language search using an LLM, tolerant of typos and synonyms
-- Reserve-then-confirm booking holds with expiring checkout timers
-- Stripe payments (test mode): the card is authorized at checkout and charged only once the booking is secured
-- Venue manager dashboard: venues, listings (a form per booking type, with a live preview) and bookings, each manager seeing only their own; admins see everything
-- Listing photos: uploaded straight from the browser to Vercel Blob with an ownership-checked, single-use permission, and served resized for each screen
-- Double-booking protection under concurrent requests (row-level locking)
-- One active hold per user, platform-wide
-- Three booking models: time slots, recurring classes, multi-day passes and stays
-- Live availability that accounts for checkouts in progress
-- Multi-city venues across time zones
-- Time-zone-correct scheduling, validation and display
-- Same-day booking cut-offs derived from opening hours
-- Venue and listing availability overrides
-- Shared client and server-side validation (Zod)
-- Permission-based access control with ownership policies, enforced at the route, page and data layers
-- Email/password and Google sign-in
-- Security hardening: row-level security, server-enforced business rules, timing-safe login
-- WCAG 2.2 AA accessibility, verified with axe-core
-- Automated tests: unit tests (Vitest), plus end-to-end access-control and accessibility tests (Playwright, axe-core)
-- Responsive, mobile-first UI with streaming loading states
+- **No double bookings.** Two people can't book the last spot at the same time. A test sends simultaneous requests and checks that exactly one succeeds.
+- **No charge without a booking.** The card is only authorized at checkout. The money is taken after the booking is saved, so a late payment is released instead of refunded.
+- **Natural language search.** "tenis in sydny ths weekend for free" becomes regular filters. The model can only choose from values that exist in the database, and search still works if the AI call fails. It uses a small, fast model (Claude Haiku), since the job is picking from a short list.
+- **Venue dashboard.** Owners manage their venues, listings, photos and bookings. They only ever see their own: the server checks permissions and ownership on every request, not just the UI.
 
 ## How a booking works
 
 ```mermaid
 flowchart LR
-  A[Pick a slot] --> B{Hold request<br/>capacity check under row lock}
-  B -- full --> R[Rejected]
-  B -- available --> C[Checkout<br/>5-minute hold]
-  C -- card authorized --> V{Hold still valid?<br/>checked under row lock}
-  V -- yes --> D[Payment captured<br/>booking confirmed]
+  A[Pick a slot] --> B{Spot free?}
+  B -- no --> R[Rejected]
+  B -- yes --> C[Checkout<br/>slot held N minutes]
+  C -- card authorized --> V{Hold still valid?}
+  C -- tab closed after paying --> W[Stripe webhook]
+  W --> V
+  V -- yes --> D[Charged<br/>booking confirmed]
   V -- no --> N[Authorization released<br/>not charged]
-  C -- timeout or cancel --> E[Hold released<br/>capacity freed]
+  C -- timeout or cancel --> E[Slot freed]
 ```
 
-Requests flow through Server Components and Server Actions into an auth-guarded data layer, then Prisma and PostgreSQL. Capacity checks and the hold-to-booking conversion run inside transactions, so two people can never both secure the last spot.
+Clicking Book Now holds the slot for N minutes (5 by default, set per venue). The capacity check locks the listing's row in the database, so a second request waits for the first to finish. A Stripe webhook finishes the booking if the customer closes the tab after paying.
 
-Payment happens on the checkout page itself (Stripe's Payment Element), inside the hold's time limit. The card is only authorized at first; the money is captured once the server has confirmed the hold is still valid. A payment that arrives too late is released instead, so nobody is charged for a slot they didn't get, and no refunds are needed. A Stripe webhook completes the booking even if the browser closes mid-payment.
+## Design decisions
 
-## How search works
+| Decision | Why |
+| --- | --- |
+| Pay on the site, not on Stripe's hosted page | A hosted Stripe session stays open at least 30 minutes, much longer than the checkout hold |
+| Authorize first, charge later | Nobody pays for a slot they didn't get, and there are no refunds to manage |
+| One booking in progress per user | Simpler and more reliable than detecting when someone leaves the checkout page |
+| No table of time slots | Bookings have variable lengths, so availability is calculated from existing bookings |
+| Grounded AI search: the query becomes filters, not embeddings | Listings are structured (sport, city, date, price), and queries like "this weekend" need exact dates, not similarity |
 
-Search takes plain language, typos included: "tenis in sydny this weekend for free" or "racket sports somewhere warm". An LLM interprets the query into the app's existing filters (activities, city, dates, price) as schema-constrained JSON, limited to values that exist in the database. The result is validated again, shown as editable filter chips, and the regular filters run the search. If the AI call fails, search falls back to keyword matching.
+## Testing
 
-**Why not embeddings?** The catalogue is structured: listings are defined by sport, city, schedule and price, not long descriptions. Searching it is about intent ("this weekend", "free", "racquet sports tomorrow"), which vector similarity can't express without several extra parsing layers, and typos break most date parsers. Query understanding handles intent, synonyms, typos, dates and price in one validated step. Embeddings are the better tool for ranking large, text-heavy catalogues, and could later be added as a ranking step within the filtered results.
+| Type | Tool | What it covers |
+| --- | --- | --- |
+| Unit | Vitest | Booking rules, dates and time zones, prices, permissions, form validation |
+| Database | Vitest + Postgres | Simultaneous bookings, browser and webhook finishing the same payment at once, expired holds, failed charges |
+| End to end | Playwright | A full paid booking, who can access the dashboard, accessibility (axe) |
+| AI Search | Eval script | 26 queries with typos, dates, prices and a prompt injection attempt. All pass; re-run after any prompt or model change |
 
-**Why Haiku 5.5?** Mapping a short query onto a small, schema-enforced vocabulary is extraction, not deep reasoning. A small, fast model meets the real requirements: low latency and low cost per search. The evaluation set decides if a larger model is ever needed.
+CI runs type checks, lint, unit tests and the database tests on every pull request.
 
-**Tested with evals.** A 26-query eval set runs the real model against expected filters: typos, synonyms, dates, prices, booking-type rules, nonsense and a prompt-injection attempt. Injection is contained by design: the output must pass a Zod schema whose tags and cities are enums of real database values, so even a manipulated response can only produce valid filters. Current result: 26/26.
+## Environments
 
-## Tech stack
+- Development and production have separate databases and image storage.
+- Database migrations run automatically on production deploys only.
+- Work is planned as GitHub issues and merged from `dev` to `main` through pull requests.
 
-Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui (Base UI) · Prisma 7 · PostgreSQL (Supabase) · Auth.js v5 · Zod 4 · Stripe · LLM (structured outputs) · Vercel
+## Not built yet
+
+Booking cancellation and refunds · guest checkout · rate limiting and email verification · booking confirmation email · admin screen for cities, activities · weekly opening hours per venue, used as listing defaults
+
+## About
+
+A solo project. I owned the system design and the choice of framework and tool for each layer, and split the work into phases and GitHub issues before any code was written. The build itself was shared with AI: some tasks I wrote myself, others I delegated one at a time in a planned order, and every change was reviewed and tested before being committed.
+
+Something I'm keen to explore next is using AI earlier, in the planning stage, to stress-test designs and surface edge cases before they become issues.
 
 ## Running locally
 
-Requires Node 20.9+, pnpm and a PostgreSQL database for development (the live site uses Supabase; development uses its own, e.g. a free Neon project - never point `.env` at production).
+Needs Node 20.9+, pnpm and a PostgreSQL database of your own (for example a free Neon project).
 
 ```bash
 pnpm install
-cp .env.example .env   # then fill it in: what each key does, and which are optional, is noted there
-pnpm exec prisma migrate deploy   # production gets migrations automatically on deploy (scripts/migrate-on-deploy.mjs)
-pnpm exec prisma db seed   # sample data; the sample accounts get SEED_USER_PASSWORD
+cp .env.example .env              # fill in your own keys
+pnpm exec prisma migrate deploy
+pnpm exec prisma db seed
 pnpm dev
-pnpm test   # unit tests
-pnpm test:db   # booking tests against the database in .env (creates and removes its own rows)
 
-pnpm exec playwright install chromium   # once, for the end-to-end tests
-pnpm test:e2e   # creates its own test accounts and data, and removes them afterwards; refuses the production database
+pnpm test                         # unit tests
+pnpm test:db                      # database tests
+pnpm exec playwright install chromium
+pnpm test:e2e                     # end-to-end tests
 ```
 
-## Next up
+<details>
+<summary>More screenshots</summary>
 
-Embedding-based result ranking · booking cancellation and refunds · rate limiting and email verification · guest checkout · dark theme · availability overrides in the dashboard
+<table>
+  <tr>
+    <td><img src="docs/screenshots/booking.png" alt="Picking a court time" /></td>
+    <td><img src="docs/screenshots/checkout.png" alt="Checkout with the hold timer" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/my-bookings.png" alt="My Bookings" /></td>
+    <td align="center"><img src="docs/screenshots/mobile.png" alt="Browse on a phone" width="240" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/dashboard-venue.png" alt="Venue dashboard: a venue's listings" /></td>
+    <td><img src="docs/screenshots/dashboard-listing-editor.png" alt="Listing editor with a live preview" /></td>
+  </tr>
+</table>
+
+</details>
