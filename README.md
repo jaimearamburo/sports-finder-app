@@ -4,7 +4,8 @@
 
 A booking app for sports courts, fitness classes, day passes and campsites across several cities.
 
-**[Live Demo](https://playbook.jaimearamburo.dev/)** Use the demo buttons on the login page to sign in as a regular user or a venue owner. Payments are in Stripe test mode: card 4242 4242 4242 4242, any future date, any CVC.
+**[Live Demo](https://playbook.jaimearamburo.dev/)** 
+Use the demo buttons on the login page to sign in as a regular user or a venue owner. Payments are in Stripe test mode: card 4242 4242 4242 4242, any future date, any CVC.
 
 **Stack:** Next.js 16 · React 19 · TypeScript · Tailwind CSS · Prisma · PostgreSQL · Auth.js · Stripe · Vercel Blob · Claude Haiku · Vercel
 
