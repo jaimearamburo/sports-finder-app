@@ -1,6 +1,7 @@
-import { test, expect } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { test, expect, type Page } from "@playwright/test";
 import { ACCOUNTS, authFile, fixtureIds } from "./fixtures";
-import { query } from "./db";
+import { query, utc } from "./db";
 
 // The full booking journey in a real browser: pick a court slot, hold it, enter
 // the attendee, pay with Stripe's 4242 test card, see the confirmation, find it
@@ -86,4 +87,45 @@ test("book a court and pay with the test card", async ({ page }) => {
 
   await page.goto("/account");
   await expect(page.getByRole("button", { name: reference }).first()).toBeVisible();
+});
+
+// A hold inserted directly, so the checkout page can be opened without the
+// picker (not what these tests are about).
+async function openCheckoutWithHold(page: Page) {
+  const orderId = randomUUID();
+  const startsAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+  startsAt.setUTCHours(1, 0, 0, 0);
+  await query(
+    `insert into booking_holds (id, order_id, listing_id, starts_at, ends_at, user_id, quantity, expires_at)
+     values ($1, $2, $3, $4, $5, $6, 1, $7)`,
+    [
+      `e2e-${randomUUID()}`,
+      orderId,
+      fixtureIds().listingA,
+      utc(startsAt),
+      utc(new Date(startsAt.getTime() + 60 * 60 * 1000)),
+      await userId(),
+      utc(new Date(Date.now() + 5 * 60 * 1000)),
+    ]
+  );
+  await page.goto(`/listings/${fixtureIds().listingA}/checkout/${orderId}`);
+}
+
+const LOAD_FAILED = "The card form couldn't load. Try refreshing, or try another browser.";
+
+test("explains when Stripe's card form can't load", async ({ page }) => {
+  // Stripe's API unreachable (e.g. a browser that rejects its certificate):
+  // Stripe.js loads, but the Payment Element can't start.
+  await page.route("https://api.stripe.com/**", (route) => route.abort());
+  await openCheckoutWithHold(page);
+  await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: /^Pay/ })).toBeDisabled();
+});
+
+test("explains when Stripe.js itself can't load", async ({ page }) => {
+  // The script blocked outright (e.g. by a content blocker).
+  await page.route("https://js.stripe.com/**", (route) => route.abort());
+  await openCheckoutWithHold(page);
+  await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: /^Pay/ })).toBeDisabled();
 });
