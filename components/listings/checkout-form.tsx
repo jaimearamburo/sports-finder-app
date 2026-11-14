@@ -37,8 +37,15 @@ function formatCountdown(ms: number): string {
 
 // Loaded once per page load, outside any component, so re-renders don't reload
 // Stripe.js. Without a publishable key the form says payments are unavailable.
+// A script that fails to load (blocked, network) resolves to null rather than
+// rejecting, so nothing is left unhandled; the form then shows its load error.
 const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-const stripePromise = PUBLISHABLE_KEY ? loadStripe(PUBLISHABLE_KEY) : null;
+const stripePromise = PUBLISHABLE_KEY
+  ? loadStripe(PUBLISHABLE_KEY).catch((loadError: unknown) => {
+      console.error("Stripe.js failed to load", loadError);
+      return null;
+    })
+  : null;
 
 // The Payment Element renders in Stripe's iframe, out of reach of the site's
 // CSS; these variables match it to the shared Input component.
@@ -158,6 +165,10 @@ function CheckoutFormContent({
   // whether it has loaded.
   const [cardComplete, setCardComplete] = useState(false);
   const [paymentReady, setPaymentReady] = useState(false);
+  // Stripe.js or the Payment Element failed to load (a blocker, a network
+  // that intercepts HTTPS, an outdated browser). Replaces the skeleton with a
+  // message instead of leaving it on screen forever.
+  const [paymentLoadFailed, setPaymentLoadFailed] = useState(false);
   // Lets the expired-hold screen reassure the customer they weren't charged.
   const [paymentAttempted, setPaymentAttempted] = useState(false);
 
@@ -177,6 +188,15 @@ function CheckoutFormContent({
   // Navigating away never releases the hold: only finishing, the active-hold
   // banner's Cancel, or expiry ends it.
   const expired = remainingMs <= 0;
+
+  // The script itself failing to load never reaches the Payment Element, so
+  // it's detected here (stripePromise resolves to null).
+  useEffect(() => {
+    if (free || !stripePromise) return;
+    stripePromise.then((loaded) => {
+      if (!loaded) setPaymentLoadFailed(true);
+    });
+  }, [free]);
 
   function bookForMyself() {
     setName(defaultName);
@@ -451,14 +471,24 @@ function CheckoutFormContent({
                 <TestCardHint />
                 {/* Reserves space while Stripe's iframe loads, so the button
                     doesn't jump. */}
-                {!paymentReady && (
-                  <div className="flex flex-col gap-3" aria-hidden>
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
+                {paymentLoadFailed ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    The card form couldn&apos;t load. Try refreshing, or try another browser.
+                  </p>
+                ) : (
+                  !paymentReady && (
+                    <div className="flex flex-col gap-3" aria-hidden>
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  )
                 )}
                 <PaymentElement
                   onReady={() => setPaymentReady(true)}
+                  onLoadError={(event) => {
+                    console.error("Stripe Payment Element failed to load", event.error);
+                    setPaymentLoadFailed(true);
+                  }}
                   onChange={(event) => setCardComplete(event.complete)}
                   options={{ layout: "tabs", wallets: { applePay: "never", googlePay: "never" } }}
                 />
